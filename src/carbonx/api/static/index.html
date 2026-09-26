@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CarbonX provenance</title>
+<style>
+  :root { --bg:#fafaf9; --fg:#1c1917; --muted:#78716c; --line:#e7e5e4; --card:#fff;
+          --accent:#0f766e; --bad:#b91c1c; --good:#15803d; --code:#f5f5f4; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1c1917; --fg:#f5f5f4; --muted:#a8a29e; --line:#44403c; --card:#292524;
+            --accent:#2dd4bf; --bad:#f87171; --good:#4ade80; --code:#1c1917; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:2px 0 0; color:var(--muted); font-size:13px; }
+  main { display:grid; grid-template-columns:320px 1fr; gap:24px; padding:24px; max-width:1400px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; padding:16px; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:14px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  label { display:block; font-size:13px; margin:8px 0 2px; color:var(--muted); }
+  input, select, button { font:inherit; width:100%; padding:6px 8px; border:1px solid var(--line);
+                          border-radius:6px; background:var(--bg); color:var(--fg); }
+  button { background:var(--accent); color:var(--bg); border:0; margin-top:12px; cursor:pointer; font-weight:600; }
+  button.link { background:none; color:var(--accent); padding:0; margin:0; width:auto; text-decoration:underline; font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  td.num { font-variant-numeric: tabular-nums; }
+  code, pre { font:12.5px/1.45 ui-monospace, monospace; background:var(--code); border-radius:4px; }
+  code { padding:1px 4px; word-break:break-all; }
+  pre { padding:10px; overflow-x:auto; margin:6px 0 0; }
+  .msg { font-size:13px; margin-top:8px; word-break:break-all; }
+  .err { color:var(--bad); } .ok { color:var(--good); }
+  .chain { display:grid; gap:10px; }
+  .step { border-left:3px solid var(--accent); padding:4px 12px; }
+  .step h3 { margin:0 0 4px; font-size:14px; }
+  .kv { display:grid; grid-template-columns:150px 1fr; gap:2px 12px; font-size:13.5px; }
+  .kv dt { color:var(--muted); } .kv dd { margin:0; }
+  .old { opacity:.65; }
+  .muted { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CarbonX: provenance</h1>
+  <p>Research prototype. Decision support for accredited verifiers; it does not verify or issue assurance.</p>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>1 · Upload evidence</h2>
+      <input type="file" id="file">
+      <button id="upload">Upload and hash</button>
+      <div id="upload-msg" class="msg"></div>
+    </section>
+    <section>
+      <h2>2 · Record consumption</h2>
+      <label for="facility">Facility</label><select id="facility"></select>
+      <label for="start">Period start</label><input type="date" id="start" value="2025-04-01">
+      <label for="end">Period end (exclusive)</label><input type="date" id="end" value="2025-05-01">
+      <label for="qty">Grid electricity (kWh)</label><input type="number" id="qty" min="0" step="any" value="125000">
+      <label for="doc">Evidence document id</label><input type="number" id="doc" placeholder="from step 1">
+      <label for="policy">Factor resolution policy</label><select id="policy"></select>
+      <button id="record">Record and calculate</button>
+      <div id="record-msg" class="msg"></div>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>Current ledger</h2>
+      <table><thead><tr><th>Period</th><th>Facility</th><th>Scope</th><th>Activity</th>
+        <th>tCO2e</th><th>Policy</th><th></th></tr></thead><tbody id="ledger"></tbody></table>
+      <p id="ledger-empty" class="muted">No entries yet.</p>
+    </section>
+    <section id="prov-section" hidden>
+      <h2>Provenance: calculation <span id="prov-id"></span></h2>
+      <div id="prov" class="chain"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "—").replace(/[&<>"']/g, (c) =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const actor = "workbench";
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {...opts, headers: {"X-Actor": actor, ...(opts.headers || {})}});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+const kv = (pairs) => `<dl class="kv">${pairs.map(([k, v]) =>
+  `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+const step = (title, body, cls = "") => `<div class="step ${cls}"><h3>${esc(title)}</h3>${body}</div>`;
+
+async function init() {
+  const [facilities, policies] = await Promise.all([api("/api/facilities"), api("/api/policies")]);
+  $("facility").innerHTML = facilities.map((f) =>
+    `<option value="${f.facility_id}">${esc(f.name)} (${esc(f.organisation)})</option>`).join("");
+  $("policy").innerHTML = policies.map((p) => `<option>${esc(p)}</option>`).join("");
+  await loadLedger();
+}
+
+async function loadLedger() {
+  const rows = await api("/api/emissions");
+  $("ledger-empty").hidden = rows.length > 0;
+  $("ledger").innerHTML = rows.map((r) => `<tr>
+    <td>${esc(r.period_start)} → ${esc(r.period_end)}</td><td>${esc(r.facility)}</td>
+    <td>${esc(r.scope)}</td><td class="num">${esc(r.quantity)} ${esc(r.unit)}</td>
+    <td class="num"><button class="link" data-calc="${r.calculation_id}">${esc(r.tco2e)}</button></td>
+    <td>${esc(r.policy)}</td>
+    <td><button class="link" data-edit="${r.activity_id}" data-qty="${esc(r.quantity)}">Correct</button></td>
+  </tr>`).join("");
+}
+
+async function showProvenance(id) {
+  const p = await api(`/api/calculations/${id}/provenance`);
+  const c = p.calculation, a = p.activity, f = p.factor, d = p.document;
+  const chainOk = p.audit_chain.intact
+    ? `<span class="ok">intact</span>` : `<span class="err">BROKEN at event ${esc(p.audit_chain.first_break?.broken_event_id)}</span>`;
+  $("prov-id").textContent = id;
+  $("prov").innerHTML = [
+    step("Organisation → facility", kv([["Organisation", esc(c.organisation)],
+      ["Facility", `${esc(c.facility)}, ${esc(c.state)}`]])),
+    step("Activity", kv([["Quantity", `${esc(a.quantity)} ${esc(a.unit)}`],
+      ["Type", `${esc(a.activity_type)} (scope ${esc(a.scope)})`],
+      ["Period", `${esc(a.period_start)} → ${esc(a.period_end)} (end exclusive)`],
+      ["Recorded", esc(a.recorded_at)],
+      ["Superseded", a.superseded_at ? esc(a.superseded_at) : "current"]]),
+      a.superseded_at ? "old" : ""),
+    step("Evidence document", d ? kv([["File", esc(d.filename)], ["Type", esc(d.doc_type)],
+      ["SHA-256", `<code>${esc(d.sha256)}</code>`],
+      ["Hash check", d.hash_verified ? `<span class="ok">file matches</span>` : `<span class="err">MISMATCH or missing</span>`],
+      ["Uploaded", esc(d.uploaded_at)]]) : `<p class="err">No document: this figure is not traced to evidence.</p>`),
+    step("Emission factor", kv([["Value", `${esc(f.value)} ${esc(f.unit)}`],
+      ["Factor", `<code>${esc(f.factor_key)}</code> (${esc(f.geography)})`],
+      ["Valid for", `${esc(f.valid_from)} → ${esc(f.valid_to)}`],
+      ["Source", `${esc(f.publisher)} ${esc(f.dataset_name)} ${esc(f.version_label)}`],
+      ["Published", esc(f.published_on)],
+      ["Source URL", `<a href="${esc(f.source_url)}" rel="noreferrer">${esc(f.source_url)}</a>`],
+      ["Source file SHA-256", `<code>${esc(f.source_file_sha256)}</code>`]])),
+    step("Calculation", kv([["Result", `<strong>${esc(c.tco2e)} ${esc(c.result_unit)}</strong>`],
+      ["Policy", esc(c.policy)], ["Engine", esc(c.engine_version)],
+      ["Computed", esc(c.computed_at)],
+      ["Superseded", c.superseded_at ? esc(c.superseded_at) : "current"]]) +
+      `<pre>${esc(c.program)}</pre>`, c.superseded_at ? "old" : ""),
+    p.activity_history.length ? step("Before correction", `<table><tr><th>Activity</th><th>Quantity</th>
+      <th>Recorded</th><th>Superseded</th></tr>${p.activity_history.map((h) => `<tr class="old">
+      <td>${esc(h.activity_id)}</td><td class="num">${esc(h.quantity)} ${esc(h.unit)}</td>
+      <td>${esc(h.recorded_at)}</td><td>${esc(h.superseded_at)}</td></tr>`).join("")}</table>`) : "",
+    step("All calculations in this lineage", `<table><tr><th>Id</th><th>tCO2e</th><th>Policy</th>
+      <th>Computed</th><th>Superseded</th></tr>${p.calculations.map((x) => `<tr class="${x.superseded_at ? "old" : ""}">
+      <td><button class="link" data-calc="${x.calculation_id}">${esc(x.calculation_id)}</button></td>
+      <td class="num">${esc(x.tco2e)}</td><td>${esc(x.policy)}</td><td>${esc(x.computed_at)}</td>
+      <td>${x.superseded_at ? esc(x.superseded_at) : "current"}</td></tr>`).join("")}</table>`),
+    step("Audit trail", `<p class="muted">Hash chain: ${chainOk}. Tamper-evidence, not a blockchain.</p>
+      <table><tr><th>#</th><th>Table</th><th>Action</th><th>Actor</th><th>Reason</th><th>When</th></tr>
+      ${p.audit_events.map((e) => `<tr><td>${esc(e.event_id)}</td><td>${esc(e.entity_table)} ${esc(e.entity_id)}</td>
+      <td>${esc(e.action)}</td><td>${esc(e.actor)}</td><td>${esc(e.reason)}</td>
+      <td>${esc(e.occurred_at)}</td></tr>`).join("")}</table>`),
+  ].join("");
+  $("prov-section").hidden = false;
+  $("prov-section").scrollIntoView({behavior: "smooth"});
+}
+
+$("upload").onclick = async () => {
+  const file = $("file").files[0], msg = $("upload-msg");
+  if (!file) { msg.className = "msg err"; msg.textContent = "Choose a file first."; return; }
+  try {
+    const q = new URLSearchParams({filename: file.name, doc_type: "electricity_bill",
+                                   facility_id: $("facility").value});
+    const d = await api(`/api/documents?${q}`, {method: "POST", body: file,
+      headers: {"Content-Type": file.type || "application/octet-stream"}});
+    $("doc").value = d.document_id;
+    msg.className = "msg ok";
+    msg.innerHTML = `${d.created ? "Stored" : "Already stored"} as document ${d.document_id}.<br>SHA-256 <code>${esc(d.sha256)}</code>`;
+  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+};
+
+$("record").onclick = async () => {
+  const msg = $("record-msg");
+  try {
+    const r = await api("/api/activities", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({facility_id: +$("facility").value, period_start: $("start").value,
+        period_end: $("end").value, quantity: $("qty").value, unit: "kWh",
+        document_id: $("doc").value ? +$("doc").value : null, policy: $("policy").value})});
+    msg.className = "msg ok"; msg.textContent = `Calculation ${r.calculation_id}: ${r.tco2e} tCO2e`;
+    await loadLedger(); await showProvenance(r.calculation_id);
+  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+};
+
+document.addEventListener("click", async (ev) => {
+  const t = ev.target;
+  try {
+    if (t.dataset.calc) await showProvenance(t.dataset.calc);
+    if (t.dataset.edit) {
+      const qty = prompt("Corrected quantity (kWh):", t.dataset.qty);
+      if (qty === null) return;
+      const reason = prompt("Reason for the correction (recorded in the audit trail):");
+      if (!reason) return;
+      const r = await api(`/api/activities/${t.dataset.edit}`, {method: "PATCH",
+        headers: {"Content-Type": "application/json"}, body: JSON.stringify({quantity: qty, reason})});
+      await loadLedger();
+      if (r.calculations[0]) await showProvenance(r.calculations[0].calculation_id);
+    }
+  } catch (e) { alert(e.message); }
+});
+
+init().catch((e) => { document.querySelector("main").insertAdjacentHTML("afterbegin",
+  `<p class="err">Cannot reach the API: ${esc(e.message)}. Is Postgres running and migrated?</p>`); });
+</script>
+</body>
+</html>
