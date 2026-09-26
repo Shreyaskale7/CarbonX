@@ -35,6 +35,8 @@ therefore `./reproduce.sh` past step 3.
 | `docs/BUILD_PLAN.md` | Ten phases with acceptance tests |
 | `db/schema.sql` | Full schema, commented |
 | `docs/RQ3_FINDINGS.md` | Does BEE specify the factor vintage? (Phase 0) |
+| `docs/RQ2_RESULTS.md` | Year-on-year CEA factor changes, generated |
+| `docs/TYPE_SOUNDNESS.md` | Dimensional type system: rules, proof, limits |
 
 ## The invariant everything rests on
 
