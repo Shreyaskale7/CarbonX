@@ -46,6 +46,7 @@ with psycopg.connect(URL) as conn:
                              issuer="SYNTHETIC", mime_type="text/plain", redacted=True)
         record_activity(conn, facility_id=facility_id, activity_type="grid_electricity",
                         period_start=start, period_end=end, quantity=Decimal(kwh),
-                        unit="kWh", document_id=doc.document_id, actor="seed_sample.py")
+                        unit="kWh", document_id=doc.document_id, actor="seed_sample.py",
+                        reason="synthetic sample data")
     print(f"seeded org {org_id}, facility {facility_id}, {len(MONTHLY_KWH)} monthly "
           "activities with synthetic bills")

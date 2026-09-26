@@ -28,7 +28,7 @@ def _source(conn, ordinal: int, published_on: date | None) -> int:
     row = conn.execute(
         "INSERT INTO factor_source (publisher, dataset_name, version_label,"
         " version_ordinal, published_on, source_url)"
-        " VALUES ('CEA', 'CO2 Baseline Database', %s, %s, %s, 'https://cea.nic.in')"
+        " VALUES ('TEST', 'synthetic', %s, %s, %s, 'https://example.test')"
         " RETURNING source_id",
         (f"v{ordinal}.0", ordinal, published_on),
     ).fetchone()
@@ -55,7 +55,10 @@ def _value(conn, fy, as_of, policy, **kw) -> Decimal | None:
 
 @pytest.fixture
 def cea(conn):
-    """v19, v20, then v21 which adds FY2024-25 and revises FY2023-24."""
+    """v19, v20, then v21 which adds FY2024-25 and revises FY2023-24.
+
+    Stored under a TEST publisher so they never collide with the real registry.
+    """
     _put(conn, _source(conn, 19, date(2023, 12, 1)), "FY2022-23", "0.716")
     _put(conn, _source(conn, 20, date(2024, 12, 1)), "FY2023-24", "0.727")
     before_v21 = _now(conn)
@@ -87,8 +90,8 @@ def test_policies_disagree_on_identical_data(conn, cea):
 def test_revision_supersedes_without_overwriting(conn, cea):
     rows = conn.execute(
         "SELECT value, upper_inf(system_time_range), supersedes IS NOT NULL"
-        " FROM emission_factor WHERE valid_time @> '2023-04-01'::date"
-        " ORDER BY factor_id"
+        " FROM emission_factor WHERE valid_time @> '2023-04-01'::date AND factor_key = %s"
+        " ORDER BY factor_id", (KEY,)
     ).fetchall()
     assert rows == [(Decimal("0.727"), False, False), (Decimal("0.730"), True, True)]
 

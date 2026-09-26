@@ -10,7 +10,7 @@ def _factor(cur) -> int:
     cur.execute(
         "INSERT INTO factor_source (publisher, dataset_name, version_label,"
         " version_ordinal, source_url) VALUES"
-        " ('CEA', 'CO2 Baseline Database', 'v19.0', 19, 'https://cea.nic.in')"
+        " ('TEST', 'synthetic', 'v19.0', 19, 'https://example.test')"
         " RETURNING source_id"
     )
     (source_id,) = cur.fetchone()

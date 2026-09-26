@@ -177,5 +177,14 @@ def test_api_round_trip(conn, world):
             "facility_id": world["facility_id"], "period_start": "2025-06-01",
             "period_end": "2025-07-01", "quantity": "1", "unit": "litre"})
         assert bad.status_code == 400 and "DimensionError" in bad.json()["detail"]
+        # A failed calculation must not leave its activity behind (found in the
+        # browser walkthrough: FactorNotFound used to commit the activity).
+        none = client.post("/api/activities", json={
+            "facility_id": world["facility_id"], "period_start": "2026-04-01",
+            "period_end": "2026-05-01", "quantity": "1", "policy": "VINTAGE_MATCHED"})
+        assert none.status_code == 400 and "FactorNotFound" in none.json()["detail"]
+        assert conn.execute("SELECT count(*) FROM activity WHERE facility_id = %s"
+                            " AND period = daterange('2026-04-01', '2026-05-01')",
+                            (world["facility_id"],)).fetchone() == (0,)
     finally:
         api.app.dependency_overrides.clear()

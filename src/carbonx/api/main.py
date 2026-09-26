@@ -123,12 +123,18 @@ async def upload(
 def create_activity(body: ActivityIn, conn: Conn,
                     x_actor: Actor = "workbench") -> dict[str, Any]:
     try:
-        activity_id = record_activity(
-            conn, facility_id=body.facility_id, activity_type=body.activity_type,
-            period_start=body.period_start, period_end=body.period_end,
-            quantity=body.quantity, unit=body.unit, document_id=body.document_id,
-            actor=x_actor)
-        c = calculate(conn, activity_id, body.policy, baseline_year=body.baseline_year)
+        # One transaction for both: an activity whose calculation fails (e.g. no
+        # factor under this policy) must not be left behind. The dependency's
+        # own commit cannot be relied on here: FastAPI turns HTTPException into
+        # a response before the dependency exits, so it would commit.
+        with conn.transaction():
+            activity_id = record_activity(
+                conn, facility_id=body.facility_id, activity_type=body.activity_type,
+                period_start=body.period_start, period_end=body.period_end,
+                quantity=body.quantity, unit=body.unit, document_id=body.document_id,
+                actor=x_actor)
+            c = calculate(conn, activity_id, body.policy,
+                          baseline_year=body.baseline_year)
     except EXPECTED as e:
         raise _fail(e) from e
     return {"activity_id": activity_id, "calculation_id": c.calculation_id,
