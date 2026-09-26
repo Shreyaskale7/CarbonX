@@ -9,12 +9,14 @@ Courses: DBMS, AI/ML, Theory of Computation.
 
 ## Quick start
 
-    docker compose up -d
+    docker compose up -d                 # Postgres 16
     pip install -e ".[dev]"
-    alembic upgrade head
-    python scripts/fetch_cea.py          # download all CEA factor versions
-    python scripts/seed_policies.py
-    ./reproduce.sh                       # end-to-end on sample data
+    alembic upgrade head                 # applies db/schema.sql (migration 0001)
+    pytest                               # DB invariant tests
+
+Not built yet (see `docs/BUILD_PLAN.md`): `scripts/fetch_cea.py`,
+`scripts/seed_policies.py`, the calculation engine, and therefore
+`./reproduce.sh`.
 
 ## Read these first
 

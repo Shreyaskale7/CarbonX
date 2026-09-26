@@ -1,5 +1,8 @@
 -- CarbonX schema. PostgreSQL 16.
 --
+-- FROZEN: applied by Alembic migration 0001. Never edit this file; every
+-- schema change after 0001 is a new migration in db/migrations/versions/.
+--
 -- Two temporal axes throughout:
 --   valid_time       when the fact was true in the world
 --   transaction_time when this system learned it  (system_time_range)
@@ -260,7 +263,7 @@ CREATE TABLE audit_event (
     new_value       JSONB,
     actor           TEXT,
     reason          TEXT,
-    occurred_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    occurred_at     TIMESTAMPTZ NOT NULL,
     prev_hash       CHAR(64),
     event_hash      CHAR(64) NOT NULL
 );
@@ -271,54 +274,143 @@ CREATE INDEX ix_audit_entity ON audit_event(entity_table, entity_id);
 -- history breaks the chain and is detectable. This is tamper-EVIDENCE.
 -- It is NOT a blockchain and must never be described as one: we need
 -- detectability, not distributed consensus.
+--
+-- The payload is built only from stored columns, with a timezone-independent
+-- timestamp, so fn_verify_audit_chain() can recompute every hash later.
+CREATE OR REPLACE FUNCTION fn_audit_payload(
+    p_prev TEXT, p_table TEXT, p_id BIGINT, p_action TEXT,
+    p_old JSONB, p_new JSONB, p_actor TEXT, p_reason TEXT, p_at TIMESTAMPTZ
+) RETURNS TEXT AS $$
+    SELECT concat_ws('|', coalesce(p_prev, ''), p_table, p_id::text, p_action,
+                     coalesce(p_old::text, ''), coalesce(p_new::text, ''),
+                     coalesce(p_actor, ''), coalesce(p_reason, ''),
+                     to_char(p_at AT TIME ZONE 'UTC',
+                             'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
+$$ LANGUAGE sql IMMUTABLE;
+
+-- Attach with the table's primary-key column as the trigger argument:
+--   EXECUTE FUNCTION fn_audit('activity_id')
 CREATE OR REPLACE FUNCTION fn_audit() RETURNS TRIGGER AS $$
 DECLARE
-    v_prev CHAR(64);
-    v_old  JSONB;
-    v_new  JSONB;
-    v_payload TEXT;
+    v_prev   CHAR(64);
+    v_old    JSONB;
+    v_new    JSONB;
+    v_id     BIGINT;
+    v_actor  TEXT := current_setting('carbonx.actor', TRUE);
+    v_reason TEXT := current_setting('carbonx.reason', TRUE);
+    v_at     TIMESTAMPTZ := clock_timestamp();
 BEGIN
+    -- Serialise chain appends: without this, two concurrent transactions read
+    -- the same prev_hash and fork the chain. Held until commit.
+    -- ponytail: one global lock serialises all audited writes; fine for a
+    -- single-verifier prototype, partition the chain per org if it bottlenecks.
+    -- Requires READ COMMITTED (the default): the SELECT below must see the
+    -- previous holder's committed row.
+    PERFORM pg_advisory_xact_lock(hashtext('carbonx.audit_chain'));
     SELECT event_hash INTO v_prev FROM audit_event ORDER BY event_id DESC LIMIT 1;
 
-    IF TG_OP = 'DELETE' THEN
-        v_old := to_jsonb(OLD); v_new := NULL;
-    ELSIF TG_OP = 'INSERT' THEN
-        v_old := NULL;          v_new := to_jsonb(NEW);
-    ELSE
-        v_old := to_jsonb(OLD); v_new := to_jsonb(NEW);
-    END IF;
-
-    v_payload := coalesce(v_prev,'') || TG_TABLE_NAME || TG_OP
-                 || coalesce(v_old::text,'') || coalesce(v_new::text,'')
-                 || now()::text;
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN v_old := to_jsonb(OLD); END IF;
+    IF TG_OP IN ('UPDATE', 'INSERT') THEN v_new := to_jsonb(NEW); END IF;
+    v_id := (coalesce(v_new, v_old) ->> TG_ARGV[0])::bigint;
 
     INSERT INTO audit_event(entity_table, entity_id, action, old_value,
-                            new_value, actor, prev_hash, event_hash)
-    VALUES (
-        TG_TABLE_NAME,
-        coalesce((v_new->>'activity_id')::bigint,
-                 (v_old->>'activity_id')::bigint,
-                 (v_new->>'factor_id')::bigint,
-                 (v_old->>'factor_id')::bigint, 0),
-        TG_OP, v_old, v_new,
-        current_setting('carbonx.actor', TRUE),
-        v_prev,
-        encode(digest(v_payload, 'sha256'), 'hex')
-    );
+                            new_value, actor, reason, occurred_at,
+                            prev_hash, event_hash)
+    VALUES (TG_TABLE_NAME, v_id, TG_OP, v_old, v_new, v_actor, v_reason, v_at,
+            v_prev,
+            encode(digest(fn_audit_payload(v_prev, TG_TABLE_NAME, v_id, TG_OP,
+                   v_old, v_new, v_actor, v_reason, v_at), 'sha256'), 'hex'));
     RETURN COALESCE(NEW, OLD);
 END; $$ LANGUAGE plpgsql;
 
+-- Returns the first event whose hash or back-link does not match, or no rows
+-- if the chain is intact.
+CREATE OR REPLACE FUNCTION fn_verify_audit_chain()
+RETURNS TABLE (broken_event_id BIGINT, problem TEXT) AS $$
+    SELECT event_id, problem FROM (
+        SELECT event_id,
+               CASE WHEN prev_hash IS DISTINCT FROM
+                         lag(event_hash) OVER (ORDER BY event_id)
+                    THEN 'prev_hash does not match previous event'
+                    WHEN event_hash <> encode(digest(fn_audit_payload(
+                         prev_hash, entity_table, entity_id, action, old_value,
+                         new_value, actor, reason, occurred_at), 'sha256'), 'hex')
+                    THEN 'event_hash does not match contents'
+               END AS problem
+        FROM audit_event
+    ) t
+    WHERE problem IS NOT NULL
+    ORDER BY event_id
+    LIMIT 1
+$$ LANGUAGE sql STABLE;
+
+-- The audit log itself is append-only.
+CREATE OR REPLACE FUNCTION fn_reject_change() RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION '% is append-only: % rejected', TG_TABLE_NAME, TG_OP;
+END; $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_audit_event_append_only
+    BEFORE UPDATE OR DELETE ON audit_event
+    FOR EACH ROW EXECUTE FUNCTION fn_reject_change();
+CREATE TRIGGER tg_audit_event_no_truncate
+    BEFORE TRUNCATE ON audit_event
+    FOR EACH STATEMENT EXECUTE FUNCTION fn_reject_change();
+
+-- Bitemporal guard (invariant 2). On a temporal table the only legal UPDATE
+-- is closing a current row: system_time_range goes from [t, inf) to [t, t')
+-- and no other column changes. DELETE is never legal. Corrections are a
+-- close + INSERT of the new row, never an overwrite.
+CREATE OR REPLACE FUNCTION fn_bitemporal_guard() RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION '%: DELETE rejected; close system_time_range instead',
+            TG_TABLE_NAME;
+    END IF;
+    IF (to_jsonb(NEW) - 'system_time_range')
+           IS DISTINCT FROM (to_jsonb(OLD) - 'system_time_range')
+       OR NOT upper_inf(OLD.system_time_range)
+       OR upper_inf(NEW.system_time_range)
+       OR lower(NEW.system_time_range) IS DISTINCT FROM lower(OLD.system_time_range)
+    THEN
+        RAISE EXCEPTION '%: in-place UPDATE rejected; only closing a current '
+            'row''s system_time_range is allowed', TG_TABLE_NAME;
+    END IF;
+    RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_guard_factor     BEFORE UPDATE OR DELETE ON emission_factor
+    FOR EACH ROW EXECUTE FUNCTION fn_bitemporal_guard();
+CREATE TRIGGER tg_guard_basis      BEFORE UPDATE OR DELETE ON production_basis
+    FOR EACH ROW EXECUTE FUNCTION fn_bitemporal_guard();
+CREATE TRIGGER tg_guard_production BEFORE UPDATE OR DELETE ON production_record
+    FOR EACH ROW EXECUTE FUNCTION fn_bitemporal_guard();
+CREATE TRIGGER tg_guard_activity   BEFORE UPDATE OR DELETE ON activity
+    FOR EACH ROW EXECUTE FUNCTION fn_bitemporal_guard();
+CREATE TRIGGER tg_guard_ledger     BEFORE UPDATE OR DELETE ON ledger_entry
+    FOR EACH ROW EXECUTE FUNCTION fn_bitemporal_guard();
+
 CREATE TRIGGER tg_audit_activity
     AFTER INSERT OR UPDATE OR DELETE ON activity
-    FOR EACH ROW EXECUTE FUNCTION fn_audit();
-
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('activity_id');
 CREATE TRIGGER tg_audit_factor
     AFTER INSERT OR UPDATE OR DELETE ON emission_factor
-    FOR EACH ROW EXECUTE FUNCTION fn_audit();
-
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('factor_id');
+CREATE TRIGGER tg_audit_basis
+    AFTER INSERT OR UPDATE OR DELETE ON production_basis
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('basis_id');
 CREATE TRIGGER tg_audit_production
     AFTER INSERT OR UPDATE OR DELETE ON production_record
-    FOR EACH ROW EXECUTE FUNCTION fn_audit();
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('production_id');
+CREATE TRIGGER tg_audit_document
+    AFTER INSERT OR UPDATE OR DELETE ON source_document
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('document_id');
+CREATE TRIGGER tg_audit_calculation
+    AFTER INSERT OR UPDATE OR DELETE ON calculation
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('calculation_id');
+CREATE TRIGGER tg_audit_report
+    AFTER INSERT OR UPDATE OR DELETE ON report
+    FOR EACH ROW EXECUTE FUNCTION fn_audit('report_id');
 
 -- ============================================================
 -- 10. MATERIALITY  (GHG Protocol / SBTi 5% threshold)
