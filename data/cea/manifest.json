@@ -1,0 +1,442 @@
+{
+  "page": "https://cea.nic.in/cdm-co2-baseline-database/?lang=en",
+  "versions": [
+    {
+      "version_label": "v1.0",
+      "version_ordinal": 10,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database.zip",
+        "file": "data/raw/cea/v1.0/database.zip",
+        "sha256": "783c9fa6ae29ec71e25351612993534ef5456083cac4170bb6ffa33674717993",
+        "bytes": 165967,
+        "retrieved_at": "2026-09-26T12:12:28+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide.pdf",
+        "file": "data/raw/cea/v1.0/user_guide.pdf",
+        "sha256": "5101461928cb8a08dbe4443b769895efb5c2e69aa4646449fc4907221a6c48d1",
+        "bytes": 235854,
+        "retrieved_at": "2026-09-26T12:12:29+00:00"
+      }
+    },
+    {
+      "version_label": "v1.1",
+      "version_ordinal": 11,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_1.zip",
+        "file": "data/raw/cea/v1.1/database_1.zip",
+        "sha256": "b4ab31e019f831db09542136cc9ac7632b51d8cb234380f4e8972a73a57676b5",
+        "bytes": 163600,
+        "retrieved_at": "2026-09-26T12:12:29+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver1.pdf",
+        "file": "data/raw/cea/v1.1/user_guide_ver1.pdf",
+        "sha256": "3493bd899afdabac4f431ef26ce443668a07697faab541df904abbfe3bb0d4c9",
+        "bytes": 228084,
+        "retrieved_at": "2026-09-26T12:12:30+00:00"
+      }
+    },
+    {
+      "version_label": "v2.0",
+      "version_ordinal": 20,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_2.zip",
+        "file": "data/raw/cea/v2.0/database_2.zip",
+        "sha256": "bfceba2c2b81b518d380e2a0731b8984cc6adec06719e1b9af7de12b75917060",
+        "bytes": 176627,
+        "retrieved_at": "2026-09-26T12:12:30+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver2.pdf",
+        "file": "data/raw/cea/v2.0/user_guide_ver2.pdf",
+        "sha256": "5419b4efcbb9120d4e5e32c23c2d7f28c4ab3b58b96ebcae9ff53eec5e787e3c",
+        "bytes": 250513,
+        "retrieved_at": "2026-09-26T12:12:30+00:00"
+      }
+    },
+    {
+      "version_label": "v3.0",
+      "version_ordinal": 30,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_3.zip",
+        "file": "data/raw/cea/v3.0/database_3.zip",
+        "sha256": "90e94e3175d20fcde6e989479eb24032ed6214eee60e1b32f092fd9c6d05c880",
+        "bytes": 197184,
+        "retrieved_at": "2026-09-26T12:12:31+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver3.pdf",
+        "file": "data/raw/cea/v3.0/user_guide_ver3.pdf",
+        "sha256": "f9d88d1c5e93d75f11deca9099fcc1db0bcd7d328b265efb523e1db11977c797",
+        "bytes": 636804,
+        "retrieved_at": "2026-09-26T12:12:31+00:00"
+      }
+    },
+    {
+      "version_label": "v4.0",
+      "version_ordinal": 40,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_4.zip",
+        "file": "data/raw/cea/v4.0/database_4.zip",
+        "sha256": "10d24e537420c93ea52fc5830d4196b2bdb088a309d9f0ee2e9d816f5630c1ff",
+        "bytes": 207294,
+        "retrieved_at": "2026-09-26T12:12:32+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver4.pdf",
+        "file": "data/raw/cea/v4.0/user_guide_ver4.pdf",
+        "sha256": "a653f733fd6c68cdb8acda7855961f0ae39cbf708e37e746564841e9776c5dbe",
+        "bytes": 268351,
+        "retrieved_at": "2026-09-26T12:12:32+00:00"
+      }
+    },
+    {
+      "version_label": "v5.0",
+      "version_ordinal": 50,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_5.zip",
+        "file": "data/raw/cea/v5.0/database_5.zip",
+        "sha256": "531925fb32b493cc2153ea70a396cad1257c80a9b372d7ac9e0eb6c23ada67db",
+        "bytes": 212358,
+        "retrieved_at": "2026-09-26T12:12:33+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver5.pdf",
+        "file": "data/raw/cea/v5.0/user_guide_ver5.pdf",
+        "sha256": "dcc40be90e3d68e92d8e0710d93c8fc234a491db668102582d50704b03d258ab",
+        "bytes": 253296,
+        "retrieved_at": "2026-09-26T12:12:33+00:00"
+      }
+    },
+    {
+      "version_label": "v6.0",
+      "version_ordinal": 60,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_6.zip",
+        "file": "data/raw/cea/v6.0/database_6.zip",
+        "sha256": "99a4e436ca50e73cdc194895a0dd027ebd87826152f6c684915d513746fca15e",
+        "bytes": 266655,
+        "retrieved_at": "2026-09-26T12:12:34+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver6.pdf",
+        "file": "data/raw/cea/v6.0/user_guide_ver6.pdf",
+        "sha256": "2522d383e7cfa7f97c4cfe856179c9230c29771ddf8e366613a174c9979d9742",
+        "bytes": 201874,
+        "retrieved_at": "2026-09-26T12:12:34+00:00"
+      }
+    },
+    {
+      "version_label": "v7.0",
+      "version_ordinal": 70,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_7.zip",
+        "file": "data/raw/cea/v7.0/database_7.zip",
+        "sha256": "126c0b887a72220b81544f47fe6cd28a0d522f0573a82b165f84759cae32eab0",
+        "bytes": 456214,
+        "retrieved_at": "2026-09-26T12:12:34+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver7.pdf",
+        "file": "data/raw/cea/v7.0/user_guide_ver7.pdf",
+        "sha256": "2b0f0a378dc4d5ab744b087c32000a0de22d1cd51f98acccb8b715d97da54294",
+        "bytes": 191682,
+        "retrieved_at": "2026-09-26T12:12:35+00:00"
+      }
+    },
+    {
+      "version_label": "v8.0",
+      "version_ordinal": 80,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_8.zip",
+        "file": "data/raw/cea/v8.0/database_8.zip",
+        "sha256": "0a454eb3b43b5fae4f50e32913dc3e09e89655cc2c642d7895b8606fdab05c10",
+        "bytes": 433637,
+        "retrieved_at": "2026-09-26T12:12:35+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver8.pdf",
+        "file": "data/raw/cea/v8.0/user_guide_ver8.pdf",
+        "sha256": "02bf648b4a3e89ba01d9c31243c0f9c68e883da3007335215a9b86a53ba7ce21",
+        "bytes": 379293,
+        "retrieved_at": "2026-09-26T12:12:36+00:00"
+      }
+    },
+    {
+      "version_label": "v9.0",
+      "version_ordinal": 90,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_9.zip",
+        "file": "data/raw/cea/v9.0/database_9.zip",
+        "sha256": "4dd87a21f602c2286d1cf6f4457d4719665e92caa97271b856d66ef9e6c96dd2",
+        "bytes": 462918,
+        "retrieved_at": "2026-09-26T12:12:36+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver9.pdf",
+        "file": "data/raw/cea/v9.0/user_guide_ver9.pdf",
+        "sha256": "315952f80ceaa7562c7abdf91d2ef0a6ba63891c480cb204e64aeb776825e286",
+        "bytes": 432521,
+        "retrieved_at": "2026-09-26T12:12:37+00:00"
+      }
+    },
+    {
+      "version_label": "v10.0",
+      "version_ordinal": 100,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_10.zip",
+        "file": "data/raw/cea/v10.0/database_10.zip",
+        "sha256": "eb36cb4a5bb7b1a2aff32369acbb5d00a9a2ac294756f92ea514ce9f4ac07058",
+        "bytes": 481202,
+        "retrieved_at": "2026-09-26T12:12:37+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver10.pdf",
+        "file": "data/raw/cea/v10.0/user_guide_ver10.pdf",
+        "sha256": "0a198791e670cb84aae52f9cc507d5a484bc671d6afa2ce2faa86c780331fb4c",
+        "bytes": 397416,
+        "retrieved_at": "2026-09-26T12:12:38+00:00"
+      }
+    },
+    {
+      "version_label": "v11.0",
+      "version_ordinal": 110,
+      "outdated": true,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_11.zip",
+        "file": "data/raw/cea/v11.0/database_11.zip",
+        "sha256": "33c58ade1348e0df5627f8483ac78f1a876bc52dbc462713cde42dc8fd8dc63b",
+        "bytes": 1194187,
+        "retrieved_at": "2026-09-26T12:12:38+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver11.pdf",
+        "file": "data/raw/cea/v11.0/user_guide_ver11.pdf",
+        "sha256": "092b36d2df3013847de5143569ccf620ab9fc35230cef65b54098ea8454b7a68",
+        "bytes": 667510,
+        "retrieved_at": "2026-09-26T12:12:39+00:00"
+      }
+    },
+    {
+      "version_label": "v12.0",
+      "version_ordinal": 120,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_12.zip",
+        "file": "data/raw/cea/v12.0/database_12.zip",
+        "sha256": "83ce4eadd9c6006baf01726ce5833a0b4a4141a9d2810ce77131517ed396677c",
+        "bytes": 2034864,
+        "retrieved_at": "2026-09-26T12:12:40+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver12.pdf",
+        "file": "data/raw/cea/v12.0/user_guide_ver12.pdf",
+        "sha256": "286a9f0df12221e7b3ce14e38ea74dbd96d454a1a28e9329bdddff7449b27d41",
+        "bytes": 781492,
+        "retrieved_at": "2026-09-26T12:12:40+00:00"
+      }
+    },
+    {
+      "version_label": "v13.0",
+      "version_ordinal": 130,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_13.zip",
+        "file": "data/raw/cea/v13.0/database_13.zip",
+        "sha256": "7638b2c0e6f19996d16cdf41d36d629e33b237032fa37cbccb744a61d3c08405",
+        "bytes": 1370662,
+        "retrieved_at": "2026-09-26T12:12:41+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver13.pdf",
+        "file": "data/raw/cea/v13.0/user_guide_ver13.pdf",
+        "sha256": "45e5568700ae07ea9c75b18f0d2309d259d01e0ed06f3a59dacf95f5cd3821ba",
+        "bytes": 1320289,
+        "retrieved_at": "2026-09-26T12:12:41+00:00"
+      }
+    },
+    {
+      "version_label": "v14.0",
+      "version_ordinal": 140,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_14.zip",
+        "file": "data/raw/cea/v14.0/database_14.zip",
+        "sha256": "59d428a4e7a8973e127d81ce8244eb6dcad12aad01b97a132dd3ffc3831fbcb7",
+        "bytes": 1306793,
+        "retrieved_at": "2026-09-26T12:12:42+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver14.pdf",
+        "file": "data/raw/cea/v14.0/user_guide_ver14.pdf",
+        "sha256": "6b3da9766eebe3e71457a839a7da41c2f35c0070fd748e4019c87daa74de42d2",
+        "bytes": 348964,
+        "retrieved_at": "2026-09-26T12:12:42+00:00"
+      }
+    },
+    {
+      "version_label": "v15.0",
+      "version_ordinal": 150,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/database_15.zip",
+        "file": "data/raw/cea/v15.0/database_15.zip",
+        "sha256": "af19832f4577ba45de331a6108d0fb9235c91e5adfa7680a40cc0c9fc8c0e818",
+        "bytes": 1268278,
+        "retrieved_at": "2026-09-26T12:12:43+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2020/07/user_guide_ver15.pdf",
+        "file": "data/raw/cea/v15.0/user_guide_ver15.pdf",
+        "sha256": "f095ff3f05adc1c4bb55a9f9c0906b39d2fca9282642ec2099e1a73a8353fafb",
+        "bytes": 1153193,
+        "retrieved_at": "2026-09-26T12:12:43+00:00"
+      }
+    },
+    {
+      "version_label": "v16.0",
+      "version_ordinal": 160,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2021/06/2019_20_CO2_database.zip",
+        "file": "data/raw/cea/v16.0/2019_20_CO2_database.zip",
+        "sha256": "d78a46d0fac4df9dfcde23c0fb43bb960de3abae3907ef81de393cde42fb039d",
+        "bytes": 1235170,
+        "retrieved_at": "2026-09-26T12:12:44+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2021/06/User_Guide_ver_16_2021-1.pdf",
+        "file": "data/raw/cea/v16.0/User_Guide_ver_16_2021-1.pdf",
+        "sha256": "27f621c0ff74951938425a2a14229e1997c84e5fe07fa0055c320ed98bb2780c",
+        "bytes": 791540,
+        "retrieved_at": "2026-09-26T12:12:44+00:00"
+      }
+    },
+    {
+      "version_label": "v17.0",
+      "version_ordinal": 170,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2022/02/database_17_.zip",
+        "file": "data/raw/cea/v17.0/database_17_.zip",
+        "sha256": "c3e42b4e8b17543431651af2537fb85dcf77aa89c89ee28cc450c8ae20dd8ae0",
+        "bytes": 1165908,
+        "retrieved_at": "2026-09-26T12:12:45+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/tpe___cc/2022/02/User_Guide__ver_17_2021.pdf",
+        "file": "data/raw/cea/v17.0/User_Guide__ver_17_2021.pdf",
+        "sha256": "795bc6cbde9309af81014048ba664b75771e40eb29bf38908edee5311521f3eb",
+        "bytes": 646148,
+        "retrieved_at": "2026-09-26T12:12:45+00:00"
+      }
+    },
+    {
+      "version_label": "v18.0",
+      "version_ordinal": 180,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2023/01/version_18.zip",
+        "file": "data/raw/cea/v18.0/version_18.zip",
+        "sha256": "a0f86c30afc07c140f4719bce111fb3f458486e2b86de6ff966e9c36a6d30d39",
+        "bytes": 8908378,
+        "retrieved_at": "2026-09-26T12:12:58+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2023/01/Approved_report_emission__2021_22.pdf",
+        "file": "data/raw/cea/v18.0/Approved_report_emission__2021_22.pdf",
+        "sha256": "f500a55c5f05383cf70b4ea924439b91fde70267b953512394298f99c61f8427",
+        "bytes": 21662413,
+        "retrieved_at": "2026-09-26T12:13:02+00:00"
+      }
+    },
+    {
+      "version_label": "v19.0",
+      "version_ordinal": 190,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2024/04/CO2_DatabaseVersion_19_2022_23.xlsx",
+        "file": "data/raw/cea/v19.0/CO2_DatabaseVersion_19_2022_23.xlsx",
+        "sha256": "6ed97e2e3acc18ed5aa88cf02a45d658d7877add35d8b5cadf6b7900309d35d1",
+        "bytes": 408739,
+        "retrieved_at": "2026-09-26T12:13:03+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2024/04/User_Guide__Version_19.0.pdf",
+        "file": "data/raw/cea/v19.0/User_Guide__Version_19.0.pdf",
+        "sha256": "3971101cef8ef45622735eb622e146002fae4a8c7570979ce2ead49d390110c1",
+        "bytes": 10098016,
+        "retrieved_at": "2026-09-26T12:13:04+00:00"
+      }
+    },
+    {
+      "version_label": "v20.0",
+      "version_ordinal": 200,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/2021/03/CO2_Database_Version_20.0_2023_24.xlsx",
+        "file": "data/raw/cea/v20.0/CO2_Database_Version_20.0_2023_24.xlsx",
+        "sha256": "3bebd8e5e575d55bd470ac44cf0e6106f9b933862efc25b9137fefba92ae647c",
+        "bytes": 323925,
+        "retrieved_at": "2026-09-26T12:13:05+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/2021/03/User_Guide_Version_20.0.pdf",
+        "file": "data/raw/cea/v20.0/User_Guide_Version_20.0.pdf",
+        "sha256": "b881c258f58fd77c8faeb36479ccd1ed8bd111c45e708196df8a66ff7b29afc6",
+        "bytes": 1171206,
+        "retrieved_at": "2026-09-26T12:13:05+00:00"
+      }
+    },
+    {
+      "version_label": "v21.0",
+      "version_ordinal": 210,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2025/12/CO2_Database_V_21.0.xlsx",
+        "file": "data/raw/cea/v21.0/CO2_Database_V_21.0.xlsx",
+        "sha256": "8390992ab6122adba063dfcf75261de79dafc404730cb42abf03288e85bb4da7",
+        "bytes": 387674,
+        "retrieved_at": "2026-09-26T12:13:06+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2025/12/User_Guide_V_21.0.pdf",
+        "file": "data/raw/cea/v21.0/User_Guide_V_21.0.pdf",
+        "sha256": "212a9f7d7a4c2502418924765288b3e4edd3a35d5a87ac87aa611819c16431fa",
+        "bytes": 801207,
+        "retrieved_at": "2026-09-26T12:13:06+00:00"
+      }
+    },
+    {
+      "version_label": "v22.0",
+      "version_ordinal": 220,
+      "outdated": false,
+      "database": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2026/09/Baseline_Carbon_Dioxide_Emission_Database_Version_22.0.xlsx",
+        "file": "data/raw/cea/v22.0/Baseline_Carbon_Dioxide_Emission_Database_Version_22.0.xlsx",
+        "sha256": "f2341efe03d2fce4177a4a7090b8a946a5ac5ae32b41d784882d0226f2eb4860",
+        "bytes": 1009854,
+        "retrieved_at": "2026-09-26T12:13:07+00:00"
+      },
+      "user_guide": {
+        "url": "https://cea.nic.in/wp-content/uploads/baseline/2026/09/User_Guide__Version_22.0.pdf",
+        "file": "data/raw/cea/v22.0/User_Guide__Version_22.0.pdf",
+        "sha256": "723331b2add30754b8794d57dc05126218b3489f9f87ce3e570d5659bdc9d3b0",
+        "bytes": 835603,
+        "retrieved_at": "2026-09-26T12:13:07+00:00"
+      }
+    }
+  ]
+}

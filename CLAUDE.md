@@ -86,6 +86,12 @@ prototype. Not accredited. ACVA accreditation is a regulated status.
 - CEA CO2 Baseline Database: **v19 = 0.716 tCO2/MWh (FY2022-23)**,
   **v20 = 0.727 weighted avg w/ RE (FY2023-24)**, v21 covers FY2024-25.
   All previous versions remain published on cea.nic.in.
+- Verified from the workbooks themselves (`data/cea/factors.csv` gives the cell):
+  0.716 is v19's *"Grid Emission Factor (for net effective injection into
+  grid)"*, not its plain weighted average (0.713). v20's FY2023-24 value is
+  0.7275, revised to 0.7272 in v22. **v22.0 exists, covers FY2025-26 and is
+  dated 1 Aug 2026, after the 31 July 2026 deadline.** v20 notes BM/CM from
+  FY2023-24 include renewables: a method break, not a physical change.
 - GHG Protocol requires base-year recalculation on emission factor updates;
   no numeric threshold prescribed. SBTi uses **>=5% change in base year emissions**.
 

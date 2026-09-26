@@ -31,4 +31,7 @@ jobs:
       - run: mypy
       - run: alembic upgrade head
       - run: python scripts/seed_policies.py
+      - run: python scripts/load_cea.py --db   # the committed open registry
       - run: pytest -q
+      - name: RQ2 results are up to date with the registry
+        run: python scripts/rq2_deltas.py && git diff --exit-code docs/RQ2_RESULTS.md

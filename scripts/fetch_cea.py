@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import re
+import time
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -81,9 +82,16 @@ def ordinal(label: str) -> int:
 def fetch(url: str, dest: Path) -> dict:
     if not dest.exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
-        r = requests.get(url, timeout=120)
-        r.raise_for_status()
-        dest.write_bytes(r.content)
+        for attempt in range(1, 6):  # cea.nic.in drops long transfers
+            try:
+                r = requests.get(url, timeout=120)
+                r.raise_for_status()
+                break
+            except requests.RequestException:
+                if attempt == 5:
+                    raise
+                time.sleep(5 * attempt)
+        dest.write_bytes(r.content)  # only complete bodies ever reach disk
     data = dest.read_bytes()
     return {
         "url": url,
