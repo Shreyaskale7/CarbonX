@@ -2,25 +2,8 @@
 
 Each test runs in a transaction that is rolled back, so the DB is left clean.
 """
-import os
-
 import psycopg
 import pytest
-
-URL = os.environ.get(
-    "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-).replace("postgresql+psycopg://", "postgresql://")
-
-
-@pytest.fixture
-def cur():
-    try:
-        conn = psycopg.connect(URL, connect_timeout=3)
-    except psycopg.OperationalError:
-        pytest.skip("Postgres not reachable; run `docker compose up -d`")
-    with conn, conn.cursor() as c:
-        yield c
-        conn.rollback()
 
 
 def _factor(cur) -> int:

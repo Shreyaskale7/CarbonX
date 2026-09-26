@@ -12,11 +12,14 @@ Courses: DBMS, AI/ML, Theory of Computation.
     docker compose up -d                 # Postgres 16
     pip install -e ".[dev]"
     alembic upgrade head                 # applies db/schema.sql (migration 0001)
-    pytest                               # DB invariant tests
+    python scripts/seed_policies.py      # the four resolution policies
+    pytest                               # DB invariants + factor registry
 
-Not built yet (see `docs/BUILD_PLAN.md`): `scripts/fetch_cea.py`,
-`scripts/seed_policies.py`, the calculation engine, and therefore
-`./reproduce.sh`.
+CI (`.github/workflows/ci.yml`) runs ruff, mypy --strict, the migration and the
+full test suite against Postgres 16 on every push.
+
+Not built yet (see `docs/BUILD_PLAN.md`): `scripts/fetch_cea.py`, CEA ingest,
+the calculation engine, and therefore `./reproduce.sh`.
 
 ## Read these first
 
