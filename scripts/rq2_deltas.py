@@ -100,7 +100,7 @@ def main() -> None:
                "max revision"], summary),
         "## Every step",
         table(["factor", "step", "first published in", "change", "note"], detail),
-    ]) + "\n", encoding="utf-8")
+    ]) + "\n", encoding="utf-8", newline="\n")
     print(f"{len(detail)} steps over {len(summary)} factors -> {OUT.relative_to(ROOT)}")
 
 

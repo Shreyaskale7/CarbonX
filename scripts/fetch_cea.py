@@ -126,7 +126,8 @@ def main() -> None:
 
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST.write_text(json.dumps(
-        {"page": PAGE, "versions": manifest}, indent=2) + "\n", encoding="utf-8")
+        {"page": PAGE, "versions": manifest}, indent=2) + "\n", encoding="utf-8",
+        newline="\n")
     print(f"{len(manifest)} versions -> {MANIFEST.relative_to(ROOT)}")
 
 
