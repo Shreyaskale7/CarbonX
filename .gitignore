@@ -1,0 +1,8 @@
+data/raw/
+data/bills/
+*.pdf
+*.xlsx
+__pycache__/
+.venv/
+*.egg-info/
+.env
