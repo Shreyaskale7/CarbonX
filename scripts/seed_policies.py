@@ -1,13 +1,11 @@
 """Seed resolution_policy with the four codes. Safe to re-run."""
-import os
 
 import psycopg
 
+from carbonx import db
 from carbonx.factors.registry import POLICY_DESCRIPTIONS, Policy
 
-URL = os.environ.get(
-    "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-).replace("postgresql+psycopg://", "postgresql://")
+URL = db.url()
 
 # RQ3 is unresolved, so no policy is the scheme's; VINTAGE_MATCHED is our default
 # only because it is the one that never mixes years.

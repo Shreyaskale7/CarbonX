@@ -109,9 +109,11 @@ def insert_factor(
     start = fy_start(fy)
     valid = f"[{start},{date(start.year + 1, 4, 1)})"
     with conn.transaction(), conn.cursor() as cur:
-        # clock_timestamp, not now(): a factor inserted and superseded in the
+        # fn_system_now() (migration 0003): clock time taken under the global
+        # write lock, so no report can read AS OF a time before this commits.
+        # A clock, not now(): a factor inserted and superseded in the
         # same transaction would otherwise get an empty [t, t) range.
-        cur.execute("SELECT clock_timestamp()")
+        cur.execute("SELECT fn_system_now()")
         row = cur.fetchone()
         assert row is not None
         t = row[0]
@@ -161,7 +163,7 @@ WHERE ef.factor_key = %(key)s AND ef.geography = %(geo)s
   AND (%(exact_fy)s::date IS NULL OR ef.valid_time @> %(exact_fy)s::date)
   AND (%(published_by)s::date IS NULL OR fs.published_on <= %(published_by)s)
 ORDER BY lower(ef.valid_time) DESC, {version_order},
-         lower(ef.system_time_range) DESC
+         lower(ef.system_time_range) DESC, ef.factor_id DESC
 LIMIT 1
 """
 

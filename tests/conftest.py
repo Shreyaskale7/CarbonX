@@ -2,26 +2,29 @@ import os
 
 import psycopg
 import pytest
+from hypothesis import settings
 
-URL = os.environ.get(
-    "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-).replace("postgresql+psycopg://", "postgresql://")
+from carbonx import db
+
+# HYPOTHESIS_PROFILE=thorough: the 10,000-sequence run for invariant 1
+# (docs/BUILD_PLAN.md Phase 5). Tests that set max_examples themselves keep it.
+settings.register_profile("thorough", max_examples=10_000)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 
-def connect() -> psycopg.Connection:
-    """A connection, or skip locally when Postgres is down. In CI, fail instead."""
+def connect(url: str | None = None) -> psycopg.Connection:
+    """A connection (default: the app role), or skip locally when Postgres is
+    down. In CI, fail instead."""
     try:
-        return psycopg.connect(URL, connect_timeout=3)
+        return psycopg.connect(url or db.url(), connect_timeout=3)
     except psycopg.OperationalError:
         if os.environ.get("CI"):
             raise
         pytest.skip("Postgres not reachable; run `docker compose up -d`")
 
 
-@pytest.fixture
-def conn():
-    """A connection whose work is rolled back, leaving the DB clean."""
-    c = connect()
+def _rolled_back(url: str | None):
+    c = connect(url)
     try:
         yield c
     finally:
@@ -30,6 +33,19 @@ def conn():
 
 
 @pytest.fixture
-def cur(conn):
-    with conn.cursor() as c:
+def conn():
+    """The application role (carbonx_app), rolled back afterwards."""
+    yield from _rolled_back(None)
+
+
+@pytest.fixture
+def owner_conn():
+    """The schema owner, for tests proving a trigger holds even against it.
+    Rolled back afterwards."""
+    yield from _rolled_back(db.owner_url())
+
+
+@pytest.fixture
+def cur(owner_conn):
+    with owner_conn.cursor() as c:
         yield c

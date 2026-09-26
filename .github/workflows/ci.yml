@@ -19,7 +19,10 @@ jobs:
           --health-cmd "pg_isready -U carbonx"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql+psycopg://carbonx:carbonx@localhost:5432/carbonx
+      # The app and tests run as the non-owner role created by migration 0005;
+      # only Alembic uses the owner.
+      DATABASE_URL: postgresql://carbonx_app:carbonx_app@localhost:5432/carbonx
+      MIGRATION_DATABASE_URL: postgresql+psycopg://carbonx:carbonx@localhost:5432/carbonx
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +35,13 @@ jobs:
       - run: alembic upgrade head
       - run: python scripts/seed_policies.py
       - run: python scripts/load_cea.py --db   # the committed open registry
+      # reproduce.sh steps 4-6. Before pytest: its concurrency tests commit
+      # their own organisations, and the sample must be org 1.
+      - name: sample reports regenerate byte-identically
+        run: |
+          python scripts/seed_sample.py
+          python -m carbonx.engine.calculate --org 1 --policy VINTAGE_MATCHED
+          python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
       - run: pytest -q
       - name: RQ2 results are up to date with the registry
         run: python scripts/rq2_deltas.py && git diff --exit-code docs/RQ2_RESULTS.md

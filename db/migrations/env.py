@@ -6,8 +6,9 @@ from sqlalchemy import create_engine
 
 fileConfig(context.config.config_file_name)
 
+# Migrations run as the schema owner; the application never does (0005).
 URL = os.environ.get(
-    "DATABASE_URL", "postgresql+psycopg://carbonx:carbonx@localhost:5432/carbonx"
+    "MIGRATION_DATABASE_URL", "postgresql+psycopg://carbonx:carbonx@localhost:5432/carbonx"
 )
 
 # Raw SQL migrations only; no ORM metadata to autogenerate from yet.

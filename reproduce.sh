@@ -6,5 +6,5 @@ echo "[2/6] resolution policies" && python scripts/seed_policies.py
 echo "[3/6] CEA factors"     && python scripts/load_cea.py --db && python scripts/rq2_deltas.py
 echo "[4/6] sample facility" && python scripts/seed_sample.py
 echo "[5/6] calculate"       && python -m carbonx.engine.calculate --org 1 --policy VINTAGE_MATCHED
-echo "[6/6] report + verify" && echo "      Phase 5: reproducible reports not built yet"
+echo "[6/6] report + verify" && python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
 echo "done. api: uvicorn carbonx.api.main:app --reload"

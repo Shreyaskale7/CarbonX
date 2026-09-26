@@ -1,26 +1,28 @@
-"""Seed a SYNTHETIC organisation, facility and FY2025-26 electricity activity.
+"""Seed a SYNTHETIC organisation, facility, FY2025-26 electricity and production.
 
 Everything here is invented: no real entity, no real bill (the repo never
 holds real utility bills). The "bill" is a generated text file whose first
 line says it is synthetic, stored and hashed like any other evidence.
 Idempotent: does nothing if the sample organisation already exists.
 """
-import os
 from datetime import date
 from decimal import Decimal
 
 import psycopg
 
+from carbonx import db
 from carbonx.engine.calculate import record_activity, set_audit_context
+from carbonx.engine.production import record_production
 from carbonx.evidence.store import store_document
 
-URL = os.environ.get(
-    "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-).replace("postgresql+psycopg://", "postgresql://")
+URL = db.url()
 ORG = "Sample Aluminium Works (SYNTHETIC)"
 # Synthetic monthly grid consumption, kWh, April 2025 to March 2026.
 MONTHLY_KWH = [1_180_000, 1_205_000, 1_150_000, 1_120_000, 1_135_000, 1_160_000,
                1_190_000, 1_210_000, 1_240_000, 1_255_000, 1_230_000, 1_265_000]
+# Synthetic aluminium output, tonnes: about 14 MWh of electricity per tonne
+# (order of magnitude for primary smelting), with made-up monthly variation.
+MONTHLY_TONNES = [84.2, 86.5, 81.9, 80.3, 81.4, 82.6, 85.1, 86.7, 88.4, 89.9, 87.6, 90.8]
 
 with psycopg.connect(URL) as conn:
     set_audit_context(conn, "seed_sample.py", "synthetic sample data")
@@ -48,5 +50,9 @@ with psycopg.connect(URL) as conn:
                         period_start=start, period_end=end, quantity=Decimal(kwh),
                         unit="kWh", document_id=doc.document_id, actor="seed_sample.py",
                         reason="synthetic sample data")
+        record_production(conn, facility_id=facility_id, product_code="aluminium_ingot",
+                          unit="t", period_start=start, period_end=end,
+                          quantity=Decimal(str(MONTHLY_TONNES[month])),
+                          actor="seed_sample.py", reason="synthetic sample data")
     print(f"seeded org {org_id}, facility {facility_id}, {len(MONTHLY_KWH)} monthly "
-          "activities with synthetic bills")
+          "activities and production records, all synthetic")

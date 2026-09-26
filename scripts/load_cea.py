@@ -11,7 +11,6 @@ the same downloads yields byte-identical CSVs.
 import argparse
 import csv
 import json
-import os
 import sys
 import zipfile
 from decimal import Decimal
@@ -20,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from carbonx import db
 from carbonx.ingest.cea import parse
 
 MANIFEST = ROOT / "data" / "cea" / "manifest.json"
@@ -82,9 +82,7 @@ def load_db() -> None:
 
     from carbonx.factors.registry import insert_factor
 
-    url = os.environ.get(
-        "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-    ).replace("postgresql+psycopg://", "postgresql://")
+    url = db.url()
     with VERSIONS.open(encoding="utf-8") as fh:
         versions = list(csv.DictReader(fh))
     with FACTORS.open(encoding="utf-8") as fh:

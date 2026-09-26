@@ -6,7 +6,6 @@ No authentication: a local research prototype (multi-role RBAC is out of
 scope). The actor recorded in the audit trail is the X-Actor header.
 """
 
-import os
 from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
@@ -19,6 +18,7 @@ from fastapi.responses import FileResponse
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
+from carbonx import db
 from carbonx.engine.calculate import (
     calculate,
     edit_activity,
@@ -31,9 +31,7 @@ from carbonx.factors.registry import FactorNotFound, Policy
 from carbonx.units.core import DimensionError
 from carbonx.units.lang import LangError
 
-URL = os.environ.get(
-    "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-).replace("postgresql+psycopg://", "postgresql://")
+URL = db.url()
 MAX_UPLOAD = 20 * 1024 * 1024
 PAGE = Path(__file__).with_name("static") / "index.html"
 

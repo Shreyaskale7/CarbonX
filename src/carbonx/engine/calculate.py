@@ -16,19 +16,38 @@ rejects anything else, and the audit trigger records it all (invariant 3).
 from __future__ import annotations
 
 import argparse
-import os
+import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from fractions import Fraction
 from importlib.metadata import version
+from pathlib import Path
 
 import psycopg
 
+from carbonx import db
 from carbonx.factors.registry import EmissionFactor, Policy, resolve
 from carbonx.units.lang import run
 
-ENGINE_VERSION = version("carbonx")
+# Everything that decides a report's bytes. Hashing the source (not trusting a
+# manually bumped version) means any edit makes regenerate() refuse old reports
+# instead of silently producing different output.
+_ENGINE_SOURCES = ["units/core.py", "units/lang.py", "factors/registry.py",
+                   "engine/calculate.py", "engine/report.py"]
+
+
+def _engine_version() -> str:
+    root, h = Path(__file__).resolve().parents[1], hashlib.sha256()
+    for rel in _ENGINE_SOURCES:
+        # Normalise CRLF so a Windows checkout hashes like a Linux one.
+        source = (root / rel).read_bytes().replace(bytes([13, 10]), bytes([10]))
+        for part in (rel.encode(), source):  # length-prefixed: unambiguous
+            h.update(len(part).to_bytes(8, "big") + part)
+    return f"{version('carbonx')}+{h.hexdigest()[:12]}"
+
+
+ENGINE_VERSION = _engine_version()
 
 # activity_type -> (scope, factor_key, geography). Which CEA factor applies to
 # Scope 2 electricity is a methodological choice, not a fact: this is the
@@ -55,8 +74,9 @@ def fy_of(d: date) -> str:
     return f"FY{start}-{(start + 1) % 100:02d}"
 
 
-def _now(conn: psycopg.Connection) -> datetime:
-    row = conn.execute("SELECT clock_timestamp()").fetchone()
+def system_now(conn: psycopg.Connection) -> datetime:
+    """Transaction time, taken under the global write lock (migration 0003)."""
+    row = conn.execute("SELECT fn_system_now()").fetchone()
     assert row is not None
     return row[0]
 
@@ -67,8 +87,25 @@ def set_audit_context(conn: psycopg.Connection, actor: str | None, reason: str |
                  " set_config('carbonx.reason', %s, true)", (actor or "", reason or ""))
 
 
-def _round6(x: Fraction) -> Decimal:
-    return Decimal(round(x * 10**6)).scaleb(-6)  # round() on Fraction: exact half-even
+def round6(x: Fraction) -> Decimal:
+    """To NUMERIC(18,6). round() on a Fraction is exact, half-even."""
+    return Decimal(round(x * 10**6)).scaleb(-6)
+
+
+def emissions(quantity: Decimal, unit: str, factor: EmissionFactor) -> tuple[str, Fraction]:
+    """The typed program for activity x factor, and its exact tCO2e result.
+
+    The program is type-checked before it is evaluated (units/lang.py): a wrong
+    unit raises DimensionError here, before any number exists.
+    """
+    factor_unit = f"{factor.numerator_unit}/{factor.denominator_unit}"
+    program = (
+        f"let activity  : [{unit}] = {quantity:f} [{unit}]\n"
+        f"let factor    : [{factor_unit}] = {factor.value:f} [{factor_unit}]"
+        f"  # {factor.factor_key} {factor.version_label}\n"
+        f"let emissions : [tCO2e] = activity * factor\n"
+    )
+    return program, run(program)["emissions"].value
 
 
 def record_activity(
@@ -90,7 +127,7 @@ def record_activity(
         raise ValueError("an activity period must lie within one financial year")
     with conn.transaction():
         set_audit_context(conn, actor, reason)
-        t = t or _now(conn)
+        t = t or system_now(conn)
         row = conn.execute(
             "INSERT INTO activity (facility_id, activity_type, scope, period, quantity,"
             " unit, document_id, supersedes, system_time_range)"
@@ -108,7 +145,7 @@ def calculate(
     baseline_year: str | None = None, t: datetime | None = None,
 ) -> Calculation:
     with conn.transaction():
-        t = t or _now(conn)
+        t = t or system_now(conn)
         row = conn.execute(
             "SELECT activity_type, lower(period), quantity, unit"
             " FROM activity WHERE activity_id = %s AND upper_inf(system_time_range)",
@@ -120,15 +157,8 @@ def calculate(
 
         factor = resolve(conn, factor_key, fy_of(start), t, policy,
                          geography=geography, baseline_year=baseline_year)
-        factor_unit = f"{factor.numerator_unit}/{factor.denominator_unit}"
-        program = (
-            f"let activity  : [{unit}] = {quantity:f} [{unit}]\n"
-            f"let factor    : [{factor_unit}] = {factor.value:f} [{factor_unit}]"
-            f"  # {factor.factor_key} {factor.version_label}\n"
-            f"let emissions : [tCO2e] = activity * factor\n"
-        )
-        exact = run(program)["emissions"].value  # type-checked, then evaluated
-        tco2e = _round6(exact)
+        program, exact = emissions(quantity, unit, factor)
+        tco2e = round6(exact)
 
         (policy_id,) = conn.execute(
             "SELECT policy_id FROM resolution_policy WHERE code = %s",
@@ -166,7 +196,7 @@ def edit_activity(
         raise ValueError("a correction needs a reason; it goes in the audit trail")
     with conn.transaction():
         set_audit_context(conn, actor, reason)
-        t = _now(conn)
+        t = system_now(conn)
         old = conn.execute(
             "SELECT facility_id, activity_type, lower(period), upper(period), unit,"
             " document_id FROM activity"
@@ -204,9 +234,7 @@ def main() -> None:
     ap.add_argument("--policy", type=Policy, default=Policy.VINTAGE_MATCHED)
     ap.add_argument("--baseline-year")
     args = ap.parse_args()
-    url = os.environ.get(
-        "DATABASE_URL", "postgresql://carbonx:carbonx@localhost:5432/carbonx"
-    ).replace("postgresql+psycopg://", "postgresql://")
+    url = db.url()
     with psycopg.connect(url) as conn:
         set_audit_context(conn, "carbonx.engine.calculate", None)
         pending = conn.execute(

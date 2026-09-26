@@ -88,7 +88,9 @@ def main() -> None:
         "**Step** = first-published year-on-year change (the change a reporter "
         "saw when a new FY first appeared). **Revision** = movement of one FY's "
         "value between the version that first published it and the newest one. "
-        "Steps flagged as method changes are excluded from the summary."),
+        "Steps flagged as method changes are excluded from the summary. "
+         "They are not noise to discard: if FY2023-24 is the CCTS baseline year "
+         "(unverified; see docs/RQ3_FINDINGS.md), this break lands on it."),
         ("**Scope 2 qualifier.** CCTS GEI targets cover Scope 1 and Scope 2. A "
         "grid factor change moves total GEI only in proportion to the Scope 2 "
         "share, so comparing these steps directly to the 1–3% target holds only "
