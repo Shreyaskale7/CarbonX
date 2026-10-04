@@ -95,19 +95,29 @@ def insert_factor(
     value: Decimal,
     numerator_unit: str,
     denominator_unit: str,
-    fy: str,
+    fy: str | None = None,
+    valid: tuple[date, date] | None = None,
     geography: str = "IN",
     margin_type: str | None = None,
     uncertainty_low: Decimal | None = None,
     uncertainty_high: Decimal | None = None,
     uncertainty_basis: str | None = None,
 ) -> int:
-    """Record a factor for one FY, superseding the current row if there is one.
+    """Record a factor, superseding the current row if there is one.
 
+    Give `fy` for a factor describing one financial year (CEA grid factors),
+    or `valid` = (from, to-exclusive) for one that applies over a longer span
+    (BEE's default fuel factors apply across a trajectory period).
     Never UPDATEs a value. Returns the new factor_id.
     """
-    start = fy_start(fy)
-    valid = f"[{start},{date(start.year + 1, 4, 1)})"
+    if (fy is None) == (valid is None):
+        raise ValueError("give exactly one of fy or valid")
+    if fy is not None:
+        start = fy_start(fy)
+        valid = (start, date(start.year + 1, 4, 1))
+    assert valid is not None
+    label = fy or f"{valid[0]}..{valid[1]}"
+    valid_range = f"[{valid[0]},{valid[1]})"
     with conn.transaction(), conn.cursor() as cur:
         # fn_system_now() (migration 0003): clock time taken under the global
         # write lock, so no report can read AS OF a time before this commits.
@@ -122,11 +132,11 @@ def insert_factor(
             " WHERE factor_key = %s AND geography = %s"
             "   AND valid_time && %s::daterange AND upper_inf(system_time_range)"
             " FOR UPDATE",
-            (factor_key, geography, valid),
+            (factor_key, geography, valid_range),
         )
         current = [r[0] for r in cur.fetchall()]
         if len(current) > 1:
-            raise ValueError(f"{factor_key} {fy} overlaps {len(current)} rows")
+            raise ValueError(f"{factor_key} {label} overlaps {len(current)} rows")
         if current:
             cur.execute(
                 "UPDATE emission_factor SET system_time_range ="
@@ -143,7 +153,7 @@ def insert_factor(
             (
                 source_id, factor_key, value, numerator_unit, denominator_unit,
                 geography, margin_type, uncertainty_low, uncertainty_high,
-                uncertainty_basis, valid, t, current[0] if current else None,
+                uncertainty_basis, valid_range, t, current[0] if current else None,
             ),
         )
         new = cur.fetchone()

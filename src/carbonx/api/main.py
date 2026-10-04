@@ -70,6 +70,10 @@ class ActivityIn(BaseModel):
     quantity: Decimal = Field(ge=0)
     unit: str = "kWh"
     document_id: int | None = None
+    # Fuel activities ('fuel.<slug>') only: net calorific value and oxidation.
+    ncv: Decimal | None = Field(default=None, gt=0)
+    ncv_unit: str | None = None
+    oxidation_factor: Decimal = Field(default=Decimal(1), gt=0, le=1)
     policy: Policy = Policy.VINTAGE_MATCHED
     baseline_year: str | None = None
 
@@ -132,7 +136,8 @@ def create_activity(body: ActivityIn, conn: Conn,
                 conn, facility_id=body.facility_id, activity_type=body.activity_type,
                 period_start=body.period_start, period_end=body.period_end,
                 quantity=body.quantity, unit=body.unit, document_id=body.document_id,
-                actor=x_actor)
+                actor=x_actor, ncv=body.ncv, ncv_unit=body.ncv_unit,
+                oxidation_factor=body.oxidation_factor)
             c = calculate(conn, activity_id, body.policy,
                           baseline_year=body.baseline_year)
     except EXPECTED as e:

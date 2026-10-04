@@ -82,6 +82,9 @@ UNITS: dict[str, Unit] = {u.name: u for u in (
     _u("J", ENERGY, 1), _u("MJ", ENERGY, 10**6), _u("GJ", ENERGY, 10**9),
     _u("TJ", ENERGY, 10**12), _u("Wh", ENERGY, 3600), _u("kWh", ENERGY, 3_600_000),
     _u("MWh", ENERGY, 3_600_000_000), _u("GWh", ENERGY, 3_600_000_000_000),
+    # International Table calorie, as used in energy statistics (IEA):
+    # 1 kcal = 4186.8 J exactly, and 1 toe = 10^7 kcal = 41.868 GJ.
+    _u("kcal", ENERGY, Fraction(41868, 10)), _u("toe", ENERGY, 41_868_000_000),
     _u("g", MASS, Fraction(1, 1000)), _u("kg", MASS, 1), _u("t", MASS, 1000),
     _u("litre", VOLUME, 1), _u("kL", VOLUME, 1000), _u("m3", VOLUME, 1000),
     _u("gCO2e", CO2E, Fraction(1, 1000)), _u("kgCO2e", CO2E, 1),

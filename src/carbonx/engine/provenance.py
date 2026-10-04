@@ -55,6 +55,7 @@ def provenance(conn: psycopg.Connection, calculation_id: int) -> dict[str, Any]:
                 JOIN chain ON a.activity_id = chain.supersedes)
             SELECT activity_id, activity_type, scope, lower(period) AS period_start,
                    upper(period) AS period_end, quantity, unit, document_id,
+                   ncv, ncv_unit, oxidation_factor,
                    supersedes, lower(system_time_range) AS recorded_at,
                    upper(system_time_range) AS superseded_at
             FROM chain ORDER BY depth""", (calc["activity_id"],)).fetchall()

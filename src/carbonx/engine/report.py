@@ -45,16 +45,17 @@ import psycopg
 
 from carbonx import db
 from carbonx.engine.calculate import (
-    ACTIVITY_TYPES,
     ENGINE_VERSION,
+    activity_spec,
     emissions,
     fy_of,
+    resolve_for,
     round6,
 )
-from carbonx.factors.registry import FactorNotFound, Policy, fy_start, resolve
+from carbonx.factors.registry import FactorNotFound, Policy, fy_start
 from carbonx.units.core import Quantity, parse_unit
 
-SCHEMA = "carbonx.report/2"  # /2: per-facility production and GEI
+SCHEMA = "carbonx.report/3"  # /2: production and GEI; /3: fuel combustion (Scope 1)
 
 
 class EngineVersionMismatch(RuntimeError):
@@ -80,7 +81,8 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
     end = date(start.year + 1, 4, 1)
     activities = conn.execute("""
         SELECT a.activity_id, a.facility_id, a.activity_type, a.scope,
-               lower(a.period), upper(a.period), a.quantity, a.unit, d.sha256
+               lower(a.period), upper(a.period), a.quantity, a.unit, d.sha256,
+               a.ncv, a.ncv_unit, a.oxidation_factor
         FROM activity a
         JOIN facility f USING (facility_id)
         LEFT JOIN source_document d USING (document_id)
@@ -94,8 +96,8 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
     totals: dict[int, Fraction] = {1: Fraction(0), 2: Fraction(0)}
     by_facility: dict[int, Fraction] = {}
     for (activity_id, facility_id, activity_type, scope, p_start, p_end,
-         quantity, unit, doc_sha) in activities:
-        _, factor_key, geography = ACTIVITY_TYPES[activity_type]
+         quantity, unit, doc_sha, ncv, ncv_unit, oxidation) in activities:
+        spec = activity_spec(activity_type)
         line: dict[str, Any] = {
             "activity_id": activity_id, "facility_id": facility_id,
             "activity_type": activity_type, "scope": scope,
@@ -103,13 +105,17 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
             "quantity": format(quantity, "f"), "unit": unit,
             "document_sha256": doc_sha,
         }
+        if spec.is_fuel:
+            line |= {"ncv": format(ncv, "f"), "ncv_unit": ncv_unit,
+                     "oxidation_factor": format(oxidation, "f")}
         try:
-            factor = resolve(conn, factor_key, fy_of(p_start), as_of, policy,
-                             geography=geography, baseline_year=baseline_year)
+            factor = resolve_for(conn, spec, fy_of(p_start), as_of, policy, baseline_year)
         except FactorNotFound:
-            unresolved.append(line | {"reason": f"no {factor_key} factor under {policy}"})
+            unresolved.append(line | {
+                "reason": f"no {spec.factor_key} factor"
+                          + ("" if spec.is_fuel else f" under {policy}")})
             continue
-        _, exact = emissions(quantity, unit, factor)
+        _, exact = emissions(quantity, unit, factor, ncv, ncv_unit, oxidation)
         totals[scope] += exact
         by_facility[facility_id] = by_facility.get(facility_id, Fraction(0)) + exact
         lines.append(line | {

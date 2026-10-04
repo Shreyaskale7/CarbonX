@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -28,6 +29,7 @@ import psycopg
 
 from carbonx import db
 from carbonx.factors.registry import EmissionFactor, Policy, resolve
+from carbonx.units.core import parse_unit
 from carbonx.units.lang import run
 
 # Everything that decides a report's bytes. Hashing the source (not trusting a
@@ -56,6 +58,45 @@ ENGINE_VERSION = _engine_version()
 ACTIVITY_TYPES: dict[str, tuple[int, str, str]] = {
     "grid_electricity": (2, "grid.weighted_avg_incl_re_captive.incl_imports", "IN"),
 }
+_FUEL = re.compile(r"fuel\.([a-z0-9_]+)")
+
+
+@dataclass(frozen=True)
+class ActivitySpec:
+    scope: int
+    factor_key: str
+    geography: str
+    is_fuel: bool   # needs an NCV; its factor does not depend on the policy
+
+
+def activity_spec(activity_type: str) -> ActivitySpec:
+    """What an activity type means. Fuels are 'fuel.<slug>', with <slug> as in
+    data/bee/fuel_factors.csv (BEE's Annexure IV), e.g. 'fuel.other_bituminous_coal'.
+
+    Fuel combustion uses the CO2e factor (CO2 plus CH4 and N2O at Annexure I
+    GWPs). That is our reading of the procedure; the CO2-only factor is in the
+    registry as 'fuel.<slug>.co2'.
+    """
+    if activity_type in ACTIVITY_TYPES:
+        return ActivitySpec(*ACTIVITY_TYPES[activity_type], is_fuel=False)
+    if m := _FUEL.fullmatch(activity_type):
+        return ActivitySpec(1, f"fuel.{m[1]}.co2e", "IN", is_fuel=True)
+    raise ValueError(f"unknown activity_type {activity_type!r}; known: "
+                     f"{sorted(ACTIVITY_TYPES)} and 'fuel.<slug>'")
+
+
+def resolve_for(conn: psycopg.Connection, spec: ActivitySpec, fy: str, as_of: datetime,
+                policy: Policy, baseline_year: str | None = None) -> EmissionFactor:
+    """The factor for an activity. The resolution policy applies to grid
+    factors only: it is about which CEA vintage to use. BEE's default fuel
+    factors are not versioned by year ("the emission factor shall be
+    consistently applied for baseline and assessment year"), so a fuel factor
+    is simply the one valid for the activity's year, as known at as_of."""
+    if spec.is_fuel:
+        return resolve(conn, spec.factor_key, fy, as_of, Policy.VINTAGE_MATCHED,
+                       geography=spec.geography)
+    return resolve(conn, spec.factor_key, fy, as_of, policy,
+                   geography=spec.geography, baseline_year=baseline_year)
 
 
 @dataclass(frozen=True)
@@ -92,19 +133,35 @@ def round6(x: Fraction) -> Decimal:
     return Decimal(round(x * 10**6)).scaleb(-6)
 
 
-def emissions(quantity: Decimal, unit: str, factor: EmissionFactor) -> tuple[str, Fraction]:
-    """The typed program for activity x factor, and its exact tCO2e result.
+def emissions(quantity: Decimal, unit: str, factor: EmissionFactor,
+              ncv: Decimal | None = None, ncv_unit: str | None = None,
+              oxidation: Decimal = Decimal(1)) -> tuple[str, Fraction]:
+    """The typed program for an activity, and its exact tCO2e result.
+
+    Electricity:  activity x factor.
+    Fuel (ncv given), BEE Annexure II eq. III-IV:
+                  fuel x NCV x factor x oxidation factor.
 
     The program is type-checked before it is evaluated (units/lang.py): a wrong
     unit raises DimensionError here, before any number exists.
     """
     factor_unit = f"{factor.numerator_unit}/{factor.denominator_unit}"
-    program = (
-        f"let activity  : [{unit}] = {quantity:f} [{unit}]\n"
-        f"let factor    : [{factor_unit}] = {factor.value:f} [{factor_unit}]"
-        f"  # {factor.factor_key} {factor.version_label}\n"
-        f"let emissions : [tCO2e] = activity * factor\n"
-    )
+    factor_line = (f"let factor    : [{factor_unit}] = {factor.value:f} [{factor_unit}]"
+                   f"  # {factor.factor_key} {factor.version_label}\n")
+    if ncv is None:
+        program = (
+            f"let activity  : [{unit}] = {quantity:f} [{unit}]\n"
+            + factor_line +
+            "let emissions : [tCO2e] = activity * factor\n"
+        )
+    else:
+        program = (
+            f"let fuel      : [{unit}] = {quantity:f} [{unit}]\n"
+            f"let ncv       : [{ncv_unit}] = {ncv:f} [{ncv_unit}]\n"
+            + factor_line +
+            f"let oxidation : [1] = {oxidation:f}\n"
+            "let emissions : [tCO2e] = fuel * ncv * factor * oxidation\n"
+        )
     return program, run(program)["emissions"].value
 
 
@@ -113,12 +170,26 @@ def record_activity(
     period_start: date, period_end: date, quantity: Decimal, unit: str,
     document_id: int | None = None, actor: str | None = None,
     reason: str | None = None, supersedes: int | None = None,
-    t: datetime | None = None,
+    t: datetime | None = None, ncv: Decimal | None = None,
+    ncv_unit: str | None = None, oxidation_factor: Decimal = Decimal(1),
 ) -> int:
-    """Insert an activity. `period_end` is exclusive, like every DATERANGE here."""
-    if activity_type not in ACTIVITY_TYPES:
-        raise ValueError(f"unknown activity_type {activity_type!r}; "
-                         f"known: {sorted(ACTIVITY_TYPES)}")
+    """Insert an activity. `period_end` is exclusive, like every DATERANGE here.
+
+    A fuel activity ('fuel.<slug>') must carry its net calorific value, e.g.
+    ncv=4000, ncv_unit='kcal/kg'.
+    """
+    spec = activity_spec(activity_type)
+    if spec.is_fuel and (ncv is None or ncv_unit is None):
+        raise ValueError("a fuel activity needs ncv and ncv_unit (net calorific value)")
+    if not spec.is_fuel and (ncv is not None or ncv_unit is not None):
+        raise ValueError(f"{activity_type} takes no ncv")
+    if ncv is not None and ncv <= 0:
+        raise ValueError("ncv must be > 0")
+    if not 0 < oxidation_factor <= 1:
+        raise ValueError("oxidation_factor must be in (0, 1]")
+    for u in (unit, ncv_unit):
+        if u is not None:
+            parse_unit(u)   # unknown units fail here, not inside a calculation
     if quantity < 0:
         raise ValueError("quantity must be >= 0")
     if period_end <= period_start:
@@ -130,11 +201,12 @@ def record_activity(
         t = t or system_now(conn)
         row = conn.execute(
             "INSERT INTO activity (facility_id, activity_type, scope, period, quantity,"
-            " unit, document_id, supersedes, system_time_range)"
-            " VALUES (%s, %s, %s, daterange(%s, %s), %s, %s, %s, %s, tstzrange(%s, NULL))"
-            " RETURNING activity_id",
-            (facility_id, activity_type, ACTIVITY_TYPES[activity_type][0],
-             period_start, period_end, quantity, unit, document_id, supersedes, t),
+            " unit, document_id, supersedes, ncv, ncv_unit, oxidation_factor,"
+            " system_time_range)"
+            " VALUES (%s, %s, %s, daterange(%s, %s), %s, %s, %s, %s, %s, %s, %s,"
+            " tstzrange(%s, NULL)) RETURNING activity_id",
+            (facility_id, activity_type, spec.scope, period_start, period_end, quantity,
+             unit, document_id, supersedes, ncv, ncv_unit, oxidation_factor, t),
         ).fetchone()
     assert row is not None
     return int(row[0])
@@ -147,17 +219,16 @@ def calculate(
     with conn.transaction():
         t = t or system_now(conn)
         row = conn.execute(
-            "SELECT activity_type, lower(period), quantity, unit"
+            "SELECT activity_type, lower(period), quantity, unit, ncv, ncv_unit,"
+            " oxidation_factor"
             " FROM activity WHERE activity_id = %s AND upper_inf(system_time_range)",
             (activity_id,)).fetchone()
         if row is None:
             raise LookupError(f"activity {activity_id} does not exist or was superseded")
-        activity_type, start, quantity, unit = row
-        _, factor_key, geography = ACTIVITY_TYPES[activity_type]
-
-        factor = resolve(conn, factor_key, fy_of(start), t, policy,
-                         geography=geography, baseline_year=baseline_year)
-        program, exact = emissions(quantity, unit, factor)
+        activity_type, start, quantity, unit, ncv, ncv_unit, oxidation = row
+        factor = resolve_for(conn, activity_spec(activity_type), fy_of(start), t,
+                             policy, baseline_year)
+        program, exact = emissions(quantity, unit, factor, ncv, ncv_unit, oxidation)
         tco2e = round6(exact)
 
         (policy_id,) = conn.execute(
@@ -185,9 +256,11 @@ def calculate(
 def edit_activity(
     conn: psycopg.Connection, activity_id: int, *, quantity: Decimal, reason: str,
     actor: str | None = None, baseline_year: str | None = None,
+    ncv: Decimal | None = None,
 ) -> tuple[int, list[Calculation]]:
-    """Correct an activity's quantity. Returns the new activity_id and its
-    recalculations (one per policy the old activity was calculated under).
+    """Correct an activity's quantity (and, for a fuel, optionally its NCV).
+    Returns the new activity_id and its recalculations (one per policy the old
+    activity was calculated under).
 
     The old activity, calculations and ledger entries are closed, never
     changed: they stay retrievable AS OF any earlier time.
@@ -199,7 +272,7 @@ def edit_activity(
         t = system_now(conn)
         old = conn.execute(
             "SELECT facility_id, activity_type, lower(period), upper(period), unit,"
-            " document_id FROM activity"
+            " document_id, ncv, ncv_unit, oxidation_factor FROM activity"
             " WHERE activity_id = %s AND upper_inf(system_time_range) FOR UPDATE",
             (activity_id,)).fetchone()
         if old is None:
@@ -216,12 +289,14 @@ def edit_activity(
                      " AND upper_inf(system_time_range)", (t, activity_id))
         conn.execute(f"UPDATE activity {close} WHERE activity_id = %s", (t, activity_id))
 
-        facility_id, activity_type, start, end, unit, document_id = old
+        (facility_id, activity_type, start, end, unit, document_id, old_ncv, ncv_unit,
+         oxidation) = old
         new_id = record_activity(
             conn, facility_id=facility_id, activity_type=activity_type,
             period_start=start, period_end=end, quantity=quantity, unit=unit,
             document_id=document_id, actor=actor, reason=reason,
-            supersedes=activity_id, t=t)
+            supersedes=activity_id, t=t, ncv=old_ncv if ncv is None else ncv,
+            ncv_unit=ncv_unit, oxidation_factor=oxidation)
         calcs = [calculate(conn, new_id, p, baseline_year=baseline_year, t=t)
                  for p in policies]
     return new_id, calcs
@@ -247,8 +322,8 @@ def main() -> None:
         for (activity_id,) in pending:
             c = calculate(conn, activity_id, args.policy, baseline_year=args.baseline_year)
             print(f"activity {activity_id}: {c.tco2e} tCO2e  (factor {c.factor.value} "
-                  f"{c.factor.numerator_unit}/{c.factor.denominator_unit}, CEA "
-                  f"{c.factor.version_label} {c.factor.valid_from:%Y}, {args.policy})")
+                  f"{c.factor.numerator_unit}/{c.factor.denominator_unit}, "
+                  f"{c.factor.factor_key} {c.factor.version_label}, {args.policy})")
         print(f"{len(pending)} activities calculated under {args.policy}")
 
 

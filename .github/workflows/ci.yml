@@ -35,6 +35,7 @@ jobs:
       - run: alembic upgrade head
       - run: python scripts/seed_policies.py
       - run: python scripts/load_cea.py --db   # the committed open registry
+      - run: python scripts/load_bee_factors.py --db   # BEE Annexure IV fuel factors
       # reproduce.sh steps 4-6. Before pytest: its concurrency tests commit
       # their own organisations, and the sample must be org 1.
       - name: sample reports regenerate byte-identically
