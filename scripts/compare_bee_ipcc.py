@@ -1,0 +1,145 @@
+"""IPCC 2006 default CO2 factors with their uncertainty ranges, and a
+row-by-row comparison with BEE's Annexure IV.
+
+    python scripts/compare_bee_ipcc.py --pdf <V2_2_Ch2_Stationary_Combustion.pdf>
+        -> data/ipcc/table_2_2_co2.csv   (default, lower, upper per fuel)
+    python scripts/compare_bee_ipcc.py
+        -> docs/BEE_VS_IPCC.md           (from the two committed CSVs)
+
+Source: 2006 IPCC Guidelines for National Greenhouse Gas Inventories, Vol. 2,
+Ch. 2, Table 2.2 (pp. 2.16-2.17). BEE's Annexure IV lists the same 53 fuels
+in the same order, so rows are paired by position and the names are checked.
+The lower and upper values are IPCC's 95% confidence limits; they are the only
+source of fuel-factor uncertainty CarbonX uses (invariant 6).
+"""
+import argparse
+import csv
+import hashlib
+import re
+from decimal import Decimal
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+IPCC = ROOT / "data" / "ipcc" / "table_2_2_co2.csv"
+BEE = ROOT / "data" / "bee" / "fuel_factors.csv"
+OUT = ROOT / "docs" / "BEE_VS_IPCC.md"
+URL = ("https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/2_Volume2/"
+       "V2_2_Ch2_Stationary_Combustion.pdf")
+PAGES = {16: "2.16", 17: "2.17"}   # pdf page -> printed page
+# "<name> [r|n] 94 600 89 500 99 700 ..." : three CO2 numbers with a space as
+# the thousands separator, optionally flagged r(evised) or n(ew).
+ROW = re.compile(r"^(.*?)\s*(?:\b[rn] )?(\d{2,3}) (\d{3}) (\d{2,3}) (\d{3}) (\d{2,3}) (\d{3})\b")
+
+
+def parse(pdf_path: Path) -> list[dict]:
+    import pdfplumber
+    sha = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+    rows, pending = [], ""
+    with pdfplumber.open(pdf_path) as pdf:
+        for page, printed in PAGES.items():
+            for line in (pdf.pages[page - 1].extract_text() or "").splitlines():
+                m = ROW.match(line.strip())
+                if not m:
+                    # A wrapped fuel name: its first half precedes the numbers
+                    # ("Municipal Wastes (non-biomass"), its tail may follow.
+                    if re.fullmatch(r"[A-Z][A-Za-z /()\-]+", line.strip()) and not \
+                            re.search(r"Volume|Chapter|TABLE|DEFAULT|Fuel|Emission|Factor|^CO CH",
+                                      line):
+                        if rows and rows[-1]["fuel"].endswith(" and"):
+                            rows[-1]["fuel"] += " " + line.strip()   # "...Coke and" + tail
+                        else:
+                            pending = line.strip()
+                    continue
+                name = f"{pending} {m[1]}".strip()
+                pending = ""
+                rows.append({
+                    "fuel": name, "co2_default_kg_per_tj": m[2] + m[3],
+                    "co2_lower_kg_per_tj": m[4] + m[5], "co2_upper_kg_per_tj": m[6] + m[7],
+                    "printed_page": printed, "source_sha256": sha,
+                })
+    if len(rows) != 53:
+        raise ValueError(f"expected 53 fuels in Table 2.2, parsed {len(rows)}")
+    for r in rows:
+        if not (int(r["co2_lower_kg_per_tj"]) <= int(r["co2_default_kg_per_tj"])
+                <= int(r["co2_upper_kg_per_tj"])):
+            raise ValueError(f"range does not bracket the default: {r}")
+    return rows
+
+
+def _key(name: str) -> str:
+    """Enough of a name to check that two tables mean the same fuel."""
+    words = re.findall(r"[a-z]+", name.lower().replace("naptha", "naphtha"))
+    return " ".join(w.rstrip("s") for w in words[:2])
+
+
+def compare() -> None:
+    with IPCC.open(encoding="utf-8") as fh:
+        ipcc = list(csv.DictReader(fh))
+    with BEE.open(encoding="utf-8") as fh:
+        bee = list(csv.DictReader(fh))
+    rows, differ = [], []
+    for b, i in zip(bee, ipcc, strict=True):
+        if _key(b["fuel"]) != _key(i["fuel"]):
+            raise ValueError(f"row {b['sr_no']}: {b['fuel']!r} vs {i['fuel']!r}")
+        bee_v = Decimal(b["co2_t_per_tj"])
+        ipcc_v = Decimal(i["co2_default_kg_per_tj"]) / 1000
+        lo, hi = (Decimal(i[k]) / 1000 for k in ("co2_lower_kg_per_tj",
+                                                 "co2_upper_kg_per_tj"))
+        same = bee_v == ipcc_v
+        row = [b["sr_no"], b["fuel"], f"{bee_v}", f"{ipcc_v:.1f}", f"{lo:.1f}–{hi:.1f}",
+               "same" if same else f"**{100 * (bee_v - ipcc_v) / ipcc_v:+.1f}%**",
+               "" if same else ("inside" if lo <= bee_v <= hi else "**outside**")]
+        rows.append(row)
+        if not same:
+            differ.append(row)
+
+    def table(header, body):
+        return "\n".join(["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+                         + ["| " + " | ".join(r) + " |" for r in body])
+
+    header = ["#", "fuel", "BEE Annexure IV", "IPCC default", "IPCC 95% range",
+              "BEE vs IPCC", "BEE value vs IPCC range"]
+    OUT.write_text("\n\n".join([
+        "# BEE Annexure IV against IPCC 2006 Table 2.2: CO2 factors",
+        "_Generated by `scripts/compare_bee_ipcc.py`. Do not edit by hand._",
+        ("BEE's Annexure IV says its default (Type I) factors are \"referred from IPCC "
+         "Guidelines\". This compares the CO2 column of Annexure IV with IPCC 2006, "
+         "Vol. 2, Ch. 2, Table 2.2, row by row, in t CO2 per TJ. Both tables list the "
+         "same 53 fuels in the same order."),
+        (f"**{len(differ)} of {len(rows)} CO2 factors differ.** "
+         + ("Each differing BEE value below equals IPCC's default for the fuel on the "
+            "next row, which is what a one-row slip in copying the table would produce."
+            if all(Decimal(d[2]) == Decimal(rows[int(d[0])][3]) for d in differ)
+            else "")),
+        "## Rows that differ",
+        table(header, differ) if differ else "_None._",
+        ("**Caveats.** This is the BEE PDF described in `docs/RQ3_FINDINGS.md`; its "
+         "internal metadata is dated 2023-11-08, before the reported July 2024 "
+         "notification, so the notified text may differ. Only the CO2 column is "
+         "compared here. We do not know which table BEE intended; that is a question "
+         "for BEE, not a conclusion."),
+        ("**What CarbonX does.** It calculates with BEE's values, because they are the "
+         "scheme's own. It attaches IPCC's uncertainty range only where BEE's value "
+         "equals IPCC's default. For the rows above it reports a point estimate with "
+         "no range, because IPCC's range describes a different central value."),
+        "## All 53 fuels",
+        table(header, rows),
+    ]) + "\n", encoding="utf-8", newline="\n")
+    print(f"{len(differ)} of {len(rows)} CO2 factors differ -> {OUT.relative_to(ROOT)}")
+    for d in differ:
+        print("  ", d[0], d[1], "BEE", d[2], "IPCC", d[3], d[5], d[6])
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pdf", type=Path)
+    args = ap.parse_args()
+    if args.pdf:
+        rows = parse(args.pdf)
+        IPCC.parent.mkdir(parents=True, exist_ok=True)
+        with IPCC.open("w", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(rows[0]), lineterminator="\n")
+            w.writeheader()
+            w.writerows(rows)
+        print(f"{len(rows)} fuels -> {IPCC.relative_to(ROOT)}")
+    compare()

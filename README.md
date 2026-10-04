@@ -75,6 +75,8 @@ byte-identically. The API and provenance page:
 | `docs/RQ2_RESULTS.md` | Year-on-year CEA factor changes, generated |
 | `docs/TYPE_SOUNDNESS.md` | Dimensional type system: rules, proof, limits |
 | `docs/LIFECYCLE.md` | Credit lifecycle automaton, safety proofs, model checking |
+| `docs/BEE_VS_IPCC.md` | BEE's default fuel factors against IPCC 2006, row by row, generated |
+| `docs/UNCERTAINTY.md` | Correlated uncertainty: what is quantified and what is not |
 | `docs/EXTRACTION.md` | Bill extraction: method, what development found, limits (synthetic data) |
 | `docs/ADVERSARIAL_LOG.md` | Every attempt to break invariant 1, and what it found |
 

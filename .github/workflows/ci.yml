@@ -44,10 +44,11 @@ jobs:
           python -m carbonx.engine.calculate --org 1 --policy VINTAGE_MATCHED
           python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
       - run: pytest -q
-      - name: RQ1 and RQ2 results are up to date with the registry
+      - name: generated results (RQ1, RQ2, BEE vs IPCC) are up to date
         run: |
           python scripts/rq1_materiality.py && python scripts/rq2_deltas.py
-          git diff --exit-code docs/RQ1_RESULTS.md docs/RQ2_RESULTS.md
+          python scripts/compare_bee_ipcc.py
+          git diff --exit-code docs/RQ1_RESULTS.md docs/RQ2_RESULTS.md docs/BEE_VS_IPCC.md
       # Runs, but is not diffed: it comes from a numerical optimiser, so the
       # last printed digit may differ across platforms and library versions.
       - name: extraction evaluation runs

@@ -45,11 +45,15 @@ unit conversion (1 kcal = 4186.8 J; 1 toe = 41.868 GJ, the IEA definitions).
 1. **Document version.** The PDF read has internal metadata dated 2023-11-08,
    before the reported July 2024 notification (`docs/RQ3_FINDINGS.md`). Confirm
    the table against the notified text.
-2. **Compare with IPCC 2006.** Annexure IV says Type I factors are "referred
-   from IPCC Guidelines". This table has **not** been compared with IPCC's
-   (Vol. 2, Table 2.2); the IPCC site was unreachable when this was built. The
-   coal rows in particular should be checked.
-3. **No uncertainty ranges.** BEE prints none. IPCC's published ranges are
-   needed before any uncertainty is reported for fuel factors (invariant 6).
+2. **Three coal factors differ from IPCC 2006.** Annexure IV says Type I
+   factors are "referred from IPCC Guidelines". Compared row by row with
+   IPCC's Table 2.2, 50 of the 53 CO2 factors match exactly. Other bituminous
+   coal, sub-bituminous coal and lignite do not: each BEE value equals IPCC's
+   default for the next fuel down. See `docs/BEE_VS_IPCC.md`. CarbonX
+   calculates with BEE's values and says so.
+3. **Uncertainty ranges come from IPCC, not BEE.** BEE prints none. IPCC's 95%
+   limits (`data/ipcc/table_2_2_co2.csv`) are attached to the 50 fuels where
+   BEE's value equals IPCC's default; the three coal rows are point estimates
+   (invariant 6). See `docs/UNCERTAINTY.md`.
 4. **Process emissions** (the carbonate table that follows in Annexure IV) are
    not loaded: 2024-27 targets exclude process emissions (p. 7 note).

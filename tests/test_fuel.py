@@ -157,3 +157,21 @@ def test_report_covers_both_scopes_and_fuel_ignores_the_policy(conn, plant):
         fuel = next(x for x in out["lines"] if x["scope"] == 1)
         assert (fuel["ncv"], fuel["ncv_unit"], fuel["oxidation_factor"]) == \
             ("20.000000", "GJ/t", "1.000000")
+
+
+def test_ipcc_ranges_attach_only_where_bee_equals_ipcc():
+    """Invariant 6: no range for a factor whose value IPCC's range was not
+    published for. Three coal rows differ (docs/BEE_VS_IPCC.md)."""
+    import sys
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from load_bee_factors import ipcc_ranges
+    with (ROOT / "data" / "bee" / "fuel_factors.csv").open(encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    ranges = dict(zip([r["slug"] for r in rows], ipcc_ranges(rows), strict=True))
+    without = sorted(k for k, (low, _) in ranges.items() if low is None)
+    assert without == ["lignite", "other_bituminous_coal", "sub_bituminous_coal"]
+    assert ranges["natural_gas"] == (Decimal("54.3"), Decimal("58.3"))     # p. 2.16
+    for r in rows:
+        low, high = ranges[r["slug"]]
+        if low is not None:
+            assert low <= Decimal(r["co2_t_per_tj"]) <= high

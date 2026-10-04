@@ -108,14 +108,45 @@ def load_db() -> None:
             " version_ordinal, source_url, file_sha256) VALUES ('BEE',"
             " 'CCTS Compliance Procedure, Annexure IV', 'v1.0', 10, %s, %s)"
             " RETURNING source_id", (URL, rows[0]["source_sha256"])).fetchone()
-        for r in rows:
-            for gas, column, unit in (("co2", "co2_t_per_tj", "tCO2"),
-                                      ("co2e", "co2e_t_per_tj", "tCO2e")):
-                insert_factor(conn, source_id=source_id,
-                              factor_key=f"fuel.{r['slug']}.{gas}",
-                              value=Decimal(r[column]), numerator_unit=unit,
-                              denominator_unit="TJ", valid=VALID)
-    print(f"{2 * len(rows)} fuel factor rows inserted")
+        ranged = 0
+        for r, (low, high) in zip(rows, ipcc_ranges(rows), strict=True):
+            co2, co2e = Decimal(r["co2_t_per_tj"]), Decimal(r["co2e_t_per_tj"])
+            other = co2e - co2   # the CH4 + N2O part, carried without a range
+            for gas, value, unit in (("co2", co2, "tCO2"), ("co2e", co2e, "tCO2e")):
+                shift = other if gas == "co2e" else Decimal(0)
+                insert_factor(
+                    conn, source_id=source_id, factor_key=f"fuel.{r['slug']}.{gas}",
+                    value=value, numerator_unit=unit, denominator_unit="TJ", valid=VALID,
+                    uncertainty_low=None if low is None else low + shift,
+                    uncertainty_high=None if high is None else high + shift,
+                    uncertainty_basis=None if low is None else BASIS)
+            ranged += low is not None
+    print(f"{2 * len(rows)} fuel factor rows inserted; {ranged} fuels carry IPCC's "
+          f"range, {len(rows) - ranged} are point estimates")
+
+
+BASIS = ("IPCC 2006 Guidelines, Vol. 2, Ch. 2, Table 2.2: 95% confidence limits of the "
+         "CO2 default; CH4 and N2O carried without a range")
+
+
+def ipcc_ranges(rows: list[dict]) -> list[tuple[Decimal | None, Decimal | None]]:
+    """IPCC's lower and upper CO2 limits (t/TJ) for each BEE row, or (None, None).
+
+    Invariant 6: a range is attached only where BEE's CO2 value equals IPCC's
+    default. Where they differ (docs/BEE_VS_IPCC.md), IPCC's range describes a
+    different central value, so the factor stays a point estimate.
+    """
+    path = ROOT / "data" / "ipcc" / "table_2_2_co2.csv"
+    if not path.exists():
+        return [(None, None)] * len(rows)
+    with path.open(encoding="utf-8") as fh:
+        ipcc = list(csv.DictReader(fh))
+    out: list[tuple[Decimal | None, Decimal | None]] = []
+    for r, i in zip(rows, ipcc, strict=True):
+        same = Decimal(r["co2_t_per_tj"]) == Decimal(i["co2_default_kg_per_tj"]) / 1000
+        out.append((Decimal(i["co2_lower_kg_per_tj"]) / 1000,
+                    Decimal(i["co2_upper_kg_per_tj"]) / 1000) if same else (None, None))
+    return out
 
 
 if __name__ == "__main__":
