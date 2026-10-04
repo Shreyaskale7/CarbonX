@@ -2,6 +2,10 @@
 safety properties, including proof that the checker catches broken models."""
 import itertools
 import re
+from decimal import Decimal
+
+import psycopg
+import pytest
 
 from carbonx.lifecycle.automaton import (
     DELTA,
@@ -11,6 +15,7 @@ from carbonx.lifecycle.automaton import (
     check,
     correct_transfer,
 )
+from carbonx.lifecycle.registry import apply, create_credit
 
 LIFECYCLE = re.compile(r"i t* (s|r)".replace(" ", ""))  # issue transfer* (surrender|retire)
 LETTER = {Symbol.ISSUE: "i", Symbol.TRANSFER: "t", Symbol.SURRENDER: "s", Symbol.RETIRE: "r"}
@@ -71,3 +76,81 @@ def test_correct_transfer_moves_rather_than_copies():
     from carbonx.lifecycle.automaton import World
     w = World((State.ISSUED,), (frozenset({0}), frozenset()))
     assert correct_transfer(w, 0, 1) == (frozenset(), frozenset({0}))
+
+
+# ---- the database enforces the same automaton (migration 0009) --------------
+
+def _migration_delta():
+    import importlib.util
+    from pathlib import Path
+    path = (Path(__file__).resolve().parents[1] / "db" / "migrations" / "versions"
+            / "0009_credit_lifecycle.py")
+    spec = importlib.util.spec_from_file_location("m0009", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.DELTA_ROWS
+
+
+def test_database_transition_table_equals_the_automaton():
+    """Two copies of delta must never drift: the proofs are about one, the
+    database enforces the other."""
+    in_db = {(State(a), Symbol(s)): State(b) for a, s, b in _migration_delta()}
+    assert in_db == DELTA
+
+
+@pytest.fixture
+def orgs(conn):
+    ids = [conn.execute("INSERT INTO organisation (name) VALUES (%s) RETURNING org_id",
+                        (f"holder {i}",)).fetchone()[0] for i in range(2)]
+    return ids
+
+
+def _rejected(conn, fn):
+    conn.execute("SAVEPOINT s")
+    with pytest.raises(psycopg.errors.RaiseException):
+        fn()
+    conn.execute("ROLLBACK TO SAVEPOINT s")
+
+
+def test_database_walks_a_legal_lifecycle(conn, orgs):
+    a, b = orgs
+    c = create_credit(conn, "FY2025-26", Decimal(100))
+    assert apply(conn, c, Symbol.ISSUE, a) is State.ISSUED
+    assert apply(conn, c, Symbol.TRANSFER, b) is State.HELD
+    assert apply(conn, c, Symbol.SURRENDER) is State.SURRENDERED
+    assert conn.execute("SELECT state, org_id FROM credit WHERE credit_id = %s",
+                        (c,)).fetchone() == ("SURRENDERED", None)
+    history = conn.execute("SELECT from_state, symbol, to_state FROM credit_transition"
+                           " WHERE credit_id = %s ORDER BY transition_id", (c,)).fetchall()
+    assert history == [("NONE", "issue", "ISSUED"), ("ISSUED", "transfer", "HELD"),
+                       ("HELD", "surrender", "SURRENDERED")]
+
+
+def test_database_rejects_what_the_automaton_rejects(conn, orgs):
+    a, b = orgs
+    c = create_credit(conn, "FY2025-26", Decimal(100))
+    _rejected(conn, lambda: apply(conn, c, Symbol.TRANSFER, a))    # not issued yet
+    apply(conn, c, Symbol.ISSUE, a)
+    _rejected(conn, lambda: apply(conn, c, Symbol.ISSUE, b))       # issued twice
+    _rejected(conn, lambda: apply(conn, c, Symbol.TRANSFER, a))    # to its own holder
+    _rejected(conn, lambda: apply(conn, c, Symbol.TRANSFER))       # to nobody
+    apply(conn, c, Symbol.RETIRE)
+    for symbol in Symbol:                                          # P1: terminal absorbs
+        _rejected(conn, lambda s=symbol: apply(
+            conn, c, s, b if s in (Symbol.ISSUE, Symbol.TRANSFER) else None))
+
+
+def test_a_credit_cannot_be_changed_except_by_a_transition(owner_conn):
+    """Even the owner's direct UPDATE is refused, by trigger."""
+    conn = owner_conn
+    (org,) = conn.execute("INSERT INTO organisation (name) VALUES ('h')"
+                          " RETURNING org_id").fetchone()
+    c = create_credit(conn, "FY2025-26", Decimal(100))
+    apply(conn, c, Symbol.ISSUE, org)
+    _rejected(conn, lambda: conn.execute(
+        "UPDATE credit SET state = 'RETIRED', org_id = NULL WHERE credit_id = %s", (c,)))
+    _rejected(conn, lambda: conn.execute("DELETE FROM credit WHERE credit_id = %s", (c,)))
+    _rejected(conn, lambda: conn.execute(
+        "INSERT INTO credit (vintage_year, quantity_tco2e, state, org_id)"
+        " VALUES ('FY2025-26', 1, 'HELD', %s)", (org,)))           # born already held
+    _rejected(conn, lambda: conn.execute("UPDATE credit_transition SET symbol = 'retire'"))

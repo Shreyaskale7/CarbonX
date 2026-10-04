@@ -130,7 +130,30 @@ the tests give it deliberately broken models:
 | transfer *copies* the credit instead of moving it | P2 | `issue, transfer` (shortest) |
 | transfer *drops* the credit | P2/P3 | found |
 
-## 6. Limits
+## 6. The same automaton, enforced in the database
+
+Migration 0009 makes the database refuse what the automaton refuses, even if
+the application is wrong (invariant 3).
+
+- **δ is a table.** `credit_delta(from_state, symbol, to_state)` holds the
+  seven transitions. `test_database_transition_table_equals_the_automaton`
+  checks it equals `DELTA` in `automaton.py`, so the copy the proofs are about
+  and the copy the database enforces cannot drift apart.
+- **A credit changes only through a transition.** Inserting a
+  `credit_transition` row fires a trigger that looks the move up in
+  `credit_delta`, rejects it if absent, writes `from_state` and `to_state`
+  itself, and updates the credit. A direct `UPDATE` or `DELETE` on `credit` is
+  rejected, and transitions are append-only.
+- **How P1–P3 hold there.** P1: `credit_delta` has no row leaving SURRENDERED
+  or RETIRED. P2: the holder is one column, set only by the trigger, and a
+  check constraint ties "has a holder" to "is ISSUED or HELD". P3 follows from
+  P2, as in §4.
+
+The SQL and both trigger functions parse under Postgres's own parser. **The
+database tests have not been run yet**: they need a Postgres, which was not
+available when this was written.
+
+## 7. Limits
 
 - **The proof in §4 is by hand.** It is short and the checker backs it for
   bounded sizes. It is not mechanised in a proof assistant. A TLA+/TLC or
@@ -140,10 +163,5 @@ the tests give it deliberately broken models:
   certificates are in tCO2e amounts and can be split. Splitting would add a
   "split" action and an amount-conservation property (P3 over sums, not
   counts).
-- **Not yet enforced in the database.** The `credit` and `credit_transition`
-  tables exist, but no trigger yet checks a transition against δ. The plan's
-  "belt and braces" (the same rules in the DB) is the next step: a trigger
-  that rejects any `credit_transition` row whose (from, symbol, to) is not in
-  δ, plus a single-holder check.
 - **Who may surrender, and when** (obligated entities with a shortfall, within
   a deadline) is a policy rule, not modelled here.
