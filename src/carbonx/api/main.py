@@ -26,9 +26,11 @@ from carbonx.engine.calculate import (
     record_activity,
     set_audit_context,
 )
+from carbonx.engine.exceptions import exceptions
 from carbonx.engine.provenance import plain, provenance
 from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
 from carbonx.evidence.store import store_document
+from carbonx.extraction import review
 from carbonx.factors.registry import FactorNotFound, Policy
 from carbonx.units.core import DimensionError
 from carbonx.units.lang import LangError
@@ -231,4 +233,39 @@ def verify_report(report_id: int, conn: Conn) -> dict[str, Any]:
     return {"report_id": report_id, "stored_sha256": stored[1],
             "regenerated_sha256": again.sha256,
             "byte_identical": again.output == stored[0]}
+
+
+@app.post("/api/documents/{document_id}/extract")
+def extract(document_id: int, conn: Conn, x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Read consumption_kwh from a stored document. The result is queued for a
+    person to confirm; it is never used on the model's authority alone."""
+    try:
+        set_audit_context(conn, x_actor, None)
+        return plain(review.extract_document(conn, document_id))
+    except EXPECTED as e:
+        raise _fail(e) from e
+
+
+@app.get("/api/review-queue")
+def review_queue(conn: Conn) -> list[dict[str, Any]]:
+    """Unconfirmed extractions, least confident first."""
+    return plain(review.review_queue(conn))
+
+
+@app.post("/api/extractions/{extraction_id}/confirm")
+def confirm_extraction(extraction_id: int, conn: Conn,
+                       x_actor: Actor = "workbench") -> dict[str, Any]:
+    try:
+        set_audit_context(conn, x_actor, "confirmed against the document")
+        review.confirm(conn, extraction_id)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"extraction_id": extraction_id, "human_verified": True}
+
+
+@app.get("/api/exceptions")
+def exception_log(org_id: int, conn: Conn) -> list[dict[str, Any]]:
+    """Conditions a verifier should look at: missing evidence, hash mismatches,
+    corrections after a report, a broken audit chain, unconfirmed extractions."""
+    return plain(exceptions(conn, org_id))
 

@@ -54,6 +54,8 @@
       <input type="file" id="file">
       <button id="upload">Upload and hash</button>
       <div id="upload-msg" class="msg"></div>
+      <button id="extract" hidden>Read consumption from this document</button>
+      <div id="extract-msg" class="msg"></div>
     </section>
     <section>
       <h2>2 · Record consumption</h2>
@@ -87,6 +89,19 @@
       <table style="margin-top:10px"><thead><tr><th>Report</th><th>Policy</th><th>tCO2e</th><th>GEI</th><th>SHA-256</th><th></th></tr></thead>
         <tbody id="reports"></tbody></table>
     </section>
+    <section>
+      <h2>Review queue: extracted values awaiting a person</h2>
+      <p class="muted">Least confident first. The model was trained on synthetic bills, and its confidence is a ranking, not a calibrated probability, so nothing here is used until someone confirms it.</p>
+      <table><thead><tr><th>Document</th><th>Field</th><th>Read as</th><th>Confidence</th><th></th></tr></thead>
+        <tbody id="queue"></tbody></table>
+      <p id="queue-empty" class="muted">Nothing waiting.</p>
+    </section>
+    <section>
+      <h2>Exceptions</h2>
+      <p class="muted">Facts a verifier should look at. An empty list means none of these conditions was found, not that the figures are correct.</p>
+      <button id="load-exceptions" style="width:auto;padding:6px 14px;margin-top:0">Check the selected organisation</button>
+      <table style="margin-top:10px"><tbody id="exceptions"></tbody></table>
+    </section>
     <section id="prov-section" hidden>
       <h2>Provenance: calculation <span id="prov-id"></span></h2>
       <div id="prov" class="chain"></div>
@@ -119,7 +134,38 @@ async function init() {
     `<option value="${id}">${esc(name)}</option>`).join("");
   window.POLICIES = policies;
   await loadLedger();
+  await loadQueue();
 }
+
+async function loadQueue() {
+  const rows = await api("/api/review-queue");
+  $("queue-empty").hidden = rows.length > 0;
+  $("queue").innerHTML = rows.map((r) => `<tr>
+    <td>${esc(r.filename)} <span class="muted">(#${esc(r.document_id)})</span></td>
+    <td>${esc(r.field_name)}</td>
+    <td class="num">${r.parsed_value === null ? "nothing found" : `${esc(r.parsed_value)} ${esc(r.unit)}`}</td>
+    <td class="num">${r.confidence === null ? "—" : esc(r.confidence)}</td>
+    <td><button class="link" data-confirm="${r.extraction_id}">Confirm</button></td></tr>`).join("");
+}
+
+async function loadExceptions() {
+  const rows = await api(`/api/exceptions?org_id=${+$("rep-org").value}`);
+  $("exceptions").innerHTML = rows.length
+    ? rows.map((r) => `<tr><td class="${r.severity === "high" ? "err" : ""}">${esc(r.severity)}</td>
+        <td>${esc(r.kind)}</td><td>${esc(r.detail)}</td></tr>`).join("")
+    : `<tr><td class="muted">None of the checked conditions was found.</td></tr>`;
+}
+$("load-exceptions").onclick = () => loadExceptions().catch((e) => alert(e.message));
+$("extract").onclick = async () => {
+  const msg = $("extract-msg");
+  try {
+    const r = await api(`/api/documents/${+$("doc").value}/extract`, {method: "POST"});
+    msg.className = "msg ok";
+    msg.textContent = r.parsed_value === null ? "No consumption value found."
+      : `Read ${r.parsed_value} kWh (confidence ${r.confidence}). Queued for review.`;
+    await loadQueue();
+  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+};
 
 async function runReports() {
   const msg = $("reports-msg"), base = $("rep-base").value.trim();
@@ -219,6 +265,7 @@ $("upload").onclick = async () => {
     $("doc").value = d.document_id;
     msg.className = "msg ok";
     msg.innerHTML = `${d.created ? "Stored" : "Already stored"} as document ${d.document_id}.<br>SHA-256 <code>${esc(d.sha256)}</code>`;
+    $("extract").hidden = false;
   } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
 };
 
@@ -239,6 +286,10 @@ document.addEventListener("click", async (ev) => {
   const t = ev.target;
   try {
     if (t.dataset.calc) await showProvenance(t.dataset.calc);
+    if (t.dataset.confirm) {
+      await api(`/api/extractions/${t.dataset.confirm}/confirm`, {method: "POST"});
+      await loadQueue();
+    }
     if (t.dataset.verify) {
       const v = await api(`/api/reports/${t.dataset.verify}/verify`), out = $(`v-${t.dataset.verify}`);
       out.className = v.byte_identical ? "msg ok" : "msg err";

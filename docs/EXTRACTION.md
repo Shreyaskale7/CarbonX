@@ -120,8 +120,10 @@ Reading it honestly:
   (`extraction_result.human_verified`).
 - **The intended use is triage**, which is what a verifier's sampling queue
   needs: send low-confidence extractions to a person.
-- **Storing results** in `extraction_result` is not wired up yet. The
-  extractor is a pure function of text.
+- **Storing results.** `extraction/review.py` records each extraction in
+  `extraction_result` with the model version, and queues it for a person to
+  confirm, least confident first. Only the confirmation can change afterwards
+  (migration 0010). Not yet run against a database.
 
 ## 6. Limits
 

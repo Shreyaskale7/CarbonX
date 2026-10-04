@@ -31,7 +31,8 @@ Roles are ownership, not silos.
 | Scope 1 fuel combustion (BEE Annexure IV) | `scripts/load_bee_factors.py`, `data/bee/`, engine `fuel.<slug>` | Data / DB |
 | BEE vs IPCC comparison; uncertainty propagation | `scripts/compare_bee_ipcc.py`, `src/carbonx/uncertainty/`, `docs/UNCERTAINTY.md` | ML + Research |
 | Bill extraction: baseline, model, calibration, evaluation | `src/carbonx/extraction/`, `scripts/eval_extraction.py`, `docs/EXTRACTION.md` | ML |
-| Credit lifecycle automaton + model checker | `src/carbonx/lifecycle/automaton.py`, `docs/LIFECYCLE.md` | Formal |
+| Credit lifecycle automaton, model checker, DB enforcement | `src/carbonx/lifecycle/`, migration 0009, `docs/LIFECYCLE.md` | Formal |
+| Review queue and exception log | `src/carbonx/extraction/review.py`, `src/carbonx/engine/exceptions.py`, migration 0010 | ML + Data / DB |
 | Reproducible reports + adversarial log | `src/carbonx/engine/report.py`, `tests/test_reproducibility.py` | Data / DB + Formal |
 
 Suggested way in for each owner: pick one test in your area, break the code it
