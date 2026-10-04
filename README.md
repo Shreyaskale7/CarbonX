@@ -71,8 +71,10 @@ byte-identically. The API and provenance page:
 | `docs/BUILD_PLAN.md` | Ten phases with acceptance tests |
 | `db/schema.sql` | Full schema, commented |
 | `docs/RQ3_FINDINGS.md` | Does BEE specify the factor vintage? (Phase 0) |
+| `docs/RQ1_RESULTS.md` | When a grid-factor change alone crosses 5%, generated |
 | `docs/RQ2_RESULTS.md` | Year-on-year CEA factor changes, generated |
 | `docs/TYPE_SOUNDNESS.md` | Dimensional type system: rules, proof, limits |
+| `docs/LIFECYCLE.md` | Credit lifecycle automaton, safety proofs, model checking |
 | `docs/ADVERSARIAL_LOG.md` | Every attempt to break invariant 1, and what it found |
 
 ## The invariant everything rests on

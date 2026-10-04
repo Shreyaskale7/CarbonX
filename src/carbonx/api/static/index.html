@@ -74,6 +74,19 @@
         <th>tCO2e</th><th>Policy</th><th></th></tr></thead><tbody id="ledger"></tbody></table>
       <p id="ledger-empty" class="muted">No entries yet.</p>
     </section>
+    <section>
+      <h2>Reports: same data, every factor policy</h2>
+      <p class="muted">Each report is computed as of now, hashed and stored immutably. "Verify" regenerates it as of its own time and compares byte for byte, even after factors are revised or data corrected.</p>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        <div><label for="rep-org">Organisation</label><select id="rep-org"></select></div>
+        <div><label for="rep-fy">Compliance year</label><input id="rep-fy" value="FY2025-26" style="width:130px"></div>
+        <div><label for="rep-base">Baseline year (for BASELINE_FROZEN)</label><input id="rep-base" placeholder="optional, e.g. FY2023-24" style="width:200px"></div>
+        <div><button id="run-reports" style="width:auto;padding:6px 14px">Generate under each policy</button></div>
+      </div>
+      <div id="reports-msg" class="msg"></div>
+      <table style="margin-top:10px"><thead><tr><th>Report</th><th>Policy</th><th>tCO2e</th><th>GEI</th><th>SHA-256</th><th></th></tr></thead>
+        <tbody id="reports"></tbody></table>
+    </section>
     <section id="prov-section" hidden>
       <h2>Provenance: calculation <span id="prov-id"></span></h2>
       <div id="prov" class="chain"></div>
@@ -101,8 +114,37 @@ async function init() {
   $("facility").innerHTML = facilities.map((f) =>
     `<option value="${f.facility_id}">${esc(f.name)} (${esc(f.organisation)})</option>`).join("");
   $("policy").innerHTML = policies.map((p) => `<option>${esc(p)}</option>`).join("");
+  const orgs = [...new Map(facilities.map((f) => [f.org_id, f.organisation])).entries()];
+  $("rep-org").innerHTML = orgs.map(([id, name]) =>
+    `<option value="${id}">${esc(name)}</option>`).join("");
+  window.POLICIES = policies;
   await loadLedger();
 }
+
+async function runReports() {
+  const msg = $("reports-msg"), base = $("rep-base").value.trim();
+  msg.className = "msg"; msg.textContent = "Generating…";
+  try {
+    for (const policy of window.POLICIES) {
+      if (policy === "BASELINE_FROZEN" && !base) continue;
+      const r = await api("/api/reports", {method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({org_id: +$("rep-org").value, compliance_year: $("rep-fy").value,
+                              policy, baseline_year: base || null})});
+      const unit = r.facilities.length === 1 ? (r.facilities[0].gei_unit || "") : "";
+      $("reports").insertAdjacentHTML("afterbegin", `<tr>
+        <td>${esc(r.report_id)}</td><td>${esc(r.policy)}</td>
+        <td class="num">${esc(r.total_tco2e)}${r.unresolved ? ` <span class="err">(${r.unresolved} unresolved)</span>` : ""}</td>
+        <td class="num">${r.gei ? `${esc(r.gei)} ${esc(unit)}` : "—"}</td>
+        <td><code>${esc(r.sha256.slice(0, 16))}…</code></td>
+        <td><button class="link" data-verify="${r.report_id}">Verify</button>
+            <span id="v-${r.report_id}" class="msg"></span></td></tr>`);
+    }
+    msg.className = "msg ok";
+    msg.textContent = base ? "Done." : "Done. (Add a baseline year to include BASELINE_FROZEN.)";
+  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+}
+$("run-reports").onclick = runReports;
 
 async function loadLedger() {
   const rows = await api("/api/emissions");
@@ -197,6 +239,13 @@ document.addEventListener("click", async (ev) => {
   const t = ev.target;
   try {
     if (t.dataset.calc) await showProvenance(t.dataset.calc);
+    if (t.dataset.verify) {
+      const v = await api(`/api/reports/${t.dataset.verify}/verify`), out = $(`v-${t.dataset.verify}`);
+      out.className = v.byte_identical ? "msg ok" : "msg err";
+      out.textContent = v.byte_identical
+        ? `byte-identical ✓ (${v.regenerated_sha256.slice(0, 12)}…)`
+        : `DIFFERS: ${v.regenerated_sha256.slice(0, 12)}…`;
+    }
     if (t.dataset.edit) {
       const qty = prompt("Corrected quantity (kWh):", t.dataset.qty);
       if (qty === null) return;

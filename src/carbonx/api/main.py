@@ -6,6 +6,7 @@ No authentication: a local research prototype (multi-role RBAC is out of
 scope). The actor recorded in the audit trail is the X-Actor header.
 """
 
+import json
 from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
@@ -18,7 +19,7 @@ from fastapi.responses import FileResponse
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
-from carbonx import db
+from carbonx.db import url as database_url
 from carbonx.engine.calculate import (
     calculate,
     edit_activity,
@@ -26,12 +27,13 @@ from carbonx.engine.calculate import (
     set_audit_context,
 )
 from carbonx.engine.provenance import plain, provenance
+from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
 from carbonx.evidence.store import store_document
 from carbonx.factors.registry import FactorNotFound, Policy
 from carbonx.units.core import DimensionError
 from carbonx.units.lang import LangError
 
-URL = db.url()
+URL = database_url()
 MAX_UPLOAD = 20 * 1024 * 1024
 PAGE = Path(__file__).with_name("static") / "index.html"
 
@@ -56,7 +58,7 @@ def _fail(e: Exception) -> HTTPException:
     return HTTPException(status, f"{type(e).__name__}: {e}")
 
 
-EXPECTED = (ValueError, LookupError, DimensionError, LangError,
+EXPECTED = (ValueError, LookupError, DimensionError, LangError, EngineVersionMismatch,
             psycopg.errors.ExclusionViolation)
 
 
@@ -180,3 +182,48 @@ def calculation_provenance(calculation_id: int, conn: Conn) -> dict[str, Any]:
         return provenance(conn, calculation_id)
     except LookupError as e:
         raise _fail(e) from e
+
+
+class ReportIn(BaseModel):
+    org_id: int
+    compliance_year: str = "FY2025-26"
+    policy: Policy = Policy.VINTAGE_MATCHED
+    baseline_year: str | None = None
+
+
+def _report_summary(output: str, report_id: int, sha256: str) -> dict[str, Any]:
+    out = json.loads(output)
+    return {"report_id": report_id, "policy": out["policy"], "as_of": out["as_of"],
+            "total_tco2e": out["totals"]["total_tco2e"], "gei": out["gei"],
+            "facilities": out["facilities"], "unresolved": len(out["unresolved"]),
+            "sha256": sha256}
+
+
+@app.post("/api/reports")
+def create_report(body: ReportIn, conn: Conn,
+                  x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Generate and store a report AS OF now (immutable, hashed)."""
+    try:
+        set_audit_context(conn, x_actor, None)
+        r = generate_report(conn, body.org_id, body.compliance_year, body.policy,
+                            body.baseline_year)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return _report_summary(r.output, r.report_id, r.sha256)
+
+
+@app.get("/api/reports/{report_id}/verify")
+def verify_report(report_id: int, conn: Conn) -> dict[str, Any]:
+    """Regenerate a stored report AS OF its own time and compare byte for byte."""
+    stored = conn.execute("SELECT output, output_sha256 FROM report WHERE report_id = %s",
+                          (report_id,)).fetchone()
+    if stored is None:
+        raise HTTPException(404, f"no report {report_id}")
+    try:
+        again = regenerate(conn, report_id)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"report_id": report_id, "stored_sha256": stored[1],
+            "regenerated_sha256": again.sha256,
+            "byte_identical": again.output == stored[0]}
+

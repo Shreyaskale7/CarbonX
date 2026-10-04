@@ -22,9 +22,9 @@ Source: the LLM council verdict, `docs/council/council-report-20260926-2120.html
 | # | Component | Proposal |
 |---|---|---|
 | 7 | Document extraction (AI/ML) | pdfplumber baseline plus a small model with **calibrated** confidence and an honest held-out split. **Decision point at week 4:** fewer than about 30 real bills means switch to synthetic bills and say so. |
-| 10 | Credit lifecycle automaton (ToC) | 5 states; safety properties **model-checked** (TLA+/TLC or equivalent), not just tested. |
+| 10 | Credit lifecycle automaton (ToC) | **Built 2026-09-26**: 5-state DFA, inductive proofs of P1–P3, explicit-state model checker with shortest counterexamples and mutation tests (`docs/LIFECYCLE.md`). Still to do: DB-level enforcement of δ; optionally TLA+. |
 | 2 | Denominator (production basis) versioning | **Built 2026-09-26** (migration 0006, `engine/production.py`). GEI is computed per facility; it is withheld with a reason for multi-product plants (equivalent-product conversion not built). This was already in scope, so no sign-off is needed. |
-| 5 | Materiality engine + RQ1 curve | After the denominator. Needs cited per-sector Scope 1/2 splits. |
+| 5 | Materiality engine + RQ1 curve | **Engine and sector-agnostic curve built 2026-09-26** (`materiality/assess.py`, `docs/RQ1_RESULTS.md`). Per-sector placement still needs cited Scope 2 shares *of the 2024-27 target basis* in `data/sector_scope2_shares.csv`. |
 
 ## Rejected by the council (recorded so nobody re-proposes them silently)
 

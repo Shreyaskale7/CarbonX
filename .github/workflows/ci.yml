@@ -43,5 +43,7 @@ jobs:
           python -m carbonx.engine.calculate --org 1 --policy VINTAGE_MATCHED
           python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
       - run: pytest -q
-      - name: RQ2 results are up to date with the registry
-        run: python scripts/rq2_deltas.py && git diff --exit-code docs/RQ2_RESULTS.md
+      - name: RQ1 and RQ2 results are up to date with the registry
+        run: |
+          python scripts/rq1_materiality.py && python scripts/rq2_deltas.py
+          git diff --exit-code docs/RQ1_RESULTS.md docs/RQ2_RESULTS.md

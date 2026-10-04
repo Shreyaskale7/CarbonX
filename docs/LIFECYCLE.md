@@ -1,0 +1,149 @@
+# Credit lifecycle: automaton, safety properties, and how they are checked
+
+Code: `src/carbonx/lifecycle/automaton.py` (under `mypy --strict`). Tests:
+`tests/test_lifecycle.py`. This is component 10 of CLAUDE.md, a ToC
+deliverable, shaped by the council ruling of 26 Sep 2026: *keep it small; make
+the safety properties model-checked, not just tested.*
+
+This is a lifecycle model, **not** trading: no order book, prices or matching
+(all out of scope). Trading happens on IEX/PXIL; this models what the registry
+must never allow.
+
+## 1. The automaton
+
+A deterministic finite automaton A = (Q, Σ, δ, q₀, F):
+
+- Q = {NONE, ISSUED, HELD, SURRENDERED, RETIRED}
+- Σ = {issue, transfer, surrender, retire}
+- q₀ = NONE
+- F = {SURRENDERED, RETIRED}
+- δ is **partial**; any pair not listed is rejected (`IllegalTransition`):
+
+```
+NONE   --issue-->     ISSUED
+ISSUED --transfer-->  HELD        HELD --transfer--> HELD
+ISSUED --surrender--> SURRENDERED HELD --surrender--> SURRENDERED
+ISSUED --retire-->    RETIRED     HELD --retire-->    RETIRED
+```
+
+**Language.** L(A) = `issue · transfer* · (surrender | retire)`: one issue, any
+number of transfers, then exactly one terminal act.
+
+**Proof.** Read off δ:
+- the only transition out of q₀ is `issue`, to ISSUED;
+- from ISSUED and HELD, `transfer` leads to HELD, and HELD loops on `transfer`;
+- from ISSUED and HELD, `surrender` or `retire` leads into F;
+- F has no outgoing transitions at all.
+
+So a word reaches F exactly when it is one `issue`, then zero or more
+`transfer`s, then one of `surrender` or `retire`, which is the expression
+above. ∎
+
+**Also checked by test** (`test_automaton_accepts_exactly_the_regular_language`):
+A and the regular expression agree on every word over Σ up to length 7, all
+21,845 of them. That is a bounded check, not a proof. Two automata this size
+could first disagree on a longer word, which is why the proof above is the
+argument and the test is the evidence.
+
+## 2. The registry as a transition system
+
+One credit is a word. A registry is many credits and organisations, and
+bugs live in how they interact. A registry state is
+
+  W = (s₁ … s_N, H₁ … H_M)
+
+where sᵢ ∈ Q is credit i's state and H_o ⊆ {1..N} is the set of credits that
+organisation o holds. Holdings are stored as *sets per organisation*, not as
+one owner per credit, **so that a credit held by two organisations is
+representable**. A model where double holding cannot even be written down
+would make P2 true by construction, and checking it would prove nothing.
+
+Actions, each enabled only where δ allows:
+
+| Action | Effect |
+|---|---|
+| issue(i, o) | sᵢ: NONE → ISSUED, and i is added to H_o |
+| transfer(i, o) | sᵢ → HELD; i is removed from its holder and added to H_o, for o not currently holding i |
+| surrender(i), retire(i) | sᵢ → terminal; i is removed from every H |
+
+## 3. Safety properties
+
+- **P1: terminal states are absorbing.** No reachable path takes a surrendered
+  or retired credit anywhere else (no re-surrender, no re-trade).
+- **P2: exactly one holder while live.** A credit in ISSUED or HELD is in
+  exactly one H_o; a credit in NONE, SURRENDERED or RETIRED is in none.
+- **P3: conservation.** issued = |⋃ H_o| + #surrendered + #retired.
+
+## 4. Proof for all N and M
+
+**P1** is a property of δ alone: no pair (q, σ) with q ∈ F appears in δ, so
+from a terminal state every symbol is rejected. This holds for every N and M,
+because the registry only ever moves a credit along δ. The checker verifies
+the premise directly and refuses to explore a δ that violates it.
+
+**P2 is an inductive invariant.** Write I(W) for "for every i, sᵢ is live ⇔ i
+belongs to exactly one H_o". Then:
+
+- *Base.* In the initial state every sᵢ = NONE and every H_o = ∅, so I holds.
+- *Step.* Each action changes exactly one credit i, and leaves every j ≠ i
+  and its holdings untouched. So it suffices to check i, action by action:
+  - **issue:** sᵢ was NONE, so by I it was in no H. It is now ISSUED and in
+    exactly H_o.
+  - **transfer:** sᵢ was live, so by I it was in exactly one H_p. The correct
+    transfer removes i from H_p and adds it to H_o, where o ≠ p. It is still
+    live, and in exactly one H.
+  - **surrender / retire:** i becomes terminal and is removed from every H,
+    so it is in none.
+
+  In every case I holds afterwards.
+
+**P3 follows from P2.** Under I, the live credits are exactly the elements of
+⋃ H_o, and they are pairwise distinct across organisations, so |⋃ H_o| equals
+the number of live credits. Every issued credit is either live or terminal,
+so issued = live + terminal = |⋃ H_o| + #surrendered + #retired. ∎
+
+## 5. Model checking: the mechanical evidence
+
+`check(N, M)` explores the whole reachable state space breadth-first. It checks
+P2 and P3 in every state, and P1 on δ. When a property fails it returns a
+**shortest** counterexample (the sequence of actions that reaches the bad
+state).
+
+| N credits | M orgs | States explored | Expected (3+2M)ᴺ | Transitions | Violation |
+|---|---|---|---|---|---|
+| 2 | 2 | 49 | 7² = 49 | 196 | none |
+| 3 | 3 | 729 | 9³ = 729 | 6,561 | none |
+| 4 | 3 | 6,561 | 9⁴ = 6,561 | 78,732 | none |
+
+**Why "expected".** With M ≥ 2 organisations, each credit can be in exactly
+3 + 2M situations: unissued, surrendered, retired, or ISSUED or HELD at one of
+the M organisations. So a complete exploration must visit (3+2M)ᴺ states. The
+explored count matches exactly, which is evidence that the search skipped
+nothing. It is asserted in the test.
+
+**The checker is not vacuous.** A checker that never fails proves nothing, so
+the tests give it deliberately broken models:
+
+| Mutant | Found | Counterexample |
+|---|---|---|
+| δ gains RETIRED --transfer--> HELD | P1 | rejected before exploration |
+| transfer *copies* the credit instead of moving it | P2 | `issue, transfer` (shortest) |
+| transfer *drops* the credit | P2/P3 | found |
+
+## 6. Limits
+
+- **The proof in §4 is by hand.** It is short and the checker backs it for
+  bounded sizes. It is not mechanised in a proof assistant. A TLA+/TLC or
+  Lean version would be the upgrade if the ToC examiner wants machine-checked
+  proofs for all N.
+- **The model has no quantities.** A credit is one indivisible unit. Real
+  certificates are in tCO2e amounts and can be split. Splitting would add a
+  "split" action and an amount-conservation property (P3 over sums, not
+  counts).
+- **Not yet enforced in the database.** The `credit` and `credit_transition`
+  tables exist, but no trigger yet checks a transition against δ. The plan's
+  "belt and braces" (the same rules in the DB) is the next step: a trigger
+  that rejects any `credit_transition` row whose (from, symbol, to) is not in
+  δ, plus a single-holder check.
+- **Who may surrender, and when** (obligated entities with a shortfall, within
+  a deadline) is a policy rule, not modelled here.

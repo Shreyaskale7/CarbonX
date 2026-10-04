@@ -26,6 +26,9 @@ Roles are ownership, not silos.
 | Engine, evidence store, provenance, API | `src/carbonx/engine/`, `src/carbonx/evidence/`, `src/carbonx/api/` | Data / DB |
 | Production and GEI (denominator) | `src/carbonx/engine/production.py`, migration 0006 | Data / DB |
 | Least-privilege app role | `src/carbonx/db.py`, migration 0005 | Data / DB |
+| Materiality engine (5% base-year recalculation) | `src/carbonx/materiality/assess.py`, migration 0007 | Data / DB + Research |
+| RQ1 sensitivity curve | `scripts/rq1_materiality.py`, `docs/RQ1_RESULTS.md`, `data/sector_scope2_shares.csv` | Research |
+| Credit lifecycle automaton + model checker | `src/carbonx/lifecycle/automaton.py`, `docs/LIFECYCLE.md` | Formal |
 | Reproducible reports + adversarial log | `src/carbonx/engine/report.py`, `tests/test_reproducibility.py` | Data / DB + Formal |
 
 Suggested way in for each owner: pick one test in your area, break the code it

@@ -112,3 +112,24 @@ def test_gei_is_withheld_rather_than_wrong(conn, plant, setup, reason):
     (fac,) = out["facilities"]
     assert fac["gei"] is None and out["gei"] is None
     assert reason in fac["gei_withheld_because"]
+
+
+def test_report_api_generates_and_verifies(conn, plant):
+    """The viva demo path: generate under a policy, then verify byte-identity."""
+    from fastapi.testclient import TestClient
+
+    from carbonx.api import main as api
+    org_id, facility_id = plant
+    record_production(conn, facility_id=facility_id, product_code="al", unit="t",
+                      quantity=Decimal("98.0"), **APRIL)
+    api.app.dependency_overrides[api.db] = lambda: conn
+    try:
+        client = TestClient(api.app)
+        r = client.post("/api/reports", json={"org_id": org_id, "policy": "VINTAGE_MATCHED"})
+        assert r.status_code == 200, r.text
+        assert r.json()["gei"] == "10.000000000"
+        v = client.get(f"/api/reports/{r.json()['report_id']}/verify").json()
+        assert v["byte_identical"] and v["regenerated_sha256"] == r.json()["sha256"]
+        assert client.get("/api/reports/999999999/verify").status_code == 404
+    finally:
+        api.app.dependency_overrides.clear()
