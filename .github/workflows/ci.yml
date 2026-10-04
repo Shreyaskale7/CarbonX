@@ -47,3 +47,7 @@ jobs:
         run: |
           python scripts/rq1_materiality.py && python scripts/rq2_deltas.py
           git diff --exit-code docs/RQ1_RESULTS.md docs/RQ2_RESULTS.md
+      # Runs, but is not diffed: it comes from a numerical optimiser, so the
+      # last printed digit may differ across platforms and library versions.
+      - name: extraction evaluation runs
+        run: python scripts/eval_extraction.py

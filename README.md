@@ -75,6 +75,7 @@ byte-identically. The API and provenance page:
 | `docs/RQ2_RESULTS.md` | Year-on-year CEA factor changes, generated |
 | `docs/TYPE_SOUNDNESS.md` | Dimensional type system: rules, proof, limits |
 | `docs/LIFECYCLE.md` | Credit lifecycle automaton, safety proofs, model checking |
+| `docs/EXTRACTION.md` | Bill extraction: method, what development found, limits (synthetic data) |
 | `docs/ADVERSARIAL_LOG.md` | Every attempt to break invariant 1, and what it found |
 
 ## The invariant everything rests on
