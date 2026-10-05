@@ -123,7 +123,7 @@ Reading it honestly:
 - **Storing results.** `extraction/review.py` records each extraction in
   `extraction_result` with the model version, and queues it for a person to
   confirm, least confident first. Only the confirmation can change afterwards
-  (migration 0010). Not yet run against a database.
+  (migration 0010). Its tests pass on the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI is the authority and has not run yet.
 
 ## 6. Limits
 

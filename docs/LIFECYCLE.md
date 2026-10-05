@@ -149,9 +149,7 @@ the application is wrong (invariant 3).
   check constraint ties "has a holder" to "is ISSUED or HELD". P3 follows from
   P2, as in §4.
 
-The SQL and both trigger functions parse under Postgres's own parser. **The
-database tests have not been run yet**: they need a Postgres, which was not
-available when this was written.
+The three database tests pass on the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI is the authority and has not run yet.
 
 ## 7. Limits
 

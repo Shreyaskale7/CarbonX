@@ -43,6 +43,12 @@ any real entity.
     pytest                               # DB invariants, registry, engine, reports
     python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
 
+**No Docker?** `pip install pixeltable-pgserver`, then
+`python scripts/dev_pg.py reset` and `eval "$(python scripts/dev_pg.py env)"`
+give a local Postgres with every migration applied. It is a stand-in
+(Postgres 18, with two missing extensions emulated; the script explains how),
+good for development. CI on Postgres 16 remains the authority.
+
 Migrations run as the schema owner. Everything else (API, engine, scripts,
 tests) connects as `carbonx_app`, a role that cannot delete, truncate, alter
 schema or switch triggers off, so the database's rules hold against the

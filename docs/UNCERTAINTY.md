@@ -92,5 +92,7 @@ against an independent estimate.
 - **The band is not part of a report's hash.** It is computed from the
   report's stored output and the immutable factor rows it pinned, so it is
   reproducible, but it is rendered in floating point, not exact arithmetic.
-- **Not run against a database yet.** The arithmetic is tested; reading a
-  stored report (`for_report`) is not.
+- **Checked on a development database only.** The arithmetic is unit-tested.
+  Reading a stored report (`for_report`) was checked by hand on
+  the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI is the authority and has not run yet.
+  It has no automated database test.
