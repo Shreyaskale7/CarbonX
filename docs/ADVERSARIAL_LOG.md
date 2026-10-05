@@ -140,7 +140,12 @@ activities, then 1–8 operations drawn from:
 - **rename:** the organisation and facility, with arbitrary Unicode;
 - **tamper factor source** and **move facility:** must be rejected;
 - **production arrives** and **production correction:** the GEI
-  denominator changes after the report was taken.
+  denominator changes after the report was taken;
+- **new fuel factor**, **fuel arrives** and **fuel correction** (added
+  2026-10-05): a default fuel factor is superseded; natural gas is recorded
+  with an NCV; its quantity and NCV are corrected later. If any fuel was
+  recorded, the test also asserts that the last report contains a fuel
+  line, so these operations cannot pass by doing nothing.
 
 After the initial state and after **every** operation, it generates a report
 under **all four** policies. At the end it regenerates every one of them and
@@ -186,9 +191,10 @@ against the application, not against the DBA.
   transactions (attempts 1, 5, 6) is covered by targeted two-connection tests,
   which commit real rows under uniquely named organisations; the ledger is
   append-only, so those rows cannot be removed.
-- **Reports cover Scope 2 grid electricity only.** Production and GEI
-  (component 2, migration 0006) are covered, and the property test corrects
-  production mid-sequence. GEI is withheld, with a stated reason, for
+- **Reports cover grid electricity (Scope 2) and fuel combustion (Scope 1),
+  not process emissions.** Production and GEI (component 2, migration 0006)
+  are covered, and the property test corrects production and fuel
+  mid-sequence. GEI is withheld, with a stated reason, for
   multi-product facilities, because equivalent-product conversion is not
   built.
 - **Reports block writers briefly.** Report generation holds the global write

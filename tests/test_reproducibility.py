@@ -32,6 +32,7 @@ from carbonx.engine.report import (
 from carbonx.factors.registry import POLICY_DESCRIPTIONS, Policy, insert_factor
 
 GRID = "grid.weighted_avg_incl_re_captive.incl_imports"
+GAS = "fuel.natural_gas.co2e"
 FY = "FY2025-26"
 FACTOR_FYS = ["FY2023-24", "FY2024-25", "FY2025-26"]
 MONTHS = [(date(2025 + (m >= 9), (3 + m) % 12 + 1, 1)) for m in range(12)]  # Apr..Mar
@@ -67,6 +68,8 @@ def _raises_db_error(conn, sql, params=(), exc=REJECTED):
 values = st.decimals("0.500", "1.000", places=3)
 published = st.dates(date(2023, 1, 1), date(2027, 12, 31))
 quantities = st.integers(0, 2_000_000).map(Decimal)
+fuel_values = st.decimals("40.000", "110.000", places=3)   # tCO2e/TJ
+ncvs = st.decimals("20.0", "55.0", places=1)               # GJ/t
 ops = st.lists(st.one_of(
     st.tuples(st.just("new_factor_version"), st.sampled_from(FACTOR_FYS), values, published),
     st.tuples(st.just("late_older_version"), st.sampled_from(FACTOR_FYS), values, published),
@@ -78,6 +81,9 @@ ops = st.lists(st.one_of(
     st.tuples(st.just("move_facility")),
     st.tuples(st.just("production_arrives"), st.integers(0, 11), quantities),
     st.tuples(st.just("production_correction"), st.integers(0, 11), quantities),
+    st.tuples(st.just("new_fuel_factor"), fuel_values, published),
+    st.tuples(st.just("fuel_arrives"), st.integers(0, 11), quantities, ncvs),
+    st.tuples(st.just("fuel_correction"), st.integers(0, 11), quantities, ncvs),
 ), min_size=1, max_size=8)
 
 
@@ -98,16 +104,20 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
         counters = {"new": 100_000, "late": 50_000}
         current: dict[int, int] = {}
         produced: dict[int, int] = {}
+        burned: dict[int, int] = {}
 
-        def add_factor(kind, fy, value, pub):
+        def add_factor(kind, fy, value, pub, key=GRID, units=("tCO2", "MWh")):
             counters[kind] += 1
             (source_id,) = conn.execute(
                 "INSERT INTO factor_source (publisher, dataset_name, version_label,"
                 " version_ordinal, published_on, source_url) VALUES ('TEST', 'synthetic',"
                 " %s, %s, %s, 'https://example.test') RETURNING source_id",
                 (f"{kind}-{counters[kind]}", counters[kind], pub)).fetchone()
-            insert_factor(conn, source_id=source_id, factor_key=GRID, value=value,
-                          numerator_unit="tCO2", denominator_unit="MWh", fy=fy)
+            insert_factor(conn, source_id=source_id, factor_key=key, value=value,
+                          numerator_unit=units[0], denominator_unit=units[1], fy=fy)
+
+        def add_fuel_factor(value, pub):
+            add_factor("new", FY, value, pub, GAS, ("tCO2e", "TJ"))
 
         def arrive(m, qty):
             if m not in current:
@@ -117,6 +127,7 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
                     quantity=qty, unit="kWh")
 
         add_factor("new", "FY2025-26", Decimal("0.700"), date(2026, 1, 1))
+        add_fuel_factor(Decimal("56.155"), date(2024, 7, 1))
         for m in sorted(initial):
             arrive(m, Decimal(1_000_000))
         reports = _reports(conn, org_id)
@@ -147,11 +158,24 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
             elif op == "production_correction" and args[0] in produced:
                 produced[args[0]] = edit_production(
                     conn, produced[args[0]], quantity=args[1] / 1000, reason="re-weighed")
+            elif op == "new_fuel_factor":     # a default fuel factor is superseded
+                add_fuel_factor(*args)
+            elif op == "fuel_arrives" and args[0] not in burned:
+                burned[args[0]] = record_activity(
+                    conn, facility_id=facility_id, activity_type="fuel.natural_gas",
+                    period_start=MONTHS[args[0]], period_end=_month_end(MONTHS[args[0]]),
+                    quantity=args[1] / 1000, unit="t", ncv=args[2], ncv_unit="GJ/t")
+            elif op == "fuel_correction" and args[0] in burned:  # quantity and NCV
+                burned[args[0]], _ = edit_activity(
+                    conn, burned[args[0]], quantity=args[1] / 1000, ncv=args[2],
+                    reason="lab NCV and weighbridge correction")
             elif op == "move_facility":
                 _raises_db_error(conn, "UPDATE facility SET org_id = %s"
                                  " WHERE facility_id = %s", (other_org, facility_id))
             reports += _reports(conn, org_id)
 
+        if burned:  # not vacuous: the fuel lines did reach the reports
+            assert '"fuel.natural_gas"' in reports[-1].output
         for r in reports:
             again = regenerate(conn, r.report_id)
             assert again.output == r.output
