@@ -9,8 +9,9 @@ Two extractors, so the learned one has a floor to beat:
                       wins. Its confidence is temperature-scaled on a held-out
                       validation split, because raw scores are over-confident.
 
-Only consumption_kwh is extracted: it is the value that feeds emissions.
-Period, meter id and issuer are not built yet.
+The model covers consumption_kwh, the value that feeds emissions. The billing
+period and meter id are read by rules only (period, meter_id); the issuer is
+not extracted.
 
 Invariant 6: the confidence stored for an extraction must be the CALIBRATED
 one. ece() measures how far confidence is from accuracy.
@@ -21,6 +22,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from datetime import date
 from itertools import pairwise
 from pathlib import Path
 
@@ -234,3 +236,44 @@ def ece(confidences: list[float], correct: list[bool], bins: int = 10) -> float:
         if mask.any():
             total += mask.mean() * abs(ok[mask].mean() - conf[mask].mean())
     return float(total)
+
+
+# ---- other fields: rules only ------------------------------------------------
+# Written from the training layouts (1-5) and never adjusted after seeing the
+# others. There is no model and no confidence for these fields.
+
+_DATE = re.compile(r"\b(\d{2})[-/](\d{2})[-/](\d{4})\b|\b(\d{2}) ([A-Z][a-z]{2}) (\d{4})\b"
+                   r"|\b(\d{4})-(\d{2})-(\d{2})\b")
+_MONTHS = {m: i for i, m in enumerate(
+    ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], start=1)}
+_METER = re.compile(r"\bmeter(?:\s+(?:no|serial|id))?\s*:?\s+([A-Z]{2,4}\d{4,})",
+                    re.IGNORECASE)
+
+
+def _dates(line: str) -> list[date]:
+    out = []
+    for m in _DATE.finditer(line):
+        try:
+            if m[1]:
+                out.append(date(int(m[3]), int(m[2]), int(m[1])))
+            elif m[4]:
+                out.append(date(int(m[6]), _MONTHS[m[5]], int(m[4])))
+            else:
+                out.append(date(int(m[7]), int(m[8]), int(m[9])))
+        except (ValueError, KeyError):
+            pass
+    return out
+
+
+def period(text: str) -> tuple[date, date] | None:
+    """The billing period: the first line that carries two dates."""
+    for line in text.splitlines():
+        found = _dates(line)
+        if len(found) >= 2 and found[0] < found[1]:
+            return found[0], found[1]
+    return None
+
+
+def meter_id(text: str) -> str | None:
+    m = _METER.search(text)
+    return m[1] if m else None

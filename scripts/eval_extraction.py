@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from carbonx.extraction.extract import ConsumptionModel, baseline, ece
+from carbonx.extraction.extract import ConsumptionModel, baseline, ece, meter_id, period
 from carbonx.extraction.synthetic import DEV, SEEN, TEST, Bill, corpus
 
 OUT = ROOT / "docs" / "EXTRACTION_RESULTS.md"
@@ -67,6 +67,13 @@ def main() -> None:
             per_layout.append([f"SYNTH-DISCOM-{layout}", name, str(r["n"]),
                                pct(r["baseline"]), pct(r["model"]), pct(r["conf_cal"])])
 
+    other = [[name, str(len(group)),
+              pct(sum(period(b.text) == (b.period_start, b.period_end) for b in group)
+                  / len(group)),
+              pct(sum(meter_id(b.text) == b.meter_id for b in group) / len(group))]
+             for name, group in (("seen layouts", test_seen),
+                                 ("development layouts (6–8)", dev),
+                                 ("**test layouts (9–11)**", test))]
     rt = results["**test layouts (9–11)**"]
     reliability = []
     for lo in range(10):
@@ -104,6 +111,10 @@ def main() -> None:
         "## By layout",
         table(["issuer", "split", "bills", "rule baseline", "model", "mean confidence"],
               per_layout),
+        "## Other fields: rules only, no model",
+        ("The billing period and meter id are read by rules written from the training "
+         "layouts. They have no confidence, and no model stands behind them."),
+        table(["evaluated on", "bills", "billing period", "meter id"], other),
         "## Reliability on the test layouts",
         table(["confidence bin", "bills", "mean confidence", "accuracy"], reliability),
     ]) + "\n", encoding="utf-8", newline="\n")

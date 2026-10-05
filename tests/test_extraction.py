@@ -9,6 +9,8 @@ from carbonx.extraction.extract import (
     baseline,
     candidates,
     ece,
+    meter_id,
+    period,
 )
 from carbonx.extraction.synthetic import DEV, SEEN, TEST, _num, corpus, make_bill
 
@@ -83,3 +85,24 @@ def test_empty_document_gives_no_extraction(model):
     m, _ = model
     assert m.predict("no numbers here").value is None
     assert baseline("no numbers here").value is None
+
+
+# ---- period and meter id: rules only ------------------------------------------
+
+@pytest.mark.parametrize("line", [
+    "Billing Period: 01-04-2025 to 01-05-2025",
+    "From 01/04/2025  To 01/05/2025",
+    "For the period 01 Apr 2025 to 01 May 2025",
+    "BILL PERIOD 2025-04-01 - 2025-05-01",
+])
+def test_period_reads_every_date_style(line):
+    from datetime import date
+    assert period(f"Due Date: 20-05-2025\n{line}") == (date(2025, 4, 1), date(2025, 5, 1))
+
+
+def test_period_and_meter_id_on_training_layouts_and_safe_failure():
+    for b in corpus(30, SEEN, seed=9):
+        assert period(b.text) == (b.period_start, b.period_end)
+        assert meter_id(b.text) == b.meter_id
+    assert period("no dates here") is None and meter_id("no meter here") is None
+    assert period("31-02-2025 to 01-03-2025") is None      # an impossible date is not a date

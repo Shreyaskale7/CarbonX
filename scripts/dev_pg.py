@@ -4,6 +4,8 @@
     python scripts/dev_pg.py reset         # fresh database, all migrations applied
     python scripts/dev_pg.py env           # prints the two variables to export
     python scripts/dev_pg.py stop
+    python scripts/dev_pg.py reset scratch # a second, independent database
+    python scripts/dev_pg.py serve         # the API and page on http://127.0.0.1:8000
 
 The real target is Postgres 16 with btree_gist and pgcrypto (docker-compose.yml,
 and CI). The pip-installable Postgres has neither extension, so this tool
@@ -79,20 +81,22 @@ def server():
     return pgserver.get_server(str(DATA), cleanup_mode=None)
 
 
-def urls(srv) -> tuple[str, str]:
+def urls(srv, name: str = "carbonx") -> tuple[str, str]:
     base = srv.get_uri().rsplit("/", 1)[0]          # postgresql://postgres:@host:port
     host = base.split("@", 1)[1]
-    return (f"postgresql://carbonx_app:carbonx_app@{host}/carbonx", f"{base}/carbonx")
+    return (f"postgresql://carbonx_app:carbonx_app@{host}/{name}", f"{base}/{name}")
 
 
-def reset() -> None:
+def reset(name: str = "carbonx") -> None:
     import psycopg
+    if not re.fullmatch(r"[a-z_][a-z0-9_]*", name):
+        sys.exit("database name: lowercase letters, digits and underscores")
     srv = server()
-    app_url, owner_url = urls(srv)
+    app_url, owner_url = urls(srv, name)
     admin = srv.get_uri()
     with psycopg.connect(admin, autocommit=True) as conn:
-        conn.execute("DROP DATABASE IF EXISTS carbonx WITH (FORCE)")
-        conn.execute("CREATE DATABASE carbonx")
+        conn.execute(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)")
+        conn.execute(f"CREATE DATABASE {name}")
     with psycopg.connect(owner_url) as conn:
         conn.execute(PRELUDE)
         revision = None
@@ -100,7 +104,7 @@ def reset() -> None:
             conn.execute(translate(sql))
         conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)")
         conn.execute("INSERT INTO alembic_version VALUES (%s)", (revision,))
-    print(f"dev database ready at revision {revision} (compatibility mode)")
+    print(f"dev database {name!r} ready at revision {revision} (compatibility mode)")
     print_env(app_url, owner_url)
 
 
@@ -111,10 +115,18 @@ def print_env(app_url: str, owner_url: str) -> None:
 
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else "env"
+    database = sys.argv[2] if len(sys.argv) > 2 else "carbonx"
     if command == "reset":
-        reset()
+        reset(database)
     elif command == "env":
-        print_env(*urls(server()))
+        print_env(*urls(server(), database))
+    elif command == "serve":
+        import uvicorn
+        app_url, owner_url = urls(server(), database)
+        os.environ["DATABASE_URL"] = app_url
+        os.environ["MIGRATION_DATABASE_URL"] = owner_url
+        sys.path.insert(0, str(ROOT / "src"))
+        uvicorn.run("carbonx.api.main:app", host="127.0.0.1", port=8000)
     elif command == "stop":
         server().cleanup()
         print("stopped")

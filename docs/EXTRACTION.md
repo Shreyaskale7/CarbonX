@@ -13,7 +13,8 @@ confidence and an honest held-out split.*
 ## 1. What is built
 
 - **Task.** Find `consumption_kwh` in a bill's text. This is the one value that
-  feeds emissions. Period, meter id and issuer are not extracted yet.
+  feeds emissions, and the only field with a model. The billing period and
+  meter id are read by rules only (below). The issuer is not extracted.
 - **Input.** The text pdfplumber extracts from a digital PDF
   (`text_from_pdf`). Scanned bills (OCR) are not handled.
 - **Rule baseline** (`baseline`). Regular expressions written from the
@@ -133,7 +134,17 @@ Reading it honestly:
 - **Eleven layouts, five for training.** That is too few to estimate
   generalisation, as §4 shows.
 - **Digital text only.** No OCR, so no scanned or photographed bills.
-- **One field.** `consumption_kwh` only.
+- **One modelled field.** Only `consumption_kwh` has a model and a confidence.
+  The billing period and meter id are read by rules written from the training
+  layouts, with no confidence:
+  - *Billing period:* 100% on every split. This says little: every synthetic
+    layout prints both dates on one line, so the rule ("the first line with
+    two dates") cannot fail on this corpus. Real bills will not be so tidy.
+  - *Meter id:* 100% on the training layouts, 33.3% on development and test
+    layouts. The rule looks for the word "meter"; unseen layouts call it
+    "Device", "Instrument" or "Mtr". This is the rule baseline failing in the
+    expected way, and it is why a learned model is needed for more than one
+    field.
 - **Which bills matter.** The council's First Principles advisor argued that
   CCTS plants take their electricity data from HT meters and SCADA, not
   scanned DISCOM bills. That question is still open. This pipeline does not

@@ -1,0 +1,77 @@
+# Status: each phase against its own acceptance test
+
+As of 2026-10-05, commit history `be78e97..HEAD`. The acceptance tests are the
+ones in `docs/BUILD_PLAN.md`, quoted or paraphrased. "Met" means the stated test
+passes; anything short of that says what is missing.
+
+**How far to trust "passes".** All database tests pass on the local development
+Postgres (`scripts/dev_pg.py`: Postgres 18, with `btree_gist` and `pgcrypto`
+emulated). The last run on the target (Postgres 16 in Docker) was at commit
+`5f518b1` and covered phases 1–5. **CI has never run**, because the repository
+has not been pushed.
+
+| Phase | Acceptance test | Status | Evidence | Missing |
+|---|---|---|---|---|
+| 0 Gates | RQ3 findings with quotes; ≥4 CEA versions; named owner per phase | **Partly** | `RQ3_FINDINGS.md` has verbatim quotes; 23 CEA versions | **No named owners** (`TEAM.md` blank). BEE PDF not confirmed as the notified text. No bills collected |
+| 1 Schema, registry | overlapping factor rejected; `resolve()` differs by policy | **Met** | `test_factor_registry.py` | — |
+| 2 CEA ingest, RQ2 | every version loaded with hash and URL; year-on-year table; checkpoints | **Met** | `data/cea/`, `RQ2_RESULTS.md`, `test_cea_registry.py` | Plan named a notebook; a script generates the table instead |
+| 3 Type system | `kWh × tCO2e/MWh` → tCO2e; wrong unit rejected; property test; `mypy --strict` | **Met**, with one correction | `test_units.py`, `TYPE_SOUNDNESS.md` | The plan's "`kWh × tCO2e/litre` raises" is wrong as stated: the error is in *declaring* the result tCO2e. Documented |
+| 4 Vertical slice | a newcomer runs `reproduce.sh`, uploads a bill, walks the chain | **Met** | walked in a browser at `5728e7c`, and again on 2026-10-05 with every panel (provenance, policy attestation, reports with verify, coverage, review queue, exceptions, fuel entry) against the development Postgres; `test_engine.py`, `test_workbench.py` | The second walk-through used the development Postgres, not Docker |
+| 5 Reproducibility | ≥10,000 generated sequences pass; failures documented and fixed | **Partly** | 100-sequence runs pass; `ADVERSARIAL_LOG.md` documents 13 attempts | **The 10,000-sequence run has not completed** (see the log) |
+| 6 Extraction | accuracy per DISCOM, seen vs unseen; beats baseline on unseen; ECE before/after; calibrated confidence stored | **Partly, on synthetic data** | `EXTRACTION_RESULTS.md`: unseen test layouts 33.3% vs baseline 0% | **No real bills.** One modelled field; period and meter id by rules only. Confidence is *not* calibrated on unseen layouts (ECE 0.347), so the stored confidence does not meet invariant 6 |
+| 7 Uncertainty | correlated band wider than naive, quantified; every variance traced, nothing invented | **Met, in reduced scope** | `test_uncertainty.py` (wider by √3); `UNCERTAINTY.md` | Fuel factors only. Grid factor, activity data and extraction carry no uncertainty, by invariant 6 |
+| 8 Materiality, RQ1 | per-sector curve with cited Scope 1/2 splits | **Partly** | engine: `test_materiality.py`; `RQ1_RESULTS.md` (sector-agnostic curve) | **No sector rows**: `data/sector_scope2_shares.csv` needs cited shares |
+| 9 Automaton | properties proved by enumeration | **Met** | `LIFECYCLE.md`: proofs, model checker, mutation tests; enforced in the DB (migration 0009) | Proof is by hand, not mechanised |
+| 9 Audit sampling | learned ranker beats two baselines at 5% and 10% | **Not built** | — | Proposed for cutting (`SCOPE_PROPOSAL.md`), unsigned. A confidence-ordered review queue exists; it is not a learned ranker |
+| 10 Workbench, release | demo with no developer at a terminal; DOI minted | **Partly** | one page: provenance, policy attestation, reports with verify, review queue, exceptions, coverage | **No DOI.** Licence and authors undecided. Not pushed to GitHub |
+
+## Against the grade ladder in the build plan
+
+| Level | Needs | Where it stands |
+|---|---|---|
+| Pass | Phases 1–4 | Met |
+| Good | + Phase 5 and Phase 2 | Phase 2 met. Phase 5 short only of the completed 10,000-sequence run |
+| A | + Phase 6 (calibrated, unseen-layout results) and Phase 8 (RQ1 curve) | Both partly: Phase 6 needs real bills; Phase 8 needs cited sector shares |
+| A+ | + Phase 7, Phase 9 proofs, DOI, preprint, documented RQ3 answer | Phase 7 met in reduced scope; Phase 9 proofs met; RQ3 answered provisionally. No DOI, no preprint |
+
+## The invariants
+
+| # | Invariant | Holds? |
+|---|---|---|
+| 1 | Reports reproduce byte-identically | Yes against the application; `ADVERSARIAL_LOG.md` lists what it took. The 10,000-sequence evidence is pending |
+| 2 | No in-place factor updates | Yes: trigger-enforced |
+| 3 | Audit trail enforced at the database layer | Yes against the application, which runs as a non-owner role. Not against the database owner or a superuser |
+| 4 | Dimensional soundness | Yes for the calculation language; eight documented escape hatches |
+| 5 | Evidence hashed; audit log hash-chained | Yes. Tamper-evidence, not a blockchain |
+| 6 | Uncertainty never invented | Yes for factors. **Not yet for extraction**: its confidence is not calibrated on unseen layouts, so it must not be used as a probability |
+
+## Findings so far (each with its caveat in the linked file)
+
+- **RQ3** (`RQ3_FINDINGS.md`): BEE's rule, "the latest average grid emission
+  factor", does not determine one number. Readings of "latest" differ by 4.87%
+  for FY2025-26; CEA's candidate "average" series by 17–22%. The FY2025-26
+  factor is dated 1 Aug 2026 and reached CEA's server about 10 Sep 2026.
+- **RQ2** (`RQ2_RESULTS.md`): every comparable year-on-year step in the
+  all-India grid factor exceeded 1%; the latest was −4.93%.
+- **RQ1** (`RQ1_RESULTS.md`): CEA's restatements of a past year are too small
+  to cross 5% at any Scope 2 share. The choice of series crosses it above a
+  23% share.
+- **BEE vs IPCC** (`BEE_VS_IPCC.md`): 50 of BEE's 53 default CO2 factors equal
+  IPCC 2006's. Three coal factors do not, by +1.6%, +5.1% and +5.9%.
+- **2024-27 targets exclude process emissions** (BEE p. 7 note), which raises
+  the Scope 2 share of the target basis in cement, steel and refining.
+
+All of these rest on one BEE PDF whose internal date (2023-11-08) precedes the
+reported notification. Confirm it before any of them is cited.
+
+## What only the team can do
+
+1. Put names in `docs/TEAM.md`; each owner learns their component well enough
+   to defend it.
+2. Push to GitHub, so CI runs on Postgres 16.
+3. Sign or reject `docs/SCOPE_PROPOSAL.md`.
+4. Confirm the BEE PDF against the notified text; archive the CEA v22 evidence.
+5. Collect and redact real bills (decision point: week 4).
+6. Cite per-sector Scope 2 shares of the 2024-27 target basis.
+7. Check RVCE's AI-use policy and complete `docs/AI_USE.md`.
+8. Choose a licence and authors for the registry; mint the DOI.

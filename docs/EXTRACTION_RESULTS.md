@@ -32,6 +32,16 @@ ECE = expected calibration error (0 is perfect): the gap between how confident t
 | SYNTH-DISCOM-10 | **test** | 300 | 0.0% | 0.0% | 31.0% |
 | SYNTH-DISCOM-11 | **test** | 300 | 0.0% | 100.0% | 60.9% |
 
+## Other fields: rules only, no model
+
+The billing period and meter id are read by rules written from the training layouts. They have no confidence, and no model stands behind them.
+
+| evaluated on | bills | billing period | meter id |
+|---|---|---|---|
+| seen layouts | 300 | 100.0% | 100.0% |
+| development layouts (6–8) | 900 | 100.0% | 33.3% |
+| **test layouts (9–11)** | 900 | 100.0% | 33.3% |
+
 ## Reliability on the test layouts
 
 | confidence bin | bills | mean confidence | accuracy |

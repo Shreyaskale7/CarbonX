@@ -62,7 +62,14 @@
       <label for="facility">Facility</label><select id="facility"></select>
       <label for="start">Period start</label><input type="date" id="start" value="2025-04-01">
       <label for="end">Period end (exclusive)</label><input type="date" id="end" value="2025-05-01">
-      <label for="qty">Grid electricity (kWh)</label><input type="number" id="qty" min="0" step="any" value="125000">
+      <label for="kind">Activity</label><select id="kind"><option value="grid_electricity">Grid electricity (Scope 2)</option></select>
+      <label for="qty" id="qty-label">Quantity (kWh)</label><input type="number" id="qty" min="0" step="any" value="125000">
+      <div id="fuel-fields" hidden>
+        <label for="ncv">Net calorific value</label>
+        <div style="display:flex;gap:6px"><input type="number" id="ncv" min="0" step="any" placeholder="e.g. 4000">
+          <select id="ncv-unit" style="width:110px"><option>kcal/kg</option><option>GJ/t</option></select></div>
+        <label for="oxidation">Oxidation factor</label><input type="number" id="oxidation" min="0" max="1" step="any" value="1">
+      </div>
       <label for="doc">Evidence document id</label><input type="number" id="doc" placeholder="from step 1">
       <label for="policy">Factor resolution policy</label><select id="policy"></select>
       <button id="record">Record and calculate</button>
@@ -75,6 +82,7 @@
       <table><thead><tr><th>Period</th><th>Facility</th><th>Scope</th><th>Activity</th>
         <th>tCO2e</th><th>Policy</th><th></th></tr></thead><tbody id="ledger"></tbody></table>
       <p id="ledger-empty" class="muted">No entries yet.</p>
+      <p id="coverage" class="muted"></p>
     </section>
     <section>
       <h2>Reports: same data, every factor policy</h2>
@@ -133,6 +141,14 @@ async function init() {
   $("rep-org").innerHTML = orgs.map(([id, name]) =>
     `<option value="${id}">${esc(name)}</option>`).join("");
   window.POLICIES = policies;
+  const fuels = await api("/api/fuels");
+  $("kind").insertAdjacentHTML("beforeend", fuels.map((f) =>
+    `<option value="fuel.${esc(f.slug)}">${esc(f.fuel)} (Scope 1, ${esc(f.co2e_t_per_tj)} tCO2e/TJ)</option>`).join(""));
+  $("kind").onchange = () => {
+    const fuel = $("kind").value.startsWith("fuel.");
+    $("fuel-fields").hidden = !fuel;
+    $("qty-label").textContent = fuel ? "Quantity (tonnes)" : "Quantity (kWh)";
+  };
   await loadLedger();
   await loadQueue();
 }
@@ -202,11 +218,32 @@ async function loadLedger() {
     <td>${esc(r.policy)}</td>
     <td><button class="link" data-edit="${r.activity_id}" data-qty="${esc(r.quantity)}">Correct</button></td>
   </tr>`).join("");
+  const org = +$("rep-org").value;
+  if (org) {
+    const cov = await api(`/api/coverage?org_id=${org}`);
+    $("coverage").textContent = cov.coverage_pct === null ? ""
+      : `Audit coverage: ${cov.coverage_pct}% of ${cov.total_tco2e} tCO2e has a hashed source document on file.`;
+  }
 }
 
 async function showProvenance(id) {
-  const p = await api(`/api/calculations/${id}/provenance`);
+  const base = $("rep-base").value.trim();
+  const [p, att] = await Promise.all([api(`/api/calculations/${id}/provenance`),
+    api(`/api/calculations/${id}/attestation${base ? `?baseline_year=${encodeURIComponent(base)}` : ""}`)]);
   const c = p.calculation, a = p.activity, f = p.factor, d = p.document;
+  const attestation = step("The same activity under each factor policy",
+    `<p class="muted">${att.policy_dependent
+      ? "As of the moment this was calculated. The spread comes from the choice of policy alone."
+      : "A fuel factor does not depend on the policy, so every row is the same."}</p>
+    <table><tr><th>Policy</th><th>tCO2e</th><th>vs this calculation</th><th>Factor</th><th>Version, year</th><th>Published</th></tr>
+    ${att.alternatives.map((x) => x.unavailable
+      ? `<tr class="old"><td>${esc(x.policy)}</td><td colspan="5">${esc(x.unavailable)}</td></tr>`
+      : `<tr><td>${x.used ? `<strong>${esc(x.policy)}</strong> (used)` : esc(x.policy)}</td>
+        <td class="num">${esc(x.tco2e)}</td>
+        <td class="num">${x.used ? "—" : `${x.vs_used_pct > 0 ? "+" : ""}${esc(x.vs_used_pct)}%`}</td>
+        <td class="num">${esc(x.factor_value)} ${esc(x.factor_unit)}</td>
+        <td>${esc(x.source_version)}, ${esc(String(x.factor_year).slice(0, 4))}</td>
+        <td>${esc(x.published_on)}</td></tr>`).join("")}</table>`);
   const chainOk = p.audit_chain.intact
     ? `<span class="ok">intact</span>` : `<span class="err">BROKEN at event ${esc(p.audit_chain.first_break?.broken_event_id)}</span>`;
   $("prov-id").textContent = id;
@@ -235,6 +272,7 @@ async function showProvenance(id) {
       ["Computed", esc(c.computed_at)],
       ["Superseded", c.superseded_at ? esc(c.superseded_at) : "current"]]) +
       `<pre>${esc(c.program)}</pre>`, c.superseded_at ? "old" : ""),
+    attestation,
     p.activity_history.length ? step("Before correction", `<table><tr><th>Activity</th><th>Quantity</th>
       <th>Recorded</th><th>Superseded</th></tr>${p.activity_history.map((h) => `<tr class="old">
       <td>${esc(h.activity_id)}</td><td class="num">${esc(h.quantity)} ${esc(h.unit)}</td>
@@ -275,7 +313,12 @@ $("record").onclick = async () => {
     const r = await api("/api/activities", {method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({facility_id: +$("facility").value, period_start: $("start").value,
-        period_end: $("end").value, quantity: $("qty").value, unit: "kWh",
+        period_end: $("end").value, quantity: $("qty").value,
+        activity_type: $("kind").value,
+        ...($("kind").value.startsWith("fuel.")
+          ? {unit: "t", ncv: $("ncv").value, ncv_unit: $("ncv-unit").value,
+             oxidation_factor: $("oxidation").value}
+          : {unit: "kWh"}),
         document_id: $("doc").value ? +$("doc").value : null, policy: $("policy").value})});
     msg.className = "msg ok"; msg.textContent = `Calculation ${r.calculation_id}: ${r.tco2e} tCO2e`;
     await loadLedger(); await showProvenance(r.calculation_id);

@@ -6,6 +6,7 @@ No authentication: a local research prototype (multi-role RBAC is out of
 scope). The actor recorded in the audit trail is the X-Actor header.
 """
 
+import csv
 import json
 from collections.abc import Iterator
 from datetime import date
@@ -27,7 +28,7 @@ from carbonx.engine.calculate import (
     set_audit_context,
 )
 from carbonx.engine.exceptions import exceptions
-from carbonx.engine.provenance import plain, provenance
+from carbonx.engine.provenance import attestation, coverage, plain, provenance
 from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
 from carbonx.evidence.store import store_document
 from carbonx.extraction import review
@@ -38,6 +39,7 @@ from carbonx.units.lang import LangError
 URL = database_url()
 MAX_UPLOAD = 20 * 1024 * 1024
 PAGE = Path(__file__).with_name("static") / "index.html"
+FUELS = Path(__file__).resolve().parents[3] / "data" / "bee" / "fuel_factors.csv"
 
 app = FastAPI(title="CarbonX", version="0.1.0")
 
@@ -98,6 +100,14 @@ def facilities(conn: Conn) -> list[dict[str, Any]]:
             "SELECT f.facility_id, f.name, f.state, o.org_id, o.name AS organisation"
             " FROM facility f JOIN organisation o USING (org_id)"
             " ORDER BY f.facility_id").fetchall()
+
+
+@app.get("/api/fuels")
+def fuels() -> list[dict[str, str]]:
+    """BEE Annexure IV fuels, for activity type 'fuel.<slug>'."""
+    with FUELS.open(encoding="utf-8") as fh:
+        return [{"slug": r["slug"], "fuel": r["fuel"],
+                 "co2e_t_per_tj": r["co2e_t_per_tj"]} for r in csv.DictReader(fh)]
 
 
 @app.get("/api/policies")
@@ -268,4 +278,21 @@ def exception_log(org_id: int, conn: Conn) -> list[dict[str, Any]]:
     """Conditions a verifier should look at: missing evidence, hash mismatches,
     corrections after a report, a broken audit chain, unconfirmed extractions."""
     return plain(exceptions(conn, org_id))
+
+
+@app.get("/api/calculations/{calculation_id}/attestation")
+def factor_attestation(calculation_id: int, conn: Conn,
+                       baseline_year: str | None = None) -> dict[str, Any]:
+    """Which factor version a calculation used, and the figure under every
+    other resolution policy as of the same moment."""
+    try:
+        return attestation(conn, calculation_id, baseline_year)
+    except EXPECTED as e:
+        raise _fail(e) from e
+
+
+@app.get("/api/coverage")
+def audit_coverage(org_id: int, conn: Conn) -> dict[str, Any]:
+    """Share of currently reported tCO2e with a hashed source document."""
+    return coverage(conn, org_id)
 

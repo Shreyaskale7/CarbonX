@@ -75,6 +75,7 @@ byte-identically. The API and provenance page:
 |---|---|
 | `CLAUDE.md` | Project context, invariants, scope. **Read before writing code.** |
 | `docs/BUILD_PLAN.md` | Ten phases with acceptance tests |
+| `docs/STATUS.md` | Each phase against its acceptance test: what is met, partly met, missing |
 | `db/schema.sql` | Full schema, commented |
 | `docs/RQ3_FINDINGS.md` | Does BEE specify the factor vintage? (Phase 0) |
 | `docs/RQ1_RESULTS.md` | When a grid-factor change alone crosses 5%, generated |

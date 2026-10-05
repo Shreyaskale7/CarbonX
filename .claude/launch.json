@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "carbonx-api",
-      "runtimeExecutable": ".venv/Scripts/uvicorn.exe",
-      "runtimeArgs": ["carbonx.api.main:app", "--port", "8000"],
+      "name": "carbonx-dev",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["scripts/dev_pg.py", "serve", "scratch"],
       "port": 8000
     }
   ]
