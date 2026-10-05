@@ -51,6 +51,9 @@ has not been pushed.
   factor", does not determine one number. Readings of "latest" differ by 4.87%
   for FY2025-26; CEA's candidate "average" series by 17–22%. The FY2025-26
   factor is dated 1 Aug 2026 and reached CEA's server about 10 Sep 2026.
+- **RQ3 as a compliance outcome** (`RQ3_COMPLIANCE.md`): with no physical
+  change, the three readings show a GEI change of 0%, −2.45% or −7.20% times
+  the Scope 2 share. The baseline year (FY2023-24) is assumed, not verified.
 - **RQ2** (`RQ2_RESULTS.md`): every comparable year-on-year step in the
   all-India grid factor exceeded 1%; the latest was −4.93%.
 - **RQ1** (`RQ1_RESULTS.md`): CEA's restatements of a past year are too small
