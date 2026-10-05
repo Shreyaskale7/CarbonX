@@ -6,6 +6,8 @@ All-India factors, CEA CO2 Baseline Database v1.0–v22.0. **Step** = first-publ
 
 **Scope 2 qualifier.** CCTS GEI targets cover Scope 1 and Scope 2. A grid factor change moves total GEI only in proportion to the Scope 2 share, so comparing these steps directly to the 1–3% target holds only for an entity whose emissions are entirely Scope 2. The per-sector answer is RQ1.
 
+![Bars of the size of each year-on-year change in `grid.weighted_avg.incl_imports`, against a shaded 1 to 3% band](figures/rq2_steps.svg)
+
 ## Summary
 
 | factor | FYs | steps | median \|step\| | max \|step\| | \|step\| > 1% | \|step\| > 3% | median revision | max revision |
