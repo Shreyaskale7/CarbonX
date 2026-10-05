@@ -151,7 +151,16 @@ After the initial state and after **every** operation, it generates a report
 under **all four** policies. At the end it regenerates every one of them and
 compares output and SHA-256 byte for byte.
 
-**Result:** _pending: run in progress._
+**Result (2026-10-05, commit `8ebc6a1`): 10,000 sequences passed, 0 failed.**
+Hypothesis also reports 811 generated cases as invalid (discarded by the
+generator, not run). The run took 1 h 35 min
+(`HYPOTHESIS_PROFILE=thorough pytest tests/test_reproducibility.py -k any_sequence`)
+and included the fuel operations.
+
+What this run does not show: it ran on the local development Postgres (18.4,
+with `btree_gist` and `pgcrypto` emulated by `scripts/dev_pg.py`), not on the
+target Postgres 16, and in one transaction (see the limits below). An earlier
+run without the fuel operations was stopped by a time limit and gives no result.
 
 The only failure Hypothesis found during development was in the test data,
 not the invariant: it generated a name containing a NUL byte, which

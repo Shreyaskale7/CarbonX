@@ -17,7 +17,7 @@ has not been pushed.
 | 2 CEA ingest, RQ2 | every version loaded with hash and URL; year-on-year table; checkpoints | **Met** | `data/cea/`, `RQ2_RESULTS.md`, `test_cea_registry.py` | Plan named a notebook; a script generates the table instead |
 | 3 Type system | `kWh × tCO2e/MWh` → tCO2e; wrong unit rejected; property test; `mypy --strict` | **Met**, with one correction | `test_units.py`, `TYPE_SOUNDNESS.md` | The plan's "`kWh × tCO2e/litre` raises" is wrong as stated: the error is in *declaring* the result tCO2e. Documented |
 | 4 Vertical slice | a newcomer runs `reproduce.sh`, uploads a bill, walks the chain | **Met** | walked in a browser at `5728e7c`, and again on 2026-10-05 with every panel (provenance, policy attestation, reports with verify, coverage, review queue, exceptions, fuel entry) against the development Postgres; `test_engine.py`, `test_workbench.py` | The second walk-through used the development Postgres, not Docker |
-| 5 Reproducibility | ≥10,000 generated sequences pass; failures documented and fixed | **Partly** | 100-sequence runs pass; `ADVERSARIAL_LOG.md` documents 13 attempts | **The 10,000-sequence run has not completed** (see the log) |
+| 5 Reproducibility | ≥10,000 generated sequences pass; failures documented and fixed | **Met on the development Postgres** | 10,000 generated sequences passed, 0 failed (2026-10-05, commit `8ebc6a1`, 1 h 35 min); `ADVERSARIAL_LOG.md` documents 13 attempts | Not yet repeated on Postgres 16; CI runs the 100-sequence profile |
 | 6 Extraction | accuracy per DISCOM, seen vs unseen; beats baseline on unseen; ECE before/after; calibrated confidence stored | **Partly, on synthetic data** | `EXTRACTION_RESULTS.md`: unseen test layouts 33.3% vs baseline 0% | **No real bills.** One modelled field; period and meter id by rules only. Confidence is *not* calibrated on unseen layouts (ECE 0.347), so the stored confidence does not meet invariant 6 |
 | 7 Uncertainty | correlated band wider than naive, quantified; every variance traced, nothing invented | **Met, in reduced scope** | `test_uncertainty.py` (wider by √3); `UNCERTAINTY.md` | Fuel factors only. Grid factor, activity data and extraction carry no uncertainty, by invariant 6 |
 | 8 Materiality, RQ1 | per-sector curve with cited Scope 1/2 splits | **Partly** | engine: `test_materiality.py`; `RQ1_RESULTS.md` (sector-agnostic curve) | **No sector rows**: `data/sector_scope2_shares.csv` needs cited shares |
@@ -30,7 +30,7 @@ has not been pushed.
 | Level | Needs | Where it stands |
 |---|---|---|
 | Pass | Phases 1–4 | Met |
-| Good | + Phase 5 and Phase 2 | Phase 2 met. Phase 5 short only of the completed 10,000-sequence run |
+| Good | + Phase 5 and Phase 2 | Phase 2 met. Phase 5 met on the development Postgres; repeat on Postgres 16 once CI runs |
 | A | + Phase 6 (calibrated, unseen-layout results) and Phase 8 (RQ1 curve) | Both partly: Phase 6 needs real bills; Phase 8 needs cited sector shares |
 | A+ | + Phase 7, Phase 9 proofs, DOI, preprint, documented RQ3 answer | Phase 7 met in reduced scope; Phase 9 proofs met; RQ3 answered provisionally. No DOI, no preprint |
 
@@ -38,7 +38,7 @@ has not been pushed.
 
 | # | Invariant | Holds? |
 |---|---|---|
-| 1 | Reports reproduce byte-identically | Yes against the application; `ADVERSARIAL_LOG.md` lists what it took. The 10,000-sequence evidence is pending |
+| 1 | Reports reproduce byte-identically | Yes against the application; `ADVERSARIAL_LOG.md` lists what it took. 10,000 generated sequences pass on the development Postgres |
 | 2 | No in-place factor updates | Yes: trigger-enforced |
 | 3 | Audit trail enforced at the database layer | Yes against the application, which runs as a non-owner role. Not against the database owner or a superuser |
 | 4 | Dimensional soundness | Yes for the calculation language; eight documented escape hatches |
