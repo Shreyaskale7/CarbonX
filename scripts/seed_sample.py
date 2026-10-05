@@ -1,4 +1,4 @@
-"""Seed a SYNTHETIC organisation, facility, FY2025-26 electricity and production.
+"""Seed a SYNTHETIC organisation, facility, FY2025-26 electricity, fuel and production.
 
 Everything here is invented: no real entity, no real bill (the repo never
 holds real utility bills). The "bill" is a generated text file whose first
@@ -23,6 +23,11 @@ MONTHLY_KWH = [1_180_000, 1_205_000, 1_150_000, 1_120_000, 1_135_000, 1_160_000,
 # Synthetic aluminium output, tonnes: about 14 MWh of electricity per tonne
 # (order of magnitude for primary smelting), with made-up monthly variation.
 MONTHLY_TONNES = [84.2, 86.5, 81.9, 80.3, 81.4, 82.6, 85.1, 86.7, 88.4, 89.9, 87.6, 90.8]
+# Synthetic natural gas for furnaces, tonnes, with a made-up but plausible NCV.
+# It gives the sample a Scope 1 stream, so GEI covers combustion as BEE's
+# 2024-27 basis does, and the report has a factor with a published range.
+MONTHLY_GAS_T = [41, 43, 40, 39, 40, 41, 42, 43, 45, 46, 44, 46]
+GAS_NCV_GJ_PER_T = Decimal("48.0")
 
 with psycopg.connect(URL) as conn:
     set_audit_context(conn, "seed_sample.py", "synthetic sample data")
@@ -50,9 +55,14 @@ with psycopg.connect(URL) as conn:
                         period_start=start, period_end=end, quantity=Decimal(kwh),
                         unit="kWh", document_id=doc.document_id, actor="seed_sample.py",
                         reason="synthetic sample data")
+        record_activity(conn, facility_id=facility_id, activity_type="fuel.natural_gas",
+                        period_start=start, period_end=end,
+                        quantity=Decimal(MONTHLY_GAS_T[month]), unit="t",
+                        ncv=GAS_NCV_GJ_PER_T, ncv_unit="GJ/t", actor="seed_sample.py",
+                        reason="synthetic sample data (no evidence document)")
         record_production(conn, facility_id=facility_id, product_code="aluminium_ingot",
                           unit="t", period_start=start, period_end=end,
                           quantity=Decimal(str(MONTHLY_TONNES[month])),
                           actor="seed_sample.py", reason="synthetic sample data")
     print(f"seeded org {org_id}, facility {facility_id}, {len(MONTHLY_KWH)} monthly "
-          "activities and production records, all synthetic")
+          "electricity, gas and production records, all synthetic")

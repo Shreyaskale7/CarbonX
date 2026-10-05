@@ -59,7 +59,8 @@ def main() -> None:
             row = conn.execute(
                 "SELECT a.activity_id, a.quantity, lower(a.period) FROM activity a"
                 " JOIN facility f USING (facility_id) WHERE f.org_id = %s"
-                " AND upper_inf(a.system_time_range) ORDER BY lower(a.period) LIMIT 1",
+                " AND upper_inf(a.system_time_range) AND a.activity_type = 'grid_electricity'"
+                " ORDER BY lower(a.period), a.activity_id LIMIT 1",
                 (args.org,)).fetchone()
             if row and fy_of(row[2]) == args.fy:
                 edit_activity(conn, row[0], quantity=row[1] + 50_000,

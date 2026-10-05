@@ -29,7 +29,7 @@ Courses: DBMS, AI/ML, Theory of Computation.
   the factor is revised.** Demo: `python scripts/demo_reproducibility.py
   --org 1`.
 
-The sample facility and its figures (e.g. 9,680.9 vs 10,176.9 tCO2e under
+The sample facility and its figures (e.g. 11,055.5 vs 11,551.5 tCO2e under
 different factor policies) are **synthetic illustrations**, not measurements of
 any real entity.
 
@@ -64,9 +64,9 @@ Rebuild it from source with `python scripts/fetch_cea.py && python
 scripts/load_cea.py`. RQ2 results: `docs/RQ2_RESULTS.md`.
 
 `./reproduce.sh` runs end to end: migrate, load the registry, seed a synthetic
-facility, calculate, then generate a report under each policy, with emissions,
-production and GEI (tCO2e per tonne), and verify each regenerates
-byte-identically. The API and provenance page:
+facility (electricity, gas and production), calculate, then generate a report
+under each policy, with Scope 1 and 2 emissions and GEI (tCO2e per tonne),
+verify each regenerates byte-identically, and print the uncertainty band. The API and provenance page:
 `uvicorn carbonx.api.main:app` then http://127.0.0.1:8000.
 
 ## Read these first

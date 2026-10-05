@@ -72,8 +72,9 @@ fact.
 
   Do NOT claim "entities flip compliance status" until GEI (denominator
   versioning) is built and the swing is computed on a cited, realistic sector
-  profile. The 5.1% / 7.8% figures in the demo are **synthetic** tCO2e swings,
-  not compliance outcomes.
+  profile. The policy swings in the demo (about 4.5% between VINTAGE_MATCHED
+  and AS_OF_REPORT on the sample plant) are **synthetic**, and they are swings
+  in tCO2e and GEI, not compliance outcomes.
 
 ## Also to verify
 - **Is FY2023-24 the CCTS baseline year?** (Unverified; raised by the council.)

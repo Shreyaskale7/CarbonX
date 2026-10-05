@@ -56,8 +56,12 @@ def _d(x: float | Fraction) -> Decimal:
     return Decimal(f"{float(x):.6f}")
 
 
-def band(lines: list[Line], basis: tuple[str, ...] = ()) -> Band:
-    total = sum((ln.tco2e for ln in lines), Fraction(0))
+def band(lines: list[Line], basis: tuple[str, ...] = (),
+         total: Fraction | None = None) -> Band:
+    """`total`, if given, is the centre of the band: a report's own total,
+    which is the exact sum rounded once, not the sum of its rounded lines."""
+    if total is None:
+        total = sum((ln.tco2e for ln in lines), Fraction(0))
     by_factor: dict[int, Fraction] = {}
     for ln in lines:
         by_factor[ln.factor_id] = by_factor.get(ln.factor_id, Fraction(0)) + ln.tco2e
@@ -103,7 +107,7 @@ def for_report(conn: psycopg.Connection, report_id: int) -> Band:
             ln["factor"]["factor_id"], Fraction(ln["tco2e"]),
             Fraction(value - low) / Fraction(value) if has else None,
             Fraction(high - value) / Fraction(value) if has else None))
-    return band(lines, tuple(sorted(basis)))
+    return band(lines, tuple(sorted(basis)), Fraction(out["totals"]["total_tco2e"]))
 
 
 def main() -> None:

@@ -43,6 +43,7 @@ jobs:
           python scripts/seed_sample.py
           python -m carbonx.engine.calculate --org 1 --policy VINTAGE_MATCHED
           python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
+          python -m carbonx.uncertainty.propagate --report 2
       - run: pytest -q
       - name: generated results (RQ1, RQ2, BEE vs IPCC) are up to date
         run: |
