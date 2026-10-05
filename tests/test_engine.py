@@ -188,3 +188,18 @@ def test_api_round_trip(conn, world):
                             (world["facility_id"],)).fetchone() == (0,)
     finally:
         api.app.dependency_overrides.clear()
+
+
+def test_site_pages_and_databaseless_endpoints():
+    client = TestClient(api.app)
+    for page in ("findings", "registry", "method", "ledger", "evidence", "reports"):
+        assert client.get(f"/{page}").status_code == 200
+    assert client.get("/static/site.css").status_code == 200
+    assert client.get("/no-such-page").status_code == 404
+    ok = client.post("/api/typecheck", json={
+        "program": "let e : [tCO2e] = 1200 [kWh] * 0.7272 [tCO2/MWh]"}).json()
+    assert ok["ok"] and ok["bindings"][0]["exact"] == "2727/3125"
+    bad = client.post("/api/typecheck", json={
+        "program": "let e : [tCO2e] = 1200 [kWh] * 2.68 [kgCO2e/litre]"}).json()
+    assert not bad["ok"] and bad["error"] == "DimensionError"
+    assert len(client.get("/api/lifecycle").json()["delta"]) == 7

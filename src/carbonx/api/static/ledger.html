@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger: CarbonX workbench</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body class="app">
+<main><div class="wrap stack-lg">
+  <div class="stack">
+    <h1>Ledger</h1>
+    <p class="muted">Current entries for the selected organisation. Select a figure to walk its chain back to the evidence.</p>
+  </div>
+  <div class="tiles" id="tiles">
+    <div><div class="small muted">Reported, all current calculations</div><div class="stat" id="t-total">-</div></div>
+    <div><div class="small muted">With a hashed source document</div><div class="stat" id="t-cov">-</div></div>
+    <div><div class="small muted">Ledger entries</div><div class="stat" id="t-n">-</div></div>
+  </div>
+  <div class="panel">
+    <div class="scroll"><table class="nowrap">
+      <thead><tr><th>Period</th><th>Facility</th><th>Scope</th><th>Activity</th><th class="num">Quantity</th>
+        <th class="num">tCO2e</th><th>Factor policy</th><th></th></tr></thead>
+      <tbody id="ledger"><tr><td colspan="8"><div class="skeleton"></div><div class="skeleton" style="width:80%"></div></td></tr></tbody>
+    </table></div>
+  </div>
+  <div class="panel" id="prov-panel" hidden aria-live="polite">
+    <h2>Provenance of calculation <span id="prov-id"></span></h2>
+    <div id="prov" class="stack-lg" style="margin-top:20px"></div>
+  </div>
+</div></main>
+
+<dialog id="fix">
+  <form method="dialog" class="stack">
+    <h3>Correct an activity</h3>
+    <p class="small muted">The old row is closed, not changed. It stays visible to every report that already read it.</p>
+    <div class="field"><label for="fix-qty">Corrected quantity</label><input id="fix-qty" type="number" min="0" step="any" required></div>
+    <div class="field"><label for="fix-reason">Reason</label><input id="fix-reason" required>
+      <p class="help">Recorded in the audit trail.</p></div>
+    <div id="fix-msg" class="msg bad"></div>
+    <div class="row"><button class="primary fit" value="save" id="fix-save">Save correction</button>
+      <button class="ghost fit" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<script src="/static/site.js"></script>
+<script>
+let ORG = null, facilityIds = new Set(), fixing = null;
+const period = (r) => `${esc(r.period_start)} to ${esc(r.period_end)}`;
+const step = (title, body, now = true) => `<div class="step${now ? " now" : ""}"><h3>${esc(title)}</h3>${body}</div>`;
+
+async function loadLedger() {
+  const rows = (await api("/api/emissions")).filter((r) => facilityIds.has(r.facility_id));
+  $("t-n").textContent = rows.length;
+  if (ORG) {
+    const cov = await api(`/api/coverage?org_id=${ORG}`);
+    $("t-total").innerHTML = `${esc(grouped(cov.total_tco2e))} <span class="small muted">tCO2e</span>`;
+    $("t-cov").textContent = cov.coverage_pct === null ? "-" : `${cov.coverage_pct}%`;
+  }
+  $("ledger").innerHTML = rows.length ? rows.map((r) => `<tr>
+    <td>${period(r)}</td><td style="white-space:normal;min-width:140px">${esc(r.facility)}</td>
+    <td><span class="tag${r.scope === 1 ? " s1" : ""}">Scope ${esc(r.scope)}</span></td>
+    <td>${esc(r.activity_type)}${r.document_id ? "" : ' <span class="small warn">no document</span>'}</td>
+    <td class="num mono">${esc(qty(r.quantity))} ${esc(r.unit)}</td>
+    <td class="num mono"><button class="link" data-calc="${r.calculation_id}">${esc(grouped(r.tco2e))}</button></td>
+    <td class="small">${esc(r.policy)}</td>
+    <td><button class="link" data-edit="${r.activity_id}" data-qty="${esc(r.quantity)}">Correct</button></td></tr>`).join("")
+    : `<tr><td colspan="8" class="empty">No entries yet. Record consumption on the <a href="/evidence">Evidence</a> page.</td></tr>`;
+}
+
+async function showProvenance(id) {
+  const [p, att] = await Promise.all([api(`/api/calculations/${id}/provenance`),
+                                      api(`/api/calculations/${id}/attestation`)]);
+  const c = p.calculation, a = p.activity, f = p.factor, d = p.document;
+  $("prov-id").textContent = `#${id}`;
+  $("prov").innerHTML = [
+    step("Facility", kv([["Organisation", esc(c.organisation)], ["Facility", `${esc(c.facility)}, ${esc(c.state)}`]])),
+    step("Activity", kv([["Quantity", `${esc(qty(a.quantity))} ${esc(a.unit)}`],
+      ["Type", `${esc(a.activity_type)}, scope ${esc(a.scope)}`],
+      ["Period", `${esc(a.period_start)} to ${esc(a.period_end)} (end exclusive)`],
+      ["Recorded", esc(when(a.recorded_at))],
+      ["Status", a.superseded_at ? `superseded ${esc(when(a.superseded_at))}` : "current"]]), !a.superseded_at),
+    step("Evidence document", d ? kv([["File", esc(d.filename)], ["Type", esc(d.doc_type)],
+      ["SHA-256", `<code>${esc(d.sha256)}</code>`],
+      ["Hash check", d.hash_verified ? `<span class="ok">the stored file matches</span>` : `<span class="bad">mismatch, or the file is missing</span>`],
+      ["Uploaded", esc(when(d.uploaded_at))]])
+      : `<p class="warn">No document. This figure is not traced to evidence.</p>`, !!d),
+    step("Emission factor", kv([["Value", `<span class="mono">${esc(f.value)}</span> ${esc(f.unit)}`],
+      ["Series", `<code>${esc(f.factor_key)}</code>`],
+      ["Valid for", `${esc(f.valid_from)} to ${esc(f.valid_to)}`],
+      ["Source", `${esc(f.publisher)} ${esc(f.dataset_name)} ${esc(f.version_label)}, published ${esc(f.published_on)}`],
+      ["Source file", `<a href="${esc(f.source_url)}" rel="noreferrer">${esc(String(f.source_url).split("/").pop())}</a>`],
+      ["File SHA-256", `<code>${esc(f.source_file_sha256)}</code>`]])),
+    step("Calculation", kv([["Result", `<strong class="mono">${esc(grouped(c.tco2e))}</strong> ${esc(c.result_unit)}`],
+      ["Factor policy", esc(c.policy)], ["Engine", `<code>${esc(c.engine_version)}</code>`],
+      ["Computed", esc(when(c.computed_at))],
+      ["Status", c.superseded_at ? `superseded ${esc(when(c.superseded_at))}` : "current"]])
+      + `<pre style="margin-top:12px">${esc(c.program)}</pre>`, !c.superseded_at),
+    step("The same activity under each factor policy", `<p class="small muted">${att.policy_dependent
+        ? "As of the moment this was calculated. The spread comes from the choice of policy alone."
+        : "A fuel factor does not depend on the policy, so every row is the same."}</p>
+      <div class="scroll"><table><thead><tr><th>Policy</th><th class="num">tCO2e</th><th class="num">vs this one</th>
+        <th class="num">Factor</th><th>Version, year</th><th>Published</th></tr></thead><tbody>
+      ${att.alternatives.map((x) => x.unavailable
+        ? `<tr class="old"><td>${esc(x.policy)}</td><td colspan="5">${esc(x.unavailable)}</td></tr>`
+        : `<tr><td>${x.used ? `<strong>${esc(x.policy)}</strong> <span class="tag">used</span>` : esc(x.policy)}</td>
+          <td class="num mono">${esc(grouped(x.tco2e))}</td>
+          <td class="num">${x.used ? "" : `${x.vs_used_pct > 0 ? "+" : ""}${esc(x.vs_used_pct)}%`}</td>
+          <td class="num mono">${esc(x.factor_value)}</td>
+          <td>${esc(x.source_version)}, ${esc(String(x.factor_year).slice(0, 4))}</td>
+          <td>${esc(x.published_on)}</td></tr>`).join("")}</tbody></table></div>`),
+    p.activity_history.length ? step("Before correction", `<div class="scroll"><table><thead><tr><th>Activity</th>
+      <th class="num">Quantity</th><th>Recorded</th><th>Superseded</th></tr></thead><tbody>
+      ${p.activity_history.map((h) => `<tr class="old"><td>${esc(h.activity_id)}</td>
+        <td class="num mono">${esc(qty(h.quantity))} ${esc(h.unit)}</td><td>${esc(when(h.recorded_at))}</td>
+        <td>${esc(when(h.superseded_at))}</td></tr>`).join("")}</tbody></table></div>`, false) : "",
+    step("Every calculation in this lineage", `<div class="scroll"><table><thead><tr><th>Id</th><th class="num">tCO2e</th>
+      <th>Policy</th><th>Computed</th><th>Status</th></tr></thead><tbody>
+      ${p.calculations.map((x) => `<tr class="${x.superseded_at ? "old" : ""}">
+        <td><button class="link" data-calc="${x.calculation_id}">${esc(x.calculation_id)}</button></td>
+        <td class="num mono">${esc(grouped(x.tco2e))}</td><td>${esc(x.policy)}</td><td>${esc(when(x.computed_at))}</td>
+        <td>${x.superseded_at ? `superseded ${esc(when(x.superseded_at))}` : "current"}</td></tr>`).join("")}</tbody></table></div>`),
+    step("Audit trail", `<p class="small">Hash chain: ${p.audit_chain.intact ? `<span class="ok">intact</span>`
+        : `<span class="bad">broken at event ${esc(p.audit_chain.first_break?.broken_event_id)}</span>`}.
+        <span class="muted">This is tamper evidence, not a blockchain.</span></p>
+      <div class="scroll"><table><thead><tr><th>Event</th><th>Row</th><th>Action</th><th>Actor</th><th>Reason</th><th>When</th></tr></thead><tbody>
+      ${p.audit_events.map((e) => `<tr><td>${esc(e.event_id)}</td><td>${esc(e.entity_table)} ${esc(e.entity_id)}</td>
+        <td>${esc(e.action)}</td><td>${esc(e.actor)}</td><td>${esc(e.reason)}</td><td>${esc(when(e.occurred_at))}</td></tr>`).join("")}</tbody></table></div>`),
+  ].join("");
+  $("prov-panel").hidden = false;
+  $("prov-panel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+document.addEventListener("click", (ev) => {
+  const t = ev.target;
+  if (t.dataset.calc) showProvenance(t.dataset.calc).catch((e) => alert(e.message));
+  if (t.dataset.edit) {
+    fixing = t.dataset.edit; $("fix-qty").value = t.dataset.qty; $("fix-reason").value = "";
+    say($("fix-msg"), ""); $("fix").showModal();
+  }
+});
+$("fix-save").onclick = async (ev) => {
+  ev.preventDefault();
+  if (!$("fix-qty").value || !$("fix-reason").value.trim()) { say($("fix-msg"), "Enter a quantity and a reason.", "bad"); return; }
+  try {
+    const r = await api(`/api/activities/${fixing}`, {method: "PATCH", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({quantity: $("fix-qty").value, reason: $("fix-reason").value})});
+    $("fix").close();
+    await loadLedger();
+    if (r.calculations[0]) await showProvenance(r.calculations[0].calculation_id);
+  } catch (e) { say($("fix-msg"), e.message, "bad"); }
+};
+
+(async () => {
+  try {
+    const o = await orgs();
+    ORG = o.org;
+    facilityIds = new Set(o.facilities.filter((f) => f.org_id === ORG).map((f) => f.facility_id));
+    await loadLedger();
+    const calc = new URLSearchParams(location.search).get("calc");
+    if (calc) await showProvenance(calc);
+  } catch (e) { unreachable(e); }
+})();
+</script>
+</body>
+</html>

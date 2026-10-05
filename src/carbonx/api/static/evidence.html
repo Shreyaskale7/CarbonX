@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evidence: CarbonX workbench</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body class="app">
+<main><div class="wrap stack-lg">
+  <div class="stack">
+    <h1>Evidence</h1>
+    <p class="muted">Store a source document, record the consumption it supports, and confirm what the reader extracted.</p>
+  </div>
+  <div class="grid2">
+    <div class="stack">
+      <div class="panel">
+        <h2>Source document</h2>
+        <p class="small muted">Hashed with SHA-256 when it is stored. Redact personal details first.</p>
+        <div class="field" style="margin-top:14px"><label for="file">File</label><input type="file" id="file"></div>
+        <button class="primary" id="upload">Store and hash</button>
+        <div id="upload-msg" class="msg" aria-live="polite"></div>
+        <button class="ghost sm" id="extract" hidden>Read consumption from it</button>
+        <div id="extract-msg" class="msg" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h2>Record consumption</h2>
+        <div class="field" style="margin-top:14px"><label for="facility">Facility</label><select id="facility"></select></div>
+        <div class="field"><label for="kind">Activity</label><select id="kind"><option value="grid_electricity">Grid electricity (Scope 2)</option></select></div>
+        <div class="row">
+          <div class="field"><label for="start">Period start</label><input type="date" id="start" value="2025-04-01"></div>
+          <div class="field"><label for="end">Period end</label><input type="date" id="end" value="2025-05-01">
+            <p class="help">Exclusive.</p></div>
+        </div>
+        <div class="field"><label for="qty" id="qty-label">Quantity, kWh</label><input type="number" id="qty" min="0" step="any" value="125000"></div>
+        <div id="fuel-fields" hidden>
+          <div class="row">
+            <div class="field"><label for="ncv">Net calorific value</label><input type="number" id="ncv" min="0" step="any"></div>
+            <div class="field"><label for="ncv-unit">Unit</label><select id="ncv-unit"><option>GJ/t</option><option>kcal/kg</option></select></div>
+          </div>
+          <div class="field"><label for="oxidation">Oxidation factor</label><input type="number" id="oxidation" min="0" max="1" step="any" value="1"></div>
+        </div>
+        <div class="field"><label for="doc">Evidence document id</label><input type="number" id="doc">
+          <p class="help">Filled in when you store a document above. Leave empty to record without evidence.</p></div>
+        <div class="field"><label for="policy">Factor resolution policy</label><select id="policy"></select></div>
+        <button class="primary" id="record">Record and calculate</button>
+        <div id="record-msg" class="msg" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Review queue</h2>
+      <p class="small muted">Values read from documents, least confident first. The reader was trained on synthetic
+        bills and its confidence is a ranking, not a probability, so nothing is used until a person confirms it.</p>
+      <div class="scroll" style="margin-top:12px"><table>
+        <thead><tr><th>Document</th><th>Field</th><th class="num">Read as</th><th class="num">Confidence</th><th></th></tr></thead>
+        <tbody id="queue"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table></div>
+    </div>
+  </div>
+</div></main>
+<script src="/static/site.js"></script>
+<script>
+async function loadQueue() {
+  const rows = await api("/api/review-queue");
+  $("queue").innerHTML = rows.length ? rows.map((r) => `<tr>
+    <td>${esc(r.filename)} <span class="muted">#${esc(r.document_id)}</span></td><td>${esc(r.field_name)}</td>
+    <td class="num mono">${r.parsed_value === null ? "nothing found" : `${esc(qty(r.parsed_value))} ${esc(r.unit)}`}</td>
+    <td class="num mono">${r.confidence === null ? "-" : esc(r.confidence)}</td>
+    <td><button class="link" data-confirm="${r.extraction_id}">Confirm</button></td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">Nothing is waiting. Store a document and read it to add to the queue.</td></tr>`;
+}
+$("queue").onclick = async (ev) => {
+  if (!ev.target.dataset.confirm) return;
+  try { await api(`/api/extractions/${ev.target.dataset.confirm}/confirm`, {method: "POST"}); await loadQueue(); }
+  catch (e) { alert(e.message); }
+};
+$("upload").onclick = async () => {
+  const file = $("file").files[0], msg = $("upload-msg");
+  if (!file) { say(msg, "Choose a file first.", "bad"); return; }
+  try {
+    const q = new URLSearchParams({filename: file.name, doc_type: "electricity_bill", facility_id: $("facility").value});
+    const d = await api(`/api/documents?${q}`, {method: "POST", body: file,
+      headers: {"Content-Type": file.type || "application/octet-stream"}});
+    $("doc").value = d.document_id;
+    msg.className = "msg ok result";
+    msg.innerHTML = `${d.created ? "Stored" : "Already stored"} as document ${esc(d.document_id)}.<br>SHA-256 <code>${esc(d.sha256)}</code>`;
+    $("extract").hidden = false;
+  } catch (e) { say(msg, e.message, "bad"); }
+};
+$("extract").onclick = async () => {
+  const msg = $("extract-msg");
+  try {
+    const r = await api(`/api/documents/${+$("doc").value}/extract`, {method: "POST"});
+    say(msg, r.parsed_value === null ? "No consumption value found."
+      : `Read ${r.parsed_value} kWh, confidence ${r.confidence}. Queued for review.`, "ok");
+    await loadQueue();
+  } catch (e) { say(msg, e.message, "bad"); }
+};
+$("kind").onchange = () => {
+  const fuel = $("kind").value.startsWith("fuel.");
+  $("fuel-fields").hidden = !fuel;
+  $("qty-label").textContent = fuel ? "Quantity, tonnes" : "Quantity, kWh";
+};
+$("record").onclick = async () => {
+  const msg = $("record-msg"), fuel = $("kind").value.startsWith("fuel.");
+  try {
+    const r = await post("/api/activities", {facility_id: +$("facility").value, period_start: $("start").value,
+      period_end: $("end").value, quantity: $("qty").value, activity_type: $("kind").value,
+      ...(fuel ? {unit: "t", ncv: $("ncv").value, ncv_unit: $("ncv-unit").value, oxidation_factor: $("oxidation").value}
+               : {unit: "kWh"}),
+      document_id: $("doc").value ? +$("doc").value : null, policy: $("policy").value});
+    msg.className = "msg ok result";
+    msg.innerHTML = `Calculation ${esc(r.calculation_id)}: <strong>${esc(grouped(r.tco2e))} tCO2e</strong>.
+      <a href="/ledger?calc=${esc(r.calculation_id)}">See its provenance</a>`;
+  } catch (e) { say(msg, e.message, "bad"); }
+};
+(async () => {
+  try {
+    const o = await orgs();
+    const [policies, fuels] = await Promise.all([api("/api/policies"), api("/api/fuels")]);
+    $("facility").innerHTML = o.facilities.filter((f) => f.org_id === o.org).map((f) =>
+      `<option value="${f.facility_id}">${esc(f.name)}</option>`).join("");
+    $("policy").innerHTML = policies.map((p) => `<option>${esc(p)}</option>`).join("");
+    $("policy").value = "VINTAGE_MATCHED";
+    $("kind").insertAdjacentHTML("beforeend", fuels.map((f) =>
+      `<option value="fuel.${esc(f.slug)}">${esc(f.fuel)} (Scope 1)</option>`).join(""));
+    await loadQueue();
+  } catch (e) { unreachable(e); }
+})();
+</script>
+</body>
+</html>

@@ -3,358 +3,132 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CarbonX provenance</title>
-<style>
-  :root { --bg:#fafaf9; --fg:#1c1917; --muted:#78716c; --line:#e7e5e4; --card:#fff;
-          --accent:#0f766e; --bad:#b91c1c; --good:#15803d; --code:#f5f5f4; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#1c1917; --fg:#f5f5f4; --muted:#a8a29e; --line:#44403c; --card:#292524;
-            --accent:#2dd4bf; --bad:#f87171; --good:#4ade80; --code:#1c1917; } }
-  * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
-  header { padding:16px 24px; border-bottom:1px solid var(--line); }
-  header h1 { margin:0; font-size:18px; }
-  header p { margin:2px 0 0; color:var(--muted); font-size:13px; }
-  main { display:grid; grid-template-columns:320px 1fr; gap:24px; padding:24px; max-width:1400px; }
-  @media (max-width: 900px) { main { grid-template-columns:1fr; padding:16px; } }
-  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
-  h2 { font-size:14px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
-  label { display:block; font-size:13px; margin:8px 0 2px; color:var(--muted); }
-  input, select, button { font:inherit; width:100%; padding:6px 8px; border:1px solid var(--line);
-                          border-radius:6px; background:var(--bg); color:var(--fg); }
-  button { background:var(--accent); color:var(--bg); border:0; margin-top:12px; cursor:pointer; font-weight:600; }
-  button.link { background:none; color:var(--accent); padding:0; margin:0; width:auto; text-decoration:underline; font-weight:600; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:500; font-size:12px; }
-  td.num { font-variant-numeric: tabular-nums; }
-  code, pre { font:12.5px/1.45 ui-monospace, monospace; background:var(--code); border-radius:4px; }
-  code { padding:1px 4px; word-break:break-all; }
-  pre { padding:10px; overflow-x:auto; margin:6px 0 0; }
-  .msg { font-size:13px; margin-top:8px; word-break:break-all; }
-  .err { color:var(--bad); } .ok { color:var(--good); }
-  .chain { display:grid; gap:10px; }
-  .step { border-left:3px solid var(--accent); padding:4px 12px; }
-  .step h3 { margin:0 0 4px; font-size:14px; }
-  .kv { display:grid; grid-template-columns:150px 1fr; gap:2px 12px; font-size:13.5px; }
-  .kv dt { color:var(--muted); } .kv dd { margin:0; }
-  .old { opacity:.65; }
-  .muted { color:var(--muted); font-size:13px; }
-</style>
+<title>CarbonX: a carbon ledger where every figure is traceable</title>
+<meta name="description" content="A bitemporal carbon accounting ledger for India's Carbon Credit Trading Scheme. Research prototype.">
+<link rel="stylesheet" href="/static/site.css">
 </head>
 <body>
-<header>
-  <h1>CarbonX: provenance</h1>
-  <p>Research prototype. Decision support for accredited verifiers; it does not verify or issue assurance.</p>
-</header>
 <main>
-  <div>
-    <section>
-      <h2>1 · Upload evidence</h2>
-      <input type="file" id="file">
-      <button id="upload">Upload and hash</button>
-      <div id="upload-msg" class="msg"></div>
-      <button id="extract" hidden>Read consumption from this document</button>
-      <div id="extract-msg" class="msg"></div>
-    </section>
-    <section>
-      <h2>2 · Record consumption</h2>
-      <label for="facility">Facility</label><select id="facility"></select>
-      <label for="start">Period start</label><input type="date" id="start" value="2025-04-01">
-      <label for="end">Period end (exclusive)</label><input type="date" id="end" value="2025-05-01">
-      <label for="kind">Activity</label><select id="kind"><option value="grid_electricity">Grid electricity (Scope 2)</option></select>
-      <label for="qty" id="qty-label">Quantity (kWh)</label><input type="number" id="qty" min="0" step="any" value="125000">
-      <div id="fuel-fields" hidden>
-        <label for="ncv">Net calorific value</label>
-        <div style="display:flex;gap:6px"><input type="number" id="ncv" min="0" step="any" placeholder="e.g. 4000">
-          <select id="ncv-unit" style="width:110px"><option>kcal/kg</option><option>GJ/t</option></select></div>
-        <label for="oxidation">Oxidation factor</label><input type="number" id="oxidation" min="0" max="1" step="any" value="1">
+  <div class="hero"><div class="wrap">
+    <div>
+      <p class="eyebrow">Carbon accounting for India's CCTS</p>
+      <h1>Every reported tonne, traced to its evidence.</h1>
+      <p class="lede" style="margin-top:20px">A bitemporal carbon ledger for India's Carbon Credit Trading
+        Scheme. Reports stay byte-reproducible when emission factors are revised.</p>
+      <div class="cta">
+        <a class="btn primary" href="/ledger">Open workbench</a>
+        <a class="btn ghost" href="/findings">Read the findings</a>
       </div>
-      <label for="doc">Evidence document id</label><input type="number" id="doc" placeholder="from step 1">
-      <label for="policy">Factor resolution policy</label><select id="policy"></select>
-      <button id="record">Record and calculate</button>
-      <div id="record-msg" class="msg"></div>
-    </section>
-  </div>
-  <div>
-    <section>
-      <h2>Current ledger</h2>
-      <table><thead><tr><th>Period</th><th>Facility</th><th>Scope</th><th>Activity</th>
-        <th>tCO2e</th><th>Policy</th><th></th></tr></thead><tbody id="ledger"></tbody></table>
-      <p id="ledger-empty" class="muted">No entries yet.</p>
-      <p id="coverage" class="muted"></p>
-    </section>
-    <section>
-      <h2>Reports: same data, every factor policy</h2>
-      <p class="muted">Each report is computed as of now, hashed and stored immutably. "Verify" regenerates it as of its own time and compares byte for byte, even after factors are revised or data corrected.</p>
-      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-        <div><label for="rep-org">Organisation</label><select id="rep-org"></select></div>
-        <div><label for="rep-fy">Compliance year</label><input id="rep-fy" value="FY2025-26" style="width:130px"></div>
-        <div><label for="rep-base">Baseline year (for BASELINE_FROZEN)</label><input id="rep-base" placeholder="optional, e.g. FY2023-24" style="width:200px"></div>
-        <div><button id="run-reports" style="width:auto;padding:6px 14px">Generate under each policy</button></div>
+    </div>
+    <div class="panel" id="check" aria-live="polite">
+      <h2>Reproduce a stored report</h2>
+      <p class="muted small">Regenerate the newest report as of its own time and compare it byte for byte.</p>
+      <div id="check-body" style="margin-top:16px">
+        <div class="skeleton" style="width:70%"></div><div class="skeleton"></div><div class="skeleton" style="width:50%"></div>
       </div>
-      <div id="reports-msg" class="msg"></div>
-      <table style="margin-top:10px"><thead><tr><th>Report</th><th>Policy</th><th>tCO2e</th><th>GEI</th><th>SHA-256</th><th></th></tr></thead>
-        <tbody id="reports"></tbody></table>
-    </section>
-    <section>
-      <h2>Review queue: extracted values awaiting a person</h2>
-      <p class="muted">Least confident first. The model was trained on synthetic bills, and its confidence is a ranking, not a calibrated probability, so nothing here is used until someone confirms it.</p>
-      <table><thead><tr><th>Document</th><th>Field</th><th>Read as</th><th>Confidence</th><th></th></tr></thead>
-        <tbody id="queue"></tbody></table>
-      <p id="queue-empty" class="muted">Nothing waiting.</p>
-    </section>
-    <section>
-      <h2>Exceptions</h2>
-      <p class="muted">Facts a verifier should look at. An empty list means none of these conditions was found, not that the figures are correct.</p>
-      <button id="load-exceptions" style="width:auto;padding:6px 14px;margin-top:0">Check the selected organisation</button>
-      <table style="margin-top:10px"><tbody id="exceptions"></tbody></table>
-    </section>
-    <section id="prov-section" hidden>
-      <h2>Provenance: calculation <span id="prov-id"></span></h2>
-      <div id="prov" class="chain"></div>
-    </section>
-  </div>
+    </div>
+  </div></div>
+
+  <section class="band">
+    <div class="wrap stack-lg">
+      <div class="stack">
+        <h2>Calculating emissions is arithmetic. Proving them is not.</h2>
+        <p class="lede">To check one figure, an auditor has to reconstruct this whole chain. CarbonX stores
+          each link, so the chain can be read instead of rebuilt.</p>
+      </div>
+      <ol class="chain">
+        <li><h3>Source document</h3><p>A bill or invoice, hashed with SHA-256 at upload.</p></li>
+        <li><h3>Activity</h3><p>The quantity and period. Corrections supersede; nothing is overwritten.</p></li>
+        <li><h3>Factor version</h3><p>The exact published row used, pinned for good.</p></li>
+        <li><h3>Calculation</h3><p>A typed program whose units must agree before it runs.</p></li>
+        <li><h3>Ledger entry</h3><p>The result, with a hash-chained audit event written by the database.</p></li>
+        <li><h3>Report</h3><p>Canonical output and its hash, reproducible as of its own time.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <figure>
+        <div class="plate"><img src="/figures/rq1_sensitivity.svg" width="760" height="440"
+          alt="Change in total emissions against Scope 2 share: the choice of CEA series crosses the 5% threshold at a 23% share; the reading of 'latest' reaches 4.87% and never crosses."></div>
+        <figcaption>Generated from the registry by <code>scripts/rq1_materiality.py</code>.</figcaption>
+      </figure>
+      <div class="stack">
+        <h2>The rule names a factor. It does not fix a number.</h2>
+        <p class="muted">Each figure applies to the electricity share of an entity's emissions, not to its total.</p>
+        <div class="findings">
+          <div><div class="stat">4.87%</div>
+            <p>Gap between two readings of BEE's "latest" grid factor for FY2025-26: before and after CEA published version 22.</p></div>
+          <div><div class="stat">17 to 22%</div>
+            <p>Spread between CEA's four all-India average series. The procedure does not say which one applies.</p></div>
+          <div><div class="stat">23%</div>
+            <p>Scope 2 share of the target basis above which the series choice alone moves total emissions past 5%.</p></div>
+        </div>
+        <p><a href="/findings">All findings, with sources and caveats</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap stack-lg">
+      <h2>What the system guarantees</h2>
+      <dl class="terms">
+        <div><dt>Reproducible reports</dt><dd>A report generated at one moment regenerates byte-identically later, whatever was revised or corrected in between. Tested with generated operation sequences.</dd></div>
+        <div><dt>Factors are superseded, never edited</dt><dd>A calculation keeps the factor row it used. New versions sit beside the old ones.</dd></div>
+        <div><dt>Audit trail in the database</dt><dd>Triggers write it, so it holds even when the application is wrong. The application runs as a role that cannot switch them off.</dd></div>
+        <div><dt>Units that must agree</dt><dd>kWh times tCO2 per MWh gives tonnes. kWh times kg per litre is rejected before anything is computed.</dd></div>
+        <div><dt>Tamper evidence</dt><dd>Documents are hashed and audit events are hash-chained. This shows tampering. It is not a blockchain.</dd></div>
+        <div><dt>No invented uncertainty</dt><dd>Ranges come from IPCC 2006 tables. Where nothing is published, the figure is a point estimate and says so.</dd></div>
+      </dl>
+      <p><a href="/method">Try the type checker and the credit lifecycle</a></p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap stack" style="max-width:820px">
+      <h2>What it is not</h2>
+      <p>CarbonX does not verify emissions and does not issue assurance. Verification under CCTS is done by
+        agencies accredited by BEE. This is a tool that puts the evidence in front of them.</p>
+      <p>The sample facility is synthetic. The bill reader was trained on synthetic bills, so every value it
+        reads waits for a person to confirm it. The findings rest on one BEE document that still needs
+        checking against the notified text.</p>
+    </div>
+  </section>
 </main>
+<script src="/static/site.js"></script>
 <script>
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "—").replace(/[&<>"']/g, (c) =>
-  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const actor = "workbench";
-
-async function api(path, opts = {}) {
-  const r = await fetch(path, {...opts, headers: {"X-Actor": actor, ...(opts.headers || {})}});
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.detail || r.statusText);
-  return body;
-}
-const kv = (pairs) => `<dl class="kv">${pairs.map(([k, v]) =>
-  `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
-const step = (title, body, cls = "") => `<div class="step ${cls}"><h3>${esc(title)}</h3>${body}</div>`;
-
-async function init() {
-  const [facilities, policies] = await Promise.all([api("/api/facilities"), api("/api/policies")]);
-  $("facility").innerHTML = facilities.map((f) =>
-    `<option value="${f.facility_id}">${esc(f.name)} (${esc(f.organisation)})</option>`).join("");
-  $("policy").innerHTML = policies.map((p) => `<option>${esc(p)}</option>`).join("");
-  const orgs = [...new Map(facilities.map((f) => [f.org_id, f.organisation])).entries()];
-  $("rep-org").innerHTML = orgs.map(([id, name]) =>
-    `<option value="${id}">${esc(name)}</option>`).join("");
-  window.POLICIES = policies;
-  const fuels = await api("/api/fuels");
-  $("kind").insertAdjacentHTML("beforeend", fuels.map((f) =>
-    `<option value="fuel.${esc(f.slug)}">${esc(f.fuel)} (Scope 1, ${esc(f.co2e_t_per_tj)} tCO2e/TJ)</option>`).join(""));
-  $("kind").onchange = () => {
-    const fuel = $("kind").value.startsWith("fuel.");
-    $("fuel-fields").hidden = !fuel;
-    $("qty-label").textContent = fuel ? "Quantity (tonnes)" : "Quantity (kWh)";
-  };
-  await loadLedger();
-  await loadQueue();
-}
-
-async function loadQueue() {
-  const rows = await api("/api/review-queue");
-  $("queue-empty").hidden = rows.length > 0;
-  $("queue").innerHTML = rows.map((r) => `<tr>
-    <td>${esc(r.filename)} <span class="muted">(#${esc(r.document_id)})</span></td>
-    <td>${esc(r.field_name)}</td>
-    <td class="num">${r.parsed_value === null ? "nothing found" : `${esc(r.parsed_value)} ${esc(r.unit)}`}</td>
-    <td class="num">${r.confidence === null ? "—" : esc(r.confidence)}</td>
-    <td><button class="link" data-confirm="${r.extraction_id}">Confirm</button></td></tr>`).join("");
-}
-
-async function loadExceptions() {
-  const rows = await api(`/api/exceptions?org_id=${+$("rep-org").value}`);
-  $("exceptions").innerHTML = rows.length
-    ? rows.map((r) => `<tr><td class="${r.severity === "high" ? "err" : ""}">${esc(r.severity)}</td>
-        <td>${esc(r.kind)}</td><td>${esc(r.detail)}</td></tr>`).join("")
-    : `<tr><td class="muted">None of the checked conditions was found.</td></tr>`;
-}
-$("load-exceptions").onclick = () => loadExceptions().catch((e) => alert(e.message));
-$("extract").onclick = async () => {
-  const msg = $("extract-msg");
-  try {
-    const r = await api(`/api/documents/${+$("doc").value}/extract`, {method: "POST"});
-    msg.className = "msg ok";
-    msg.textContent = r.parsed_value === null ? "No consumption value found."
-      : `Read ${r.parsed_value} kWh (confidence ${r.confidence}). Queued for review.`;
-    await loadQueue();
-  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
-};
-
-async function runReports() {
-  const msg = $("reports-msg"), base = $("rep-base").value.trim();
-  msg.className = "msg"; msg.textContent = "Generating…";
-  try {
-    for (const policy of window.POLICIES) {
-      if (policy === "BASELINE_FROZEN" && !base) continue;
-      const r = await api("/api/reports", {method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({org_id: +$("rep-org").value, compliance_year: $("rep-fy").value,
-                              policy, baseline_year: base || null})});
-      const unit = r.facilities.length === 1 ? (r.facilities[0].gei_unit || "") : "";
-      $("reports").insertAdjacentHTML("afterbegin", `<tr>
-        <td>${esc(r.report_id)}</td><td>${esc(r.policy)}</td>
-        <td class="num">${esc(r.total_tco2e)}${r.unresolved ? ` <span class="err">(${r.unresolved} unresolved)</span>` : ""}</td>
-        <td class="num">${r.gei ? `${esc(r.gei)} ${esc(unit)}` : "—"}</td>
-        <td><code>${esc(r.sha256.slice(0, 16))}…</code></td>
-        <td><button class="link" data-verify="${r.report_id}">Verify</button>
-            <span id="v-${r.report_id}" class="msg"></span></td></tr>`);
-    }
-    msg.className = "msg ok";
-    msg.textContent = base ? "Done." : "Done. (Add a baseline year to include BASELINE_FROZEN.)";
-  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
-}
-$("run-reports").onclick = runReports;
-
-async function loadLedger() {
-  const rows = await api("/api/emissions");
-  $("ledger-empty").hidden = rows.length > 0;
-  $("ledger").innerHTML = rows.map((r) => `<tr>
-    <td>${esc(r.period_start)} → ${esc(r.period_end)}</td><td>${esc(r.facility)}</td>
-    <td>${esc(r.scope)}</td><td class="num">${esc(r.quantity)} ${esc(r.unit)}</td>
-    <td class="num"><button class="link" data-calc="${r.calculation_id}">${esc(r.tco2e)}</button></td>
-    <td>${esc(r.policy)}</td>
-    <td><button class="link" data-edit="${r.activity_id}" data-qty="${esc(r.quantity)}">Correct</button></td>
-  </tr>`).join("");
-  const org = +$("rep-org").value;
-  if (org) {
-    const cov = await api(`/api/coverage?org_id=${org}`);
-    $("coverage").textContent = cov.coverage_pct === null ? ""
-      : `Audit coverage: ${cov.coverage_pct}% of ${cov.total_tco2e} tCO2e has a hashed source document on file.`;
+(async () => {
+  const body = $("check-body");
+  let reports;
+  try { reports = await api("/api/reports"); }
+  catch (e) { body.innerHTML = `<p class="bad small">Cannot reach the API: ${esc(e.message)}</p>`; return; }
+  if (!reports.length) {
+    body.innerHTML = `<p class="empty">No reports stored yet. <a href="/reports">Generate one</a> in the workbench.</p>`;
+    return;
   }
-}
-
-async function showProvenance(id) {
-  const base = $("rep-base").value.trim();
-  const [p, att] = await Promise.all([api(`/api/calculations/${id}/provenance`),
-    api(`/api/calculations/${id}/attestation${base ? `?baseline_year=${encodeURIComponent(base)}` : ""}`)]);
-  const c = p.calculation, a = p.activity, f = p.factor, d = p.document;
-  const attestation = step("The same activity under each factor policy",
-    `<p class="muted">${att.policy_dependent
-      ? "As of the moment this was calculated. The spread comes from the choice of policy alone."
-      : "A fuel factor does not depend on the policy, so every row is the same."}</p>
-    <table><tr><th>Policy</th><th>tCO2e</th><th>vs this calculation</th><th>Factor</th><th>Version, year</th><th>Published</th></tr>
-    ${att.alternatives.map((x) => x.unavailable
-      ? `<tr class="old"><td>${esc(x.policy)}</td><td colspan="5">${esc(x.unavailable)}</td></tr>`
-      : `<tr><td>${x.used ? `<strong>${esc(x.policy)}</strong> (used)` : esc(x.policy)}</td>
-        <td class="num">${esc(x.tco2e)}</td>
-        <td class="num">${x.used ? "—" : `${x.vs_used_pct > 0 ? "+" : ""}${esc(x.vs_used_pct)}%`}</td>
-        <td class="num">${esc(x.factor_value)} ${esc(x.factor_unit)}</td>
-        <td>${esc(x.source_version)}, ${esc(String(x.factor_year).slice(0, 4))}</td>
-        <td>${esc(x.published_on)}</td></tr>`).join("")}</table>`);
-  const chainOk = p.audit_chain.intact
-    ? `<span class="ok">intact</span>` : `<span class="err">BROKEN at event ${esc(p.audit_chain.first_break?.broken_event_id)}</span>`;
-  $("prov-id").textContent = id;
-  $("prov").innerHTML = [
-    step("Organisation → facility", kv([["Organisation", esc(c.organisation)],
-      ["Facility", `${esc(c.facility)}, ${esc(c.state)}`]])),
-    step("Activity", kv([["Quantity", `${esc(a.quantity)} ${esc(a.unit)}`],
-      ["Type", `${esc(a.activity_type)} (scope ${esc(a.scope)})`],
-      ["Period", `${esc(a.period_start)} → ${esc(a.period_end)} (end exclusive)`],
-      ["Recorded", esc(a.recorded_at)],
-      ["Superseded", a.superseded_at ? esc(a.superseded_at) : "current"]]),
-      a.superseded_at ? "old" : ""),
-    step("Evidence document", d ? kv([["File", esc(d.filename)], ["Type", esc(d.doc_type)],
-      ["SHA-256", `<code>${esc(d.sha256)}</code>`],
-      ["Hash check", d.hash_verified ? `<span class="ok">file matches</span>` : `<span class="err">MISMATCH or missing</span>`],
-      ["Uploaded", esc(d.uploaded_at)]]) : `<p class="err">No document: this figure is not traced to evidence.</p>`),
-    step("Emission factor", kv([["Value", `${esc(f.value)} ${esc(f.unit)}`],
-      ["Factor", `<code>${esc(f.factor_key)}</code> (${esc(f.geography)})`],
-      ["Valid for", `${esc(f.valid_from)} → ${esc(f.valid_to)}`],
-      ["Source", `${esc(f.publisher)} ${esc(f.dataset_name)} ${esc(f.version_label)}`],
-      ["Published", esc(f.published_on)],
-      ["Source URL", `<a href="${esc(f.source_url)}" rel="noreferrer">${esc(f.source_url)}</a>`],
-      ["Source file SHA-256", `<code>${esc(f.source_file_sha256)}</code>`]])),
-    step("Calculation", kv([["Result", `<strong>${esc(c.tco2e)} ${esc(c.result_unit)}</strong>`],
-      ["Policy", esc(c.policy)], ["Engine", esc(c.engine_version)],
-      ["Computed", esc(c.computed_at)],
-      ["Superseded", c.superseded_at ? esc(c.superseded_at) : "current"]]) +
-      `<pre>${esc(c.program)}</pre>`, c.superseded_at ? "old" : ""),
-    attestation,
-    p.activity_history.length ? step("Before correction", `<table><tr><th>Activity</th><th>Quantity</th>
-      <th>Recorded</th><th>Superseded</th></tr>${p.activity_history.map((h) => `<tr class="old">
-      <td>${esc(h.activity_id)}</td><td class="num">${esc(h.quantity)} ${esc(h.unit)}</td>
-      <td>${esc(h.recorded_at)}</td><td>${esc(h.superseded_at)}</td></tr>`).join("")}</table>`) : "",
-    step("All calculations in this lineage", `<table><tr><th>Id</th><th>tCO2e</th><th>Policy</th>
-      <th>Computed</th><th>Superseded</th></tr>${p.calculations.map((x) => `<tr class="${x.superseded_at ? "old" : ""}">
-      <td><button class="link" data-calc="${x.calculation_id}">${esc(x.calculation_id)}</button></td>
-      <td class="num">${esc(x.tco2e)}</td><td>${esc(x.policy)}</td><td>${esc(x.computed_at)}</td>
-      <td>${x.superseded_at ? esc(x.superseded_at) : "current"}</td></tr>`).join("")}</table>`),
-    step("Audit trail", `<p class="muted">Hash chain: ${chainOk}. Tamper-evidence, not a blockchain.</p>
-      <table><tr><th>#</th><th>Table</th><th>Action</th><th>Actor</th><th>Reason</th><th>When</th></tr>
-      ${p.audit_events.map((e) => `<tr><td>${esc(e.event_id)}</td><td>${esc(e.entity_table)} ${esc(e.entity_id)}</td>
-      <td>${esc(e.action)}</td><td>${esc(e.actor)}</td><td>${esc(e.reason)}</td>
-      <td>${esc(e.occurred_at)}</td></tr>`).join("")}</table>`),
-  ].join("");
-  $("prov-section").hidden = false;
-  $("prov-section").scrollIntoView({behavior: "smooth"});
-}
-
-$("upload").onclick = async () => {
-  const file = $("file").files[0], msg = $("upload-msg");
-  if (!file) { msg.className = "msg err"; msg.textContent = "Choose a file first."; return; }
-  try {
-    const q = new URLSearchParams({filename: file.name, doc_type: "electricity_bill",
-                                   facility_id: $("facility").value});
-    const d = await api(`/api/documents?${q}`, {method: "POST", body: file,
-      headers: {"Content-Type": file.type || "application/octet-stream"}});
-    $("doc").value = d.document_id;
-    msg.className = "msg ok";
-    msg.innerHTML = `${d.created ? "Stored" : "Already stored"} as document ${d.document_id}.<br>SHA-256 <code>${esc(d.sha256)}</code>`;
-    $("extract").hidden = false;
-  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
-};
-
-$("record").onclick = async () => {
-  const msg = $("record-msg");
-  try {
-    const r = await api("/api/activities", {method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({facility_id: +$("facility").value, period_start: $("start").value,
-        period_end: $("end").value, quantity: $("qty").value,
-        activity_type: $("kind").value,
-        ...($("kind").value.startsWith("fuel.")
-          ? {unit: "t", ncv: $("ncv").value, ncv_unit: $("ncv-unit").value,
-             oxidation_factor: $("oxidation").value}
-          : {unit: "kWh"}),
-        document_id: $("doc").value ? +$("doc").value : null, policy: $("policy").value})});
-    msg.className = "msg ok"; msg.textContent = `Calculation ${r.calculation_id}: ${r.tco2e} tCO2e`;
-    await loadLedger(); await showProvenance(r.calculation_id);
-  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
-};
-
-document.addEventListener("click", async (ev) => {
-  const t = ev.target;
-  try {
-    if (t.dataset.calc) await showProvenance(t.dataset.calc);
-    if (t.dataset.confirm) {
-      await api(`/api/extractions/${t.dataset.confirm}/confirm`, {method: "POST"});
-      await loadQueue();
-    }
-    if (t.dataset.verify) {
-      const v = await api(`/api/reports/${t.dataset.verify}/verify`), out = $(`v-${t.dataset.verify}`);
-      out.className = v.byte_identical ? "msg ok" : "msg err";
-      out.textContent = v.byte_identical
-        ? `byte-identical ✓ (${v.regenerated_sha256.slice(0, 12)}…)`
-        : `DIFFERS: ${v.regenerated_sha256.slice(0, 12)}…`;
-    }
-    if (t.dataset.edit) {
-      const qty = prompt("Corrected quantity (kWh):", t.dataset.qty);
-      if (qty === null) return;
-      const reason = prompt("Reason for the correction (recorded in the audit trail):");
-      if (!reason) return;
-      const r = await api(`/api/activities/${t.dataset.edit}`, {method: "PATCH",
-        headers: {"Content-Type": "application/json"}, body: JSON.stringify({quantity: qty, reason})});
-      await loadLedger();
-      if (r.calculations[0]) await showProvenance(r.calculations[0].calculation_id);
-    }
-  } catch (e) { alert(e.message); }
-});
-
-init().catch((e) => { document.querySelector("main").insertAdjacentHTML("afterbegin",
-  `<p class="err">Cannot reach the API: ${esc(e.message)}. Is Postgres running and migrated?</p>`); });
+  const r = reports[0];
+  body.innerHTML = kv([
+    ["Report", `#${esc(r.report_id)}, ${esc(r.compliance_year)}`],
+    ["Organisation", esc(r.organisation)],
+    ["Factor policy", esc(r.policy)],
+    ["Total", `<strong>${esc(grouped(r.total_tco2e))}</strong> tCO2e`],
+    ["Read as of", esc(when(r.as_of))],
+    ["Stored SHA-256", `<code>${short(r.sha256)}</code>`],
+  ]) + `<div class="cta" style="margin-top:18px"><button class="ghost" id="regen">Regenerate and compare</button></div>
+        <div id="regen-out" class="msg"></div>`;
+  $("regen").onclick = async () => {
+    const btn = $("regen"), out = $("regen-out");
+    btn.disabled = true;
+    try {
+      const v = await api(`/api/reports/${r.report_id}/verify`);
+      out.className = "msg result " + (v.byte_identical ? "ok" : "bad");
+      out.innerHTML = `Regenerated SHA-256 <code>${short(v.regenerated_sha256)}</code><br>
+        <strong>${v.byte_identical ? "Byte-identical to the stored report." : "DIFFERS from the stored report."}</strong>`;
+    } catch (e) { say(out, e.message, "bad"); }
+    btn.disabled = false;
+  };
+})();
 </script>
 </body>
 </html>

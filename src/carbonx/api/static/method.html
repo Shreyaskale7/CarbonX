@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works: CarbonX</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<main>
+  <section class="tight" style="padding-top:56px">
+    <div class="wrap stack">
+      <h1>How it works</h1>
+      <p class="lede">Three ideas carry the system: two clocks on every row, a calculation language that
+        checks units, and a credit lifecycle small enough to prove things about.</p>
+    </div>
+  </section>
+
+  <section class="band" id="time">
+    <div class="wrap split even">
+      <div class="stack">
+        <h2>Two clocks on every row</h2>
+        <p>Each factor, activity and calculation carries the period it describes and the moment the system
+          learned it. A correction closes the old row and opens a new one. Nothing is overwritten.</p>
+        <p>A report records the moment it was read. Regenerating it reads the ledger as of that moment, so
+          later revisions and backdated corrections cannot reach it.</p>
+      </div>
+      <div class="panel">
+        <h3>What a revision does to an old report</h3>
+        <div class="scroll" style="margin-top:8px"><table>
+          <thead><tr><th>Moment</th><th>Event</th><th>Report A reads</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">t1</td><td>Factor 0.7097 is published</td><td class="muted">not generated yet</td></tr>
+            <tr><td class="mono">t2</td><td>Report A is generated and hashed</td><td class="mono">0.7097</td></tr>
+            <tr><td class="mono">t3</td><td>A new version publishes 0.6751</td><td class="mono">0.7097</td></tr>
+            <tr><td class="mono">t4</td><td>Report A is regenerated as of t2</td><td class="mono">0.7097, same hash</td></tr>
+          </tbody></table></div>
+        <p class="small muted" style="margin-top:12px">A new report generated at t4 would read 0.6751. Both are correct for their own moment.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="types">
+    <div class="wrap stack-lg">
+      <div class="stack">
+        <h2>A calculation that type-checks cannot mix units</h2>
+        <p>Every calculation is a short program. The checker works out the dimension of each expression
+          before anything is evaluated, and arithmetic is exact. Edit the program and run it.</p>
+      </div>
+      <div class="split even">
+        <div>
+          <div class="field"><label for="program">Program</label>
+            <textarea id="program" rows="7" spellcheck="false"></textarea>
+            <p class="help">Units go in square brackets. Each name is bound once.</p></div>
+          <div class="row">
+            <button class="primary fit" id="run">Check and run</button>
+            <button class="ghost fit sm" data-example="ok">Electricity</button>
+            <button class="ghost fit sm" data-example="fuel">Fuel with calorific value</button>
+            <button class="ghost fit sm" data-example="bad">Wrong factor unit</button>
+          </div>
+        </div>
+        <div class="panel" aria-live="polite">
+          <h3>Result</h3>
+          <div id="result" style="margin-top:10px"><p class="empty">Run the program to see its bindings.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="lifecycle">
+    <div class="wrap stack-lg">
+      <div class="stack">
+        <h2>A credit can be used once</h2>
+        <p>A carbon credit moves through five states. The transition table below is the one the database
+          enforces. Try a sequence: anything the table does not allow is refused.</p>
+      </div>
+      <div class="split even">
+        <div class="stack">
+          <div class="states" id="states"></div>
+          <div class="row" id="symbols"></div>
+          <div class="row"><button class="ghost sm fit" id="reset">Start again</button></div>
+          <div id="life-msg" class="msg" aria-live="polite"></div>
+        </div>
+        <div class="panel">
+          <h3>Sequence so far</h3>
+          <p class="mono" id="word" style="margin-top:10px;overflow-wrap:anywhere">(empty)</p>
+          <p class="small muted" style="margin-top:14px">Three properties are proved for this automaton and checked
+            by an explicit-state model checker: a surrendered or retired credit never moves again, a live
+            credit has exactly one holder, and the number of credits is conserved.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="limits">
+    <div class="wrap stack" style="max-width:820px">
+      <h2>Where the guarantees stop</h2>
+      <p>The audit trail and the no-overwrite rules hold against the application, which connects as a role
+        that cannot disable them. They do not hold against the database owner or a superuser, who must be trusted.</p>
+      <p>The lifecycle proofs are written by hand and checked by enumeration on small instances. They are
+        not machine-verified. The type system has eight documented escape hatches.</p>
+    </div>
+  </section>
+</main>
+<script src="/static/site.js"></script>
+<script>
+const EXAMPLES = {
+  ok: "let activity : [kWh]      = 125000 [kWh]\nlet factor   : [tCO2/MWh] = 0.6751 [tCO2/MWh]\nlet e        : [tCO2e]    = activity * factor",
+  fuel: "let fuel   : [t]        = 41 [t]\nlet ncv    : [GJ/t]     = 48 [GJ/t]\nlet factor : [tCO2e/TJ] = 56.155 [tCO2e/TJ]\nlet e      : [tCO2e]    = fuel * ncv * factor",
+  bad: "let activity : [kWh]   = 125000 [kWh]\nlet factor   : [kgCO2e/litre] = 2.68 [kgCO2e/litre]\nlet e        : [tCO2e] = activity * factor",
+};
+$("program").value = EXAMPLES.ok;
+document.querySelectorAll("[data-example]").forEach((b) => b.onclick = () => {
+  $("program").value = EXAMPLES[b.dataset.example]; $("run").click(); });
+$("run").onclick = async () => {
+  const out = $("result");
+  $("run").disabled = true;
+  try {
+    const r = await post("/api/typecheck", {program: $("program").value});
+    out.innerHTML = r.ok
+      ? `<div class="result"><p class="ok"><strong>Accepted.</strong> Every expression has the declared dimension.</p>
+         <div class="scroll" style="margin-top:10px"><table><thead><tr><th>Name</th><th class="num">Value</th><th>Unit</th><th class="num">Exact</th></tr></thead>
+         <tbody>${r.bindings.map((b) => `<tr><td class="mono">${esc(b.name)}</td><td class="num mono">${esc(b.value)}</td>
+           <td class="mono">${esc(b.unit)}</td><td class="num mono">${esc(b.exact)}</td></tr>`).join("")}</tbody></table></div></div>`
+      : `<div class="result"><p class="bad"><strong>Rejected: ${esc(r.error === "DimensionError" ? "the units do not agree" : "the program is not well formed")}.</strong></p>
+         <pre style="margin-top:10px;white-space:pre-wrap">${esc(r.message)}</pre>
+         <p class="small muted" style="margin-top:10px">Nothing was evaluated.</p></div>`;
+  } catch (e) { out.innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+  $("run").disabled = false;
+};
+
+(async () => {
+  let m;
+  try { m = await api("/api/lifecycle"); } catch (e) { say($("life-msg"), e.message, "bad"); return; }
+  let state = m.initial, word = [];
+  const next = (s, a) => (m.delta.find((d) => d.from === s && d.symbol === a) || {}).to;
+  const render = () => {
+    $("states").innerHTML = m.states.map((s) =>
+      `<span class="state${s === state ? " on" : ""}"${s === state ? ' aria-current="true"' : ""}>${esc(s)}</span>`).join("");
+    $("word").textContent = word.length ? word.join(" ") : "(empty)";
+  };
+  $("symbols").innerHTML = m.symbols.map((a) => `<button class="ghost fit" data-sym="${esc(a)}">${esc(a)}</button>`).join("");
+  $("symbols").onclick = (ev) => {
+    const a = ev.target.dataset.sym; if (!a) return;
+    const to = next(state, a);
+    if (!to) { say($("life-msg"), `Refused: ${a} is not allowed from ${state}.`, "bad"); return; }
+    word.push(a); state = to; render();
+    say($("life-msg"), m.terminal.includes(state) ? `${state} is final. No further transition is allowed.` : `Now ${state}.`, "ok");
+  };
+  $("reset").onclick = () => { state = m.initial; word = []; render(); say($("life-msg"), ""); };
+  render();
+})();
+</script>
+</body>
+</html>

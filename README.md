@@ -66,8 +66,20 @@ scripts/load_cea.py`. RQ2 results: `docs/RQ2_RESULTS.md`.
 `./reproduce.sh` runs end to end: migrate, load the registry, seed a synthetic
 facility (electricity, gas and production), calculate, then generate a report
 under each policy, with Scope 1 and 2 emissions and GEI (tCO2e per tonne),
-verify each regenerates byte-identically, and print the uncertainty band. The API and provenance page:
+verify each regenerates byte-identically, and print the uncertainty band. The API and the site:
 `uvicorn carbonx.api.main:app` then http://127.0.0.1:8000.
+
+The site is static HTML served by the API (no Node, no build step):
+
+| Page | What it shows |
+|---|---|
+| `/` | Overview, with a live check that regenerates the newest stored report |
+| `/findings` | RQ1, RQ2, RQ3 and the BEE vs IPCC comparison, with the generated figures |
+| `/registry` | Every all-India CEA grid factor by year and version, with its history |
+| `/method` | The type checker and the credit lifecycle, both runnable in the page |
+| `/ledger`, `/evidence`, `/reports` | The workbench: provenance, corrections, uploads, review queue, reports with verify, exceptions |
+
+Without Docker: `python scripts/dev_pg.py serve` starts a local Postgres and the site together.
 
 ## Read these first
 

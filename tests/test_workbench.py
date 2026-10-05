@@ -115,6 +115,15 @@ def test_workbench_endpoints(conn, org):
                            ).json()["human_verified"]
         assert client.get(f"/api/exceptions?org_id={org_id}").status_code == 200
         assert client.post("/api/documents/999999999/extract").status_code == 404
+        # the site's read-only endpoints: stored reports and factor history
+        _factor(conn, 880_001, GRID, "0.7", date(2026, 1, 1), fy="FY2025-26")
+        r = client.post("/api/reports", json={"org_id": org_id}).json()
+        listed = client.get("/api/reports").json()
+        assert listed[0]["report_id"] == r["report_id"]
+        assert listed[0]["sha256"] == r["sha256"]
+        assert any(k["factor_key"] == GRID for k in client.get("/api/factors").json())
+        history = client.get(f"/api/factors?factor_key={GRID}").json()
+        assert any(h["version_label"] == "wb880001" for h in history)
     finally:
         api.app.dependency_overrides.clear()
 

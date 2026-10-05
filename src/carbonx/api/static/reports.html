@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports: CarbonX workbench</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body class="app">
+<main><div class="wrap stack-lg">
+  <div class="stack">
+    <h1>Reports</h1>
+    <p class="muted">A report is computed as of now, hashed and stored. It cannot be changed afterwards, and it can always be regenerated and compared.</p>
+  </div>
+  <div class="panel">
+    <h2>Generate under every factor policy</h2>
+    <p class="small muted">Same activity data, one report per policy. The difference between them comes from the policy alone.</p>
+    <div class="row" style="margin-top:14px">
+      <div class="field"><label for="fy">Compliance year</label><input id="fy" value="FY2025-26"></div>
+      <div class="field"><label for="base">Baseline year</label><input id="base">
+        <p class="help">Optional, for example FY2023-24. Needed for BASELINE_FROZEN.</p></div>
+      <div class="fit" style="padding-bottom:14px"><button class="primary" id="run">Generate reports</button></div>
+    </div>
+    <div id="run-msg" class="msg" aria-live="polite"></div>
+  </div>
+  <div class="panel">
+    <div class="row"><h2>Stored reports</h2>
+      <div class="fit"><button class="ghost sm" id="verify-all">Verify all shown</button></div></div>
+    <div class="scroll" style="margin-top:8px"><table>
+      <thead><tr><th>Report</th><th>Year</th><th>Factor policy</th><th class="num">tCO2e</th><th class="num">Intensity</th>
+        <th>Read as of</th><th>SHA-256</th><th>Regenerated</th></tr></thead>
+      <tbody id="reports"><tr><td colspan="8"><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></td></tr></tbody>
+    </table></div>
+    <p class="small muted" style="margin-top:12px">Intensity is tCO2e per unit of product. It is withheld when a facility makes more than one product.</p>
+  </div>
+  <div class="panel">
+    <h2>Exceptions</h2>
+    <p class="small muted">Conditions a verifier should look at. An empty list means none of these was found. It does not mean the figures are correct.</p>
+    <div class="scroll" style="margin-top:8px"><table><tbody id="exceptions"><tr><td><div class="skeleton"></div></td></tr></tbody></table></div>
+  </div>
+</div></main>
+<script src="/static/site.js"></script>
+<script>
+let ORG = null, ORG_NAME = "", POLICIES = [];
+
+async function loadReports() {
+  const rows = (await api("/api/reports")).filter((r) => r.organisation === ORG_NAME);
+  $("reports").innerHTML = rows.length ? rows.map((r) => `<tr>
+    <td>#${esc(r.report_id)}</td><td>${esc(r.compliance_year)}</td><td class="small">${esc(r.policy)}</td>
+    <td class="num mono">${esc(grouped(r.total_tco2e))}</td><td class="num mono">${r.gei === null ? "-" : esc(r.gei)}</td>
+    <td>${esc(when(r.as_of))}</td><td><code>${short(r.sha256)}</code></td>
+    <td id="v-${r.report_id}"><button class="link" data-verify="${r.report_id}">Verify</button></td></tr>`).join("")
+    : `<tr><td colspan="8" class="empty">No reports for this organisation yet. Generate them above.</td></tr>`;
+}
+async function verify(id) {
+  const cell = $(`v-${id}`);
+  try {
+    const v = await api(`/api/reports/${id}/verify`);
+    cell.innerHTML = `<span class="result ${v.byte_identical ? "ok" : "bad"}">${v.byte_identical
+      ? "byte-identical" : "DIFFERS"} <code>${short(v.regenerated_sha256)}</code></span>`;
+  } catch (e) { cell.innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+}
+$("reports").onclick = (ev) => { if (ev.target.dataset.verify) verify(ev.target.dataset.verify); };
+$("verify-all").onclick = async () => {
+  for (const b of [...document.querySelectorAll("[data-verify]")]) await verify(b.dataset.verify);
+};
+$("run").onclick = async () => {
+  const msg = $("run-msg"), base = $("base").value.trim();
+  $("run").disabled = true; say(msg, "Generating.");
+  try {
+    let n = 0;
+    for (const policy of POLICIES) {
+      if (policy === "BASELINE_FROZEN" && !base) continue;
+      await post("/api/reports", {org_id: ORG, compliance_year: $("fy").value.trim(), policy, baseline_year: base || null});
+      n += 1;
+    }
+    say(msg, base ? `${n} reports stored.` : `${n} reports stored. Add a baseline year to include BASELINE_FROZEN.`, "ok");
+    await loadReports(); await loadExceptions();
+  } catch (e) { say(msg, e.message, "bad"); }
+  $("run").disabled = false;
+};
+async function loadExceptions() {
+  const rows = await api(`/api/exceptions?org_id=${ORG}`);
+  $("exceptions").innerHTML = rows.length ? rows.map((r) => `<tr>
+    <td class="${r.severity === "high" ? "bad" : "warn"}" style="white-space:nowrap"><strong>${esc(r.severity)}</strong></td>
+    <td class="mono small">${esc(r.kind)}</td><td>${esc(r.detail)}</td></tr>`).join("")
+    : `<tr><td class="empty">None of the checked conditions was found.</td></tr>`;
+}
+(async () => {
+  try {
+    const o = await orgs();
+    ORG = o.org; ORG_NAME = (o.facilities.find((f) => f.org_id === ORG) || {}).organisation || "";
+    POLICIES = await api("/api/policies");
+    await loadReports(); await loadExceptions();
+  } catch (e) { unreachable(e); }
+})();
+</script>
+</body>
+</html>

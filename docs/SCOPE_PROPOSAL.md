@@ -14,7 +14,7 @@ Source: the LLM council verdict, `docs/council/council-report-20260926-2120.html
 |---|---|---|---|
 | 9 | Risk-weighted audit sampling (learning to rank) | **Cut** | Labels come from injected faults, which is circular (the build plan already admits this). All 5 advisors cut it. |
 | 8 | Correlated uncertainty propagation | **Shrink** to IPCC fuel-factor ranges only | CEA publishes no uncertainty for grid factors, so the flagship grid example has no data. Invariant 6 forbids inventing it. |
-| 11 | Verifier's workbench (Next.js) | **Shrink** to the existing FastAPI + static page | 4 of 5 advisors: the static page already walks the full provenance chain. As of 2026-10-05 the page also has reports with verify, a review queue for extractions and an exception log. |
+| 11 | Verifier's workbench (Next.js) | **Shrink** to the existing FastAPI + static page | 4 of 5 advisors: the static page already walks the full provenance chain. As of 2026-10-05 it is a seven-page static site on the same API (no Node, no build step), with reports with verify, a review queue for extractions and an exception log. |
 | — | arXiv preprint | **Cut**; keep the Zenodo DOI | Zenodo is the deliverable; arXiv adds effort, not evidence. |
 
 ## Proposed to keep, reshaped

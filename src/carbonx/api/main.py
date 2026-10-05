@@ -1,4 +1,5 @@
-"""HTTP API and the Phase 4 provenance page.
+"""HTTP API and the site: public pages (findings, registry, method) and the
+workbench (ledger, evidence, reports). Static HTML, no build step.
 
     uvicorn carbonx.api.main:app --reload     # http://127.0.0.1:8000
 
@@ -17,6 +18,7 @@ from typing import Annotated, Any
 import psycopg
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
@@ -33,15 +35,22 @@ from carbonx.engine.report import EngineVersionMismatch, generate_report, regene
 from carbonx.evidence.store import store_document
 from carbonx.extraction import review
 from carbonx.factors.registry import FactorNotFound, Policy
+from carbonx.lifecycle.automaton import DELTA, TERMINAL, State, Symbol
 from carbonx.units.core import DimensionError
-from carbonx.units.lang import LangError
+from carbonx.units.lang import LangError, run
 
 URL = database_url()
 MAX_UPLOAD = 20 * 1024 * 1024
-PAGE = Path(__file__).with_name("static") / "index.html"
-FUELS = Path(__file__).resolve().parents[3] / "data" / "bee" / "fuel_factors.csv"
+STATIC = Path(__file__).with_name("static")
+ROOT = Path(__file__).resolve().parents[3]
+FUELS = ROOT / "data" / "bee" / "fuel_factors.csv"
+FIGURES = ROOT / "docs" / "figures"   # written by scripts/rq1_materiality.py, rq2_deltas.py
+PAGES = {"findings", "registry", "method", "ledger", "evidence", "reports"}
 
 app = FastAPI(title="CarbonX", version="0.1.0")
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+if FIGURES.is_dir():
+    app.mount("/figures", StaticFiles(directory=FIGURES), name="figures")
 
 
 def db() -> Iterator[psycopg.Connection]:
@@ -89,8 +98,59 @@ class CorrectionIn(BaseModel):
 
 
 @app.get("/", include_in_schema=False)
-def page() -> FileResponse:
-    return FileResponse(PAGE)
+def home() -> FileResponse:
+    return FileResponse(STATIC / "index.html")
+
+
+@app.get("/{name}", include_in_schema=False)
+def page(name: str) -> FileResponse:
+    if name not in PAGES:
+        raise HTTPException(404, "no such page")
+    return FileResponse(STATIC / f"{name}.html")
+
+
+@app.get("/api/factors")
+def factors(conn: Conn, factor_key: str | None = None) -> list[dict[str, Any]]:
+    """Without factor_key: the all-India grid series in the registry. With one:
+    every published value of that series, by year and version."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        if factor_key is None:
+            return cur.execute(
+                "SELECT factor_key, count(*) AS observations FROM emission_factor"
+                " WHERE geography = 'IN' AND factor_key LIKE 'grid.%%'"
+                " GROUP BY factor_key ORDER BY factor_key").fetchall()
+        return plain(cur.execute(
+            "SELECT lower(f.valid_time) AS fy_start, f.value,"
+            " f.numerator_unit || '/' || f.denominator_unit AS unit,"
+            " s.version_label, s.version_ordinal, s.published_on, s.source_url"
+            " FROM emission_factor f JOIN factor_source s USING (source_id)"
+            " WHERE f.geography = 'IN' AND f.factor_key = %s"
+            " ORDER BY lower(f.valid_time), s.version_ordinal", (factor_key,)).fetchall())
+
+
+class ProgramIn(BaseModel):
+    program: str = Field(max_length=2000)
+
+
+@app.post("/api/typecheck")
+def typecheck(body: ProgramIn) -> dict[str, Any]:
+    """Type-check and evaluate a program in the calculation language. A
+    rejection is an answer, not a failure, so it is returned with status 200."""
+    try:
+        env = run(body.program)
+    except (DimensionError, LangError) as e:
+        return {"ok": False, "error": type(e).__name__, "message": str(e)}
+    return {"ok": True, "bindings": [
+        {"name": n, "exact": str(q.value), "value": f"{float(q.value):.9g}",
+         "unit": q.unit.name} for n, q in env.items()]}
+
+
+@app.get("/api/lifecycle")
+def lifecycle() -> dict[str, Any]:
+    """The credit automaton, as data: the page steps through this table."""
+    return {"states": list(State), "symbols": list(Symbol), "initial": State.NONE,
+            "terminal": sorted(TERMINAL),
+            "delta": [{"from": s, "symbol": a, "to": t} for (s, a), t in DELTA.items()]}
 
 
 @app.get("/api/facilities")
@@ -214,6 +274,19 @@ def _report_summary(output: str, report_id: int, sha256: str) -> dict[str, Any]:
             "total_tco2e": out["totals"]["total_tco2e"], "gei": out["gei"],
             "facilities": out["facilities"], "unresolved": len(out["unresolved"]),
             "sha256": sha256}
+
+
+@app.get("/api/reports")
+def list_reports(conn: Conn) -> list[dict[str, Any]]:
+    """Stored reports, newest first."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        return plain(cur.execute(
+            "SELECT r.report_id, o.name AS organisation, r.compliance_year,"
+            " p.code AS policy, r.as_of, r.total_tco2e, r.gei,"
+            " r.output_sha256 AS sha256 FROM report r"
+            " JOIN organisation o USING (org_id)"
+            " JOIN resolution_policy p USING (policy_id)"
+            " ORDER BY r.report_id DESC LIMIT 100").fetchall())
 
 
 @app.post("/api/reports")
