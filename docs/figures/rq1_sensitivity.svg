@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" role="img" font-family="system-ui, -apple-system, Segoe UI, sans-serif" aria-labelledby="t d">
+<title id="t">Change in total emissions from a grid-factor change alone, by Scope 2 share</title>
+<desc id="d">Series choice: 21.85% at a 100% share; Reading of 'latest' (year step is within 0.1): 4.87% at a 100% share; Revision of a past year: 0.78% at a 100% share. Threshold 5%.</desc>
+<rect width="760" height="440" fill="#fcfcfb"/>
+<text x="56.0" y="28.0" fill="#0b0b0b" text-anchor="start" font-size="15" font-weight="600">Change in total emissions from a grid-factor change alone</text>
+<text x="56.0" y="46.0" fill="#52514e" text-anchor="start" font-size="12" font-weight="400">All-India grid factor, CEA CO2 Baseline Database v22.0; share is of the GEI target basis</text>
+<line x1="56" x2="74" y1="68" y2="68" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<text x="80.0" y="72.0" fill="#52514e" text-anchor="start" font-size="12" font-weight="400">Series choice</text>
+<line x1="191" x2="209" y1="68" y2="68" stroke="#eb6834" stroke-width="2" stroke-linecap="round"/>
+<text x="215.0" y="72.0" fill="#52514e" text-anchor="start" font-size="12" font-weight="400">Reading of 'latest' (year step is within 0.1)</text>
+<line x1="550" x2="568" y1="68" y2="68" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<text x="574.0" y="72.0" fill="#52514e" text-anchor="start" font-size="12" font-weight="400">Revision of a past year</text>
+<line x1="56" x2="560" y1="380.0" y2="380.0" stroke="#c3c2b7" stroke-width="1"/>
+<text x="48.0" y="384.0" fill="#898781" text-anchor="end" font-size="12" font-weight="400">0%</text>
+<line x1="56" x2="560" y1="323.2" y2="323.2" stroke="#e1e0d9" stroke-width="1"/>
+<text x="48.0" y="327.2" fill="#898781" text-anchor="end" font-size="12" font-weight="400">5%</text>
+<line x1="56" x2="560" y1="266.4" y2="266.4" stroke="#e1e0d9" stroke-width="1"/>
+<text x="48.0" y="270.4" fill="#898781" text-anchor="end" font-size="12" font-weight="400">10%</text>
+<line x1="56" x2="560" y1="209.6" y2="209.6" stroke="#e1e0d9" stroke-width="1"/>
+<text x="48.0" y="213.6" fill="#898781" text-anchor="end" font-size="12" font-weight="400">15%</text>
+<line x1="56" x2="560" y1="152.8" y2="152.8" stroke="#e1e0d9" stroke-width="1"/>
+<text x="48.0" y="156.8" fill="#898781" text-anchor="end" font-size="12" font-weight="400">20%</text>
+<line x1="56" x2="560" y1="96.0" y2="96.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="48.0" y="100.0" fill="#898781" text-anchor="end" font-size="12" font-weight="400">25%</text>
+<text x="56.0" y="398.0" fill="#898781" text-anchor="middle" font-size="12" font-weight="400">0%</text>
+<text x="156.8" y="398.0" fill="#898781" text-anchor="middle" font-size="12" font-weight="400">20%</text>
+<text x="257.6" y="398.0" fill="#898781" text-anchor="middle" font-size="12" font-weight="400">40%</text>
+<text x="358.4" y="398.0" fill="#898781" text-anchor="middle" font-size="12" font-weight="400">60%</text>
+<text x="459.2" y="398.0" fill="#898781" text-anchor="middle" font-size="12" font-weight="400">80%</text>
+<text x="560.0" y="398.0" fill="#898781" text-anchor="middle" font-size="12" font-weight="400">100%</text>
+<text x="308.0" y="420.0" fill="#52514e" text-anchor="middle" font-size="12" font-weight="400">Scope 2 share of the GEI basis</text>
+<line x1="56" x2="560" y1="323.2" y2="323.2" stroke="#52514e" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="556.0" y="317.2" fill="#52514e" text-anchor="end" font-size="12" font-weight="400">5% materiality threshold (SBTi)</text>
+<line x1="56.0" y1="380.0" x2="560.0" y2="131.8" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"><title>Series choice: 21.85% at a 100% share</title></line>
+<circle cx="560.0" cy="131.8" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="570.0" y="135.8" fill="#0b0b0b" text-anchor="start" font-size="12" font-weight="400">Series choice: 21.85%</text>
+<circle cx="171.3" cy="323.2" r="4" fill="#fcfcfb" stroke="#0b0b0b" stroke-width="2"/>
+<text x="181.3" y="340.2" fill="#0b0b0b" text-anchor="start" font-size="12" font-weight="400">crosses at 23%</text>
+<line x1="56.0" y1="380.0" x2="560.0" y2="324.7" stroke="#eb6834" stroke-width="2" stroke-linecap="round"><title>Reading of 'latest' (year step is within 0.1): 4.87% at a 100% share</title></line>
+<circle cx="560.0" cy="324.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="570.0" y="328.7" fill="#0b0b0b" text-anchor="start" font-size="12" font-weight="400">Reading of 'latest': 4.87%</text>
+<line x1="56.0" y1="380.0" x2="560.0" y2="371.1" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"><title>Revision of a past year: 0.78% at a 100% share</title></line>
+<circle cx="560.0" cy="371.1" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<text x="570.0" y="375.1" fill="#0b0b0b" text-anchor="start" font-size="12" font-weight="400">Revision of a past year: 0.78%</text>
+</svg>

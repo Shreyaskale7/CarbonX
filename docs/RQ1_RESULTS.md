@@ -17,6 +17,10 @@ Factor: `grid.weighted_avg_incl_re_captive.incl_imports` (all-India, the series 
 
 ## Sensitivity curve: change in total emissions by Scope 2 share
 
+![Three straight lines from the origin: series choice reaches 21.85% and crosses the 5% threshold at a 23% share; the reading of 'latest' reaches 4.87% and revision 0.78%, neither crossing](figures/rq1_sensitivity.svg)
+
+The same numbers as a table (`step` is not drawn: it overprints `latest`):
+
 | kind | s = 10% | s = 20% | s = 30% | s = 40% | s = 50% | s = 60% | s = 80% | s = 100% |
 |---|---|---|---|---|---|---|---|---|
 | revision | 0.08% | 0.16% | 0.23% | 0.31% | 0.39% | 0.47% | 0.62% | 0.78% |

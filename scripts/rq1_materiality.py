@@ -25,6 +25,7 @@ FACTORS = ROOT / "data" / "cea" / "factors.csv"
 VERSIONS = ROOT / "data" / "cea" / "versions.csv"
 SHARES = ROOT / "data" / "sector_scope2_shares.csv"
 OUT = ROOT / "docs" / "RQ1_RESULTS.md"
+FIG = ROOT / "docs" / "figures" / "rq1_sensitivity.svg"
 THRESHOLD = 5.0  # percent
 GRID = "grid.weighted_avg_incl_re_captive.incl_imports"  # engine/calculate.py
 SERIES = ["grid.weighted_avg.excl_imports", "grid.weighted_avg.incl_imports",
@@ -46,6 +47,74 @@ def share_needed(d: float) -> str:
 def table(header: list[str], rows: list[list[str]]) -> str:
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
     return "\n".join(lines + ["| " + " | ".join(r) + " |" for r in rows])
+
+
+# Figure: light surface only, palette checked with the dataviz validator.
+INK, INK2, MUTED, GRIDLINE, AXIS, SURFACE = (
+    "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb")
+COLOURS = ["#2a78d6", "#eb6834", "#1baf7a"]  # fixed order: series, latest, revision
+
+
+def figure(lines: list[tuple[str, float]]) -> str:
+    """SVG of total change = share x |d|, one straight line per (label, |d| %)."""
+    x0, x1, y0, y1, ymax = 56, 560, 380, 96, 25.0
+
+    def px(share: float) -> float:
+        return x0 + (x1 - x0) * share / 100
+
+    def py(v: float) -> float:
+        return y0 - (y0 - y1) * v / ymax
+
+    def text(x: float, y: float, s: str, fill: str = INK2, anchor: str = "start",
+             size: int = 12, weight: str = "400") -> str:
+        return (f'<text x="{x:.1f}" y="{y:.1f}" fill="{fill}" text-anchor="{anchor}"'
+                f' font-size="{size}" font-weight="{weight}">{s}</text>')
+
+    out = [
+        ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" role="img"'
+         ' font-family="system-ui, -apple-system, Segoe UI, sans-serif"'
+         ' aria-labelledby="t d">'),
+        ('<title id="t">Change in total emissions from a grid-factor change alone,'
+         ' by Scope 2 share</title>'),
+        '<desc id="d">' + "; ".join(f"{n}: {d:.2f}% at a 100% share" for n, d in lines)
+        + f". Threshold {THRESHOLD:.0f}%.</desc>",
+        f'<rect width="760" height="440" fill="{SURFACE}"/>',
+        text(x0, 28, "Change in total emissions from a grid-factor change alone",
+             INK, size=15, weight="600"),
+        text(x0, 46, "All-India grid factor, CEA CO2 Baseline Database v22.0;"
+             " share is of the GEI target basis"),
+    ]
+    lx = x0
+    for (name, _), colour in zip(lines, COLOURS, strict=True):  # legend
+        out.append(f'<line x1="{lx}" x2="{lx + 18}" y1="68" y2="68" stroke="{colour}"'
+                   ' stroke-width="2" stroke-linecap="round"/>')
+        out.append(text(lx + 24, 72, name))
+        lx += 24 + 7 * len(name) + 20
+    for v in range(0, int(ymax) + 1, 5):
+        out.append(f'<line x1="{x0}" x2="{x1}" y1="{py(v):.1f}" y2="{py(v):.1f}"'
+                   f' stroke="{AXIS if v == 0 else GRIDLINE}" stroke-width="1"/>')
+        out.append(text(x0 - 8, py(v) + 4, f"{v}%", MUTED, "end"))
+    for s in range(0, 101, 20):
+        out.append(text(px(s), y0 + 18, f"{s}%", MUTED, "middle"))
+    out.append(text((x0 + x1) / 2, y0 + 40, "Scope 2 share of the GEI basis", INK2, "middle"))
+    out.append(f'<line x1="{x0}" x2="{x1}" y1="{py(THRESHOLD):.1f}" y2="{py(THRESHOLD):.1f}"'
+               f' stroke="{INK2}" stroke-width="1" stroke-dasharray="4 4"/>')
+    out.append(text(x1 - 4, py(THRESHOLD) - 6,
+                    f"{THRESHOLD:.0f}% materiality threshold (SBTi)", INK2, "end"))
+    for (name, d), colour in zip(lines, COLOURS, strict=True):
+        out.append(f'<line x1="{px(0):.1f}" y1="{py(0):.1f}" x2="{px(100):.1f}"'
+                   f' y2="{py(d):.1f}" stroke="{colour}" stroke-width="2"'
+                   f' stroke-linecap="round"><title>{name}: {d:.2f}% at a 100% share'
+                   '</title></line>')
+        out.append(f'<circle cx="{px(100):.1f}" cy="{py(d):.1f}" r="4" fill="{colour}"'
+                   f' stroke="{SURFACE}" stroke-width="2"/>')
+        out.append(text(px(100) + 10, py(d) + 4, f"{name.split(' (')[0]}: {d:.2f}%", INK))
+        if d > THRESHOLD:  # mark where this line crosses the threshold
+            s = 100 * THRESHOLD / d
+            out.append(f'<circle cx="{px(s):.1f}" cy="{py(THRESHOLD):.1f}" r="4"'
+                       f' fill="{SURFACE}" stroke="{INK}" stroke-width="2"/>')
+            out.append(text(px(s) + 10, py(THRESHOLD) + 17, f"crosses at {s:.0f}%", INK))
+    return "\n".join(out + ["</svg>"]) + "\n"
 
 
 def main() -> None:
@@ -97,6 +166,15 @@ def main() -> None:
                                + ("**" if s * dv / 100 >= THRESHOLD else "")
                                for s in shares])
 
+    d = {name: abs(float(v.rstrip("%"))) for name, _, v, _ in effects}
+    # ponytail: "latest" and "step" differ by 0.06 points and would overprint,
+    # so the figure draws "latest" only; the table below it has both.
+    FIG.parent.mkdir(exist_ok=True)
+    FIG.write_text(figure([("Series choice", d["series"]),
+                           ("Reading of 'latest' (year step is within 0.1)", d["latest"]),
+                           ("Revision of a past year", d["revision"])]),
+                   encoding="utf-8", newline="\n")
+
     sectors = "_No sector rows yet: `data/sector_scope2_shares.csv` needs cited shares._"
     if SHARES.exists():
         with SHARES.open(encoding="utf-8") as fh:
@@ -125,6 +203,10 @@ def main() -> None:
         "## Four kinds of factor change",
         table(["kind", "what changes", "d", "Scope 2 share needed to cross 5%"], effects),
         "## Sensitivity curve: change in total emissions by Scope 2 share",
+        ("![Three straight lines from the origin: series choice reaches 21.85% and "
+         "crosses the 5% threshold at a 23% share; the reading of 'latest' reaches "
+         "4.87% and revision 0.78%, neither crossing](figures/rq1_sensitivity.svg)"),
+        "The same numbers as a table (`step` is not drawn: it overprints `latest`):",
         table(["kind"] + [f"s = {s}%" for s in shares], curve),
         "**Bold** = at or above the 5% threshold.",
         "## Reading it",
