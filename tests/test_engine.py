@@ -203,3 +203,16 @@ def test_site_pages_and_databaseless_endpoints():
         "program": "let e : [tCO2e] = 1200 [kWh] * 2.68 [kgCO2e/litre]"}).json()
     assert not bad["ok"] and bad["error"] == "DimensionError"
     assert len(client.get("/api/lifecycle").json()["delta"]) == 7
+
+
+def test_lifecycle_try_is_enforced_by_the_database_and_leaves_nothing(conn):
+    client = TestClient(api.app)
+    before = conn.execute("SELECT count(*) FROM credit").fetchone()
+    r = client.post("/api/lifecycle/try", json={
+        "symbols": ["issue", "transfer", "surrender", "transfer"]}).json()
+    assert [s["ok"] for s in r["steps"]] == [True, True, True, False]
+    assert r["steps"][2]["state"] == "SURRENDERED" and not r["accepted"]
+    assert "not allowed" in r["steps"][3]["error"]
+    assert client.post("/api/lifecycle/try", json={"symbols": ["retire"]}
+                       ).json()["steps"][0]["ok"] is False
+    assert conn.execute("SELECT count(*) FROM credit").fetchone() == before

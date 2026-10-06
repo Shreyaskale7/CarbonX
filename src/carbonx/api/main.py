@@ -37,6 +37,7 @@ from carbonx.engine.report import EngineVersionMismatch, generate_report, regene
 from carbonx.evidence.store import store_document
 from carbonx.extraction import review
 from carbonx.factors.registry import FactorNotFound, Policy
+from carbonx.lifecycle import registry as credits
 from carbonx.lifecycle.automaton import DELTA, TERMINAL, State, Symbol
 from carbonx.materiality.assess import TRIGGERS, assess
 from carbonx.uncertainty.propagate import for_report
@@ -278,6 +279,42 @@ def _report_summary(output: str, report_id: int, sha256: str) -> dict[str, Any]:
             "total_tco2e": out["totals"]["total_tco2e"], "gei": out["gei"],
             "facilities": out["facilities"], "unresolved": len(out["unresolved"]),
             "sha256": sha256}
+
+
+class WordIn(BaseModel):
+    symbols: list[Symbol] = Field(max_length=20)
+
+
+@app.post("/api/lifecycle/try")
+def lifecycle_try(body: WordIn) -> dict[str, Any]:
+    """Run a sequence against the database's own triggers (migration 0009), on a
+    throwaway credit between two throwaway organisations. Always rolled back.
+    Stops at the first move the database refuses and returns its message."""
+    steps: list[dict[str, Any]] = []
+    with psycopg.connect(URL) as conn:
+        try:
+            orgs = [conn.execute("INSERT INTO organisation (name) VALUES (%s)"
+                                 " RETURNING org_id", (f"lifecycle demo {i}",)
+                                 ).fetchone()[0] for i in (1, 2)]  # type: ignore[index]
+            credit_id = credits.create_credit(conn, "FY2025-26", Decimal(1))
+            holder = 1  # index into orgs; a transfer goes to the other one
+            for symbol in body.symbols:
+                try:
+                    with conn.transaction():
+                        moves = symbol in (Symbol.ISSUE, Symbol.TRANSFER)
+                        if moves:
+                            holder = 1 - holder
+                        state = credits.apply(conn, credit_id, symbol,
+                                              orgs[holder] if moves else None)
+                except psycopg.errors.RaiseException as e:
+                    message = (e.diag.message_primary or str(e)).replace(
+                        f"credit {credit_id}: ", "")
+                    steps.append({"symbol": symbol, "ok": False, "error": message})
+                    break
+                steps.append({"symbol": symbol, "ok": True, "state": state})
+        finally:
+            conn.rollback()
+    return {"steps": steps, "accepted": all(s["ok"] for s in steps)}
 
 
 @app.get("/api/reports")

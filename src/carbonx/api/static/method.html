@@ -78,12 +78,16 @@
         <div class="stack">
           <div class="states" id="states"></div>
           <div class="row" id="symbols"></div>
-          <div class="row"><button class="ghost sm fit" id="reset">Start again</button></div>
+          <div class="row"><button class="ghost sm fit" id="reset">Start again</button>
+            <button class="ghost sm fit" id="ask-db">Ask the database</button></div>
           <div id="life-msg" class="msg" aria-live="polite"></div>
+          <p class="help">The buttons above follow the table in the page. "Ask the database" replays the
+            sequence, plus one more transfer, against the database triggers on a throwaway credit and rolls it back.</p>
         </div>
         <div class="panel">
           <h3>Sequence so far</h3>
           <p class="mono" id="word" style="margin-top:10px;overflow-wrap:anywhere">(empty)</p>
+          <div id="db-out" aria-live="polite"></div>
           <p class="small muted" style="margin-top:14px">Three properties are proved for this automaton and checked
             by an explicit-state model checker: a surrendered or retired credit never moves again, a live
             credit has exactly one holder, and the number of credits is conserved.</p>
@@ -93,13 +97,13 @@
   </section>
 
   <section id="limits">
-    <div class="wrap stack" style="max-width:820px">
+    <div class="wrap"><div class="stack" style="max-width:760px">
       <h2>Where the guarantees stop</h2>
       <p>The audit trail and the no-overwrite rules hold against the application, which connects as a role
         that cannot disable them. They do not hold against the database owner or a superuser, who must be trusted.</p>
       <p>The lifecycle proofs are written by hand and checked by enumeration on small instances. They are
         not machine-verified. The type system has eight documented escape hatches.</p>
-    </div>
+    </div></div>
   </section>
 </main>
 <script src="/static/site.js"></script>
@@ -147,7 +151,17 @@ $("run").onclick = async () => {
     word.push(a); state = to; render();
     say($("life-msg"), m.terminal.includes(state) ? `${state} is final. No further transition is allowed.` : `Now ${state}.`, "ok");
   };
-  $("reset").onclick = () => { state = m.initial; word = []; render(); say($("life-msg"), ""); };
+  $("reset").onclick = () => { state = m.initial; word = []; render(); say($("life-msg"), ""); $("db-out").innerHTML = ""; };
+  $("ask-db").onclick = async () => {
+    const out = $("db-out");
+    try {
+      const r = await post("/api/lifecycle/try", {symbols: [...word, "transfer"]});
+      out.innerHTML = `<div class="scroll result" style="margin-top:12px"><table>
+        <thead><tr><th>Move</th><th>The database says</th></tr></thead><tbody>${r.steps.map((s) => `<tr>
+          <td class="mono">${esc(s.symbol)}</td><td>${s.ok ? `<span class="ok">accepted</span>, now <span class="mono">${esc(s.state)}</span>`
+            : `<span class="bad">refused</span>: ${esc(s.error)}`}</td></tr>`).join("")}</tbody></table></div>`;
+    } catch (e) { out.innerHTML = `<p class="bad msg">${esc(e.message)}</p>`; }
+  };
   render();
 })();
 </script>

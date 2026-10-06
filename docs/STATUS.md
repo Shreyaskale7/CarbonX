@@ -67,14 +67,15 @@ has not been pushed.
 All of these rest on one BEE PDF whose internal date (2023-11-08) precedes the
 reported notification. Confirm it before any of them is cited.
 
-## Known environment issue (2026-10-06)
+## Environment note (2026-10-06)
 
-On the development laptop, a Windows Application Control policy now blocks one
-compiled file of scikit-learn (`_target_encoder_fast`). The bill reader and its
-tests (`test_extraction.py`, three tests in `test_workbench.py`) cannot run
-there until that is resolved in Windows Security; everything else runs (120
-tests pass). The site still starts: the reader is loaded on demand and returns
-a clear error. Nothing in the repository works around the policy.
+For part of 2026-10-06, a Windows Application Control policy on the development
+laptop blocked one compiled file of scikit-learn (`_target_encoder_fast`), so
+the bill reader and its tests could not run. It cleared later the same day with
+no change on our side, and the full suite passes again (148 passed, 1 skipped).
+It may recur, for example before a demo. If it does, the site still starts:
+the reader is loaded on demand and returns a clear error. Nothing in the
+repository works around the policy.
 
 ## What only the team can do
 
