@@ -23,7 +23,7 @@ has not been pushed.
 | 8 Materiality, RQ1 | per-sector curve with cited Scope 1/2 splits | **Partly** | engine: `test_materiality.py`; `RQ1_RESULTS.md` (sector-agnostic curve) | **No sector rows**: `data/sector_scope2_shares.csv` needs cited shares |
 | 9 Automaton | properties proved by enumeration | **Met** | `LIFECYCLE.md`: proofs, model checker, mutation tests; enforced in the DB (migration 0009) | Proof is by hand, not mechanised |
 | 9 Audit sampling | learned ranker beats two baselines at 5% and 10% | **Not built** | — | Proposed for cutting (`SCOPE_PROPOSAL.md`), unsigned. A confidence-ordered review queue exists; it is not a learned ranker |
-| 10 Workbench, release | demo with no developer at a terminal; DOI minted | **Partly** | a seven-page static site served by the API (overview, findings, factor registry, method, and a three-page workbench: ledger with provenance and corrections, evidence with the review queue, reports with verify and exceptions); every page exercised in a browser on 2026-10-05 | **No DOI.** Licence and authors undecided. Not pushed to GitHub |
+| 10 Workbench, release | demo with no developer at a terminal; DOI minted | **Partly** | a seven-page static site served by the API (overview, findings, factor registry, method, and a three-page workbench: ledger with provenance and corrections, evidence with the review queue and production records, reports with verify, uncertainty, materiality, exceptions and a rolled-back reproducibility demonstration); every page exercised in a browser on 2026-10-05 and 06 | **No DOI.** Licence and authors undecided. Not pushed to GitHub |
 
 ## Against the grade ladder in the build plan
 
@@ -66,6 +66,15 @@ has not been pushed.
 
 All of these rest on one BEE PDF whose internal date (2023-11-08) precedes the
 reported notification. Confirm it before any of them is cited.
+
+## Known environment issue (2026-10-06)
+
+On the development laptop, a Windows Application Control policy now blocks one
+compiled file of scikit-learn (`_target_encoder_fast`). The bill reader and its
+tests (`test_extraction.py`, three tests in `test_workbench.py`) cannot run
+there until that is resolved in Windows Security; everything else runs (120
+tests pass). The site still starts: the reader is loaded on demand and returns
+a clear error. Nothing in the repository works around the policy.
 
 ## What only the team can do
 

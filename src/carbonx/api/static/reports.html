@@ -24,14 +24,31 @@
     <div id="run-msg" class="msg" aria-live="polite"></div>
   </div>
   <div class="panel">
+    <h2>Demonstration: a revision does not reach an old report</h2>
+    <p class="small muted">Generates a report, applies a fictional factor revision and a backdated correction, then regenerates the first report. Everything is rolled back afterwards, so nothing here is stored.</p>
+    <div class="cta" style="margin-top:14px"><button class="ghost" id="demo">Run the demonstration</button></div>
+    <div id="demo-out" aria-live="polite"></div>
+  </div>
+  <div class="panel">
     <div class="row"><h2>Stored reports</h2>
       <div class="fit"><button class="ghost sm" id="verify-all">Verify all shown</button></div></div>
     <div class="scroll" style="margin-top:8px"><table>
       <thead><tr><th>Report</th><th>Year</th><th>Factor policy</th><th class="num">tCO2e</th><th class="num">Intensity</th>
-        <th>Read as of</th><th>SHA-256</th><th>Regenerated</th></tr></thead>
-      <tbody id="reports"><tr><td colspan="8"><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></td></tr></tbody>
+        <th>Read as of</th><th>SHA-256</th><th>Regenerated</th><th></th></tr></thead>
+      <tbody id="reports"><tr><td colspan="9"><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></td></tr></tbody>
     </table></div>
     <p class="small muted" style="margin-top:12px">Intensity is tCO2e per unit of product. It is withheld when a facility makes more than one product.</p>
+  </div>
+  <div class="panel" id="detail" hidden aria-live="polite">
+    <h2>Report <span id="detail-id"></span></h2>
+    <div class="split even" style="margin-top:16px">
+      <div class="stack"><h3>Uncertainty</h3><div id="band"></div></div>
+      <div class="stack"><h3>Materiality against today</h3>
+        <p class="small muted">Recomputes this report on current data and compares the totals with the 5% threshold. The assessment is stored with a drafted disclosure.</p>
+        <div class="row"><div class="field" style="margin:0"><label for="trigger">What changed</label><select id="trigger"></select></div>
+          <div class="fit"><button class="ghost" id="assess">Assess</button></div></div>
+        <div id="assess-out"></div></div>
+    </div>
   </div>
   <div class="panel">
     <h2>Exceptions</h2>
@@ -49,8 +66,9 @@ async function loadReports() {
     <td>#${esc(r.report_id)}</td><td>${esc(r.compliance_year)}</td><td class="small">${esc(r.policy)}</td>
     <td class="num mono">${esc(grouped(r.total_tco2e))}</td><td class="num mono">${r.gei === null ? "-" : esc(r.gei)}</td>
     <td>${esc(when(r.as_of))}</td><td><code>${short(r.sha256)}</code></td>
-    <td id="v-${r.report_id}"><button class="link" data-verify="${r.report_id}">Verify</button></td></tr>`).join("")
-    : `<tr><td colspan="8" class="empty">No reports for this organisation yet. Generate them above.</td></tr>`;
+    <td id="v-${r.report_id}"><button class="link" data-verify="${r.report_id}">Verify</button></td>
+    <td><button class="link" data-detail="${r.report_id}">Details</button></td></tr>`).join("")
+    : `<tr><td colspan="9" class="empty">No reports for this organisation yet. Generate them above.</td></tr>`;
 }
 async function verify(id) {
   const cell = $(`v-${id}`);
@@ -60,7 +78,60 @@ async function verify(id) {
       ? "byte-identical" : "DIFFERS"} <code>${short(v.regenerated_sha256)}</code></span>`;
   } catch (e) { cell.innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
 }
-$("reports").onclick = (ev) => { if (ev.target.dataset.verify) verify(ev.target.dataset.verify); };
+let DETAIL = null;
+const pctOf = (x, total) => `${(100 * (x - total) / total).toFixed(2)}%`;
+async function detail(id) {
+  DETAIL = id; $("detail-id").textContent = `#${id}`; $("detail").hidden = false; $("assess-out").innerHTML = "";
+  $("band").innerHTML = `<div class="skeleton"></div>`;
+  $("detail").scrollIntoView({behavior: "smooth", block: "start"});
+  try {
+    const b = await api(`/api/reports/${id}/uncertainty`), t = +b.total;
+    const none = +b.unquantified >= t;
+    $("band").innerHTML = `<div class="result">${kv([
+      ["Total", `<span class="mono">${esc(grouped(b.total))}</span> tCO2e`],
+      ["Range", none ? "no published range for any factor in this report"
+        : `<span class="mono">${esc(grouped(b.low))}</span> to <span class="mono">${esc(grouped(b.high))}</span> (${pctOf(+b.low, t)} / +${pctOf(+b.high, t)})`],
+      ["If lines were independent", none ? "-" : `<span class="mono">${esc(grouped(b.low_if_independent))}</span> to <span class="mono">${esc(grouped(b.high_if_independent))}</span>`],
+      ["Point estimate only", `<span class="mono">${esc(grouped(b.unquantified))}</span> tCO2e has no published range`],
+    ])}<p class="small muted" style="margin-top:12px">${b.basis.length ? esc(b.basis.join("; ")) + "." : ""}
+      Lines that share a factor move together, so their ranges add. Nothing is assumed where no range is published.</p></div>`;
+  } catch (e) { $("band").innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+}
+$("assess").onclick = async () => {
+  const out = $("assess-out");
+  try {
+    const a = await post(`/api/reports/${DETAIL}/materiality`, {trigger_type: $("trigger").value});
+    out.innerHTML = `<div class="result" style="margin-top:14px">${kv([
+      ["Stored report", `<span class="mono">${esc(grouped(a.before_tco2e))}</span> tCO2e`],
+      ["Computed now", `<span class="mono">${esc(grouped(a.after_tco2e))}</span> tCO2e`],
+      ["Change", `<strong>${a.pct_change > 0 ? "+" : ""}${esc(a.pct_change)}%</strong>`],
+      ["Recalculation", a.requires_recalc ? `<span class="warn"><strong>required</strong>: at or above 5%</span>` : "not required on this basis"],
+    ])}<p class="small" style="margin-top:12px;max-width:none">${esc(a.disclosure)}</p></div>`;
+  } catch (e) { out.innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+};
+$("demo").onclick = async () => {
+  const out = $("demo-out"); $("demo").disabled = true;
+  out.innerHTML = `<div class="skeleton" style="margin-top:16px"></div><div class="skeleton" style="width:60%"></div>`;
+  try {
+    const d = await post("/api/demo/reproducibility", {org_id: ORG, compliance_year: $("fy").value.trim()});
+    const row = (what, r, note = "") => `<tr><td>${what}</td><td class="num mono">${r ? esc(grouped(r.total_tco2e)) : ""}</td>
+      <td>${r ? `<code>${short(r.sha256)}</code>` : ""}</td><td>${note}</td></tr>`;
+    out.innerHTML = `<div class="scroll result" style="margin-top:14px"><table>
+      <thead><tr><th>Step</th><th class="num">tCO2e</th><th>SHA-256</th><th></th></tr></thead><tbody>
+      ${row("A report is generated", d.before)}
+      ${row(`The ${esc(d.fy)} factor is revised to ${esc((+d.revision.factor).toFixed(4))} ${esc(d.revision.unit)}`, null, "fictional")}
+      ${d.correction ? row(`${esc(d.correction.month)} is corrected from ${esc(qty(d.correction.from_kwh))} to ${esc(qty(d.correction.to_kwh))} kWh`, null, "backdated") : ""}
+      ${row("A new report is generated", d.after, "different, as it should be")}
+      ${row("The first report is regenerated as of its own time", d.regenerated,
+        d.byte_identical ? `<strong class="ok">byte-identical</strong>` : `<strong class="bad">DIFFERS</strong>`)}
+      </tbody></table></div><p class="small muted" style="margin-top:10px">Rolled back. The revision and the correction were never stored.</p>`;
+  } catch (e) { out.innerHTML = `<p class="bad msg">${esc(e.message)}</p>`; }
+  $("demo").disabled = false;
+};
+$("reports").onclick = (ev) => {
+  if (ev.target.dataset.verify) verify(ev.target.dataset.verify);
+  if (ev.target.dataset.detail) detail(ev.target.dataset.detail);
+};
 $("verify-all").onclick = async () => {
   for (const b of [...document.querySelectorAll("[data-verify]")]) await verify(b.dataset.verify);
 };
@@ -91,6 +162,9 @@ async function loadExceptions() {
     const o = await orgs();
     ORG = o.org; ORG_NAME = (o.facilities.find((f) => f.org_id === ORG) || {}).organisation || "";
     POLICIES = await api("/api/policies");
+    $("trigger").innerHTML = (await api("/api/materiality-triggers")).map((t) =>
+      `<option value="${esc(t)}">${esc(t.replace(/_/g, " "))}</option>`).join("");
+    $("trigger").value = "factor_supersession";
     await loadReports(); await loadExceptions();
   } catch (e) { unreachable(e); }
 })();

@@ -77,7 +77,7 @@ The site is static HTML served by the API (no Node, no build step):
 | `/findings` | RQ1, RQ2, RQ3 and the BEE vs IPCC comparison, with the generated figures |
 | `/registry` | Every all-India CEA grid factor by year and version, with its history |
 | `/method` | The type checker and the credit lifecycle, both runnable in the page |
-| `/ledger`, `/evidence`, `/reports` | The workbench: provenance, corrections, uploads, review queue, reports with verify, exceptions |
+| `/ledger`, `/evidence`, `/reports` | The workbench: provenance, corrections, uploads, review queue, production records, reports with verify, the uncertainty band, materiality assessment, exceptions, and a one-click before/after demonstration of reproducibility |
 
 Without Docker: `python scripts/dev_pg.py serve` starts a local Postgres and the site together.
 

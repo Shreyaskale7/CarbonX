@@ -46,6 +46,18 @@
         <button class="primary" id="record">Record and calculate</button>
         <div id="record-msg" class="msg" aria-live="polite"></div>
       </div>
+      <div class="panel">
+        <h2>Record production</h2>
+        <p class="small muted">Output for a period. It is the denominator of emission intensity, so a report shows no intensity without it.</p>
+        <div class="row" style="margin-top:14px">
+          <div class="field"><label for="p-code">Product</label><input id="p-code" value="aluminium_ingot"></div>
+          <div class="field"><label for="p-unit">Unit</label><input id="p-unit" value="t"></div>
+        </div>
+        <div class="field"><label for="p-qty">Quantity</label><input type="number" id="p-qty" min="0" step="any"></div>
+        <p class="help" style="margin:-6px 0 14px">Uses the facility and period chosen above.</p>
+        <button class="primary" id="p-record">Record production</button>
+        <div id="p-msg" class="msg" aria-live="polite"></div>
+      </div>
     </div>
     <div class="panel">
       <h2>Review queue</h2>
@@ -111,6 +123,15 @@ $("record").onclick = async () => {
     msg.className = "msg ok result";
     msg.innerHTML = `Calculation ${esc(r.calculation_id)}: <strong>${esc(grouped(r.tco2e))} tCO2e</strong>.
       <a href="/ledger?calc=${esc(r.calculation_id)}">See its provenance</a>`;
+  } catch (e) { say(msg, e.message, "bad"); }
+};
+$("p-record").onclick = async () => {
+  const msg = $("p-msg");
+  if (!$("p-qty").value) { say(msg, "Enter a quantity.", "bad"); return; }
+  try {
+    const r = await post("/api/production", {facility_id: +$("facility").value, product_code: $("p-code").value.trim(),
+      unit: $("p-unit").value.trim(), period_start: $("start").value, period_end: $("end").value, quantity: $("p-qty").value});
+    say(msg, `Production record ${r.production_id} stored. New reports will use it.`, "ok");
   } catch (e) { say(msg, e.message, "bad"); }
 };
 (async () => {

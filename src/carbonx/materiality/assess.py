@@ -51,7 +51,8 @@ def _draft(fy: str, policy: str, before: Decimal, after: Decimal, pct: Decimal,
         gei_line = f" GEI moves from {gei[0]} to {gei[1]} tCO2e per unit of product."
     return (
         f"DRAFT, for review by the reporting entity and its verifier. "
-        f"Following a {trigger.replace('_', ' ')}, base-year ({fy}) emissions "
+        f"Following {'an' if trigger[0] in 'aeiou' else 'a'} "
+        f"{trigger.replace('_', ' ')}, base-year ({fy}) emissions "
         f"recomputed under the {policy} factor-resolution policy change from "
         f"{before} to {after} tCO2e ({pct:+}%).{gei_line} This {verb} the "
         f"{THRESHOLD_PCT}% significance threshold (SBTi), so base-year "

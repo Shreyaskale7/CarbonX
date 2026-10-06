@@ -23,6 +23,7 @@ from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
 from carbonx.db import url as database_url
+from carbonx.engine import demo
 from carbonx.engine.calculate import (
     calculate,
     edit_activity,
@@ -30,12 +31,15 @@ from carbonx.engine.calculate import (
     set_audit_context,
 )
 from carbonx.engine.exceptions import exceptions
+from carbonx.engine.production import record_production
 from carbonx.engine.provenance import attestation, coverage, plain, provenance
 from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
 from carbonx.evidence.store import store_document
 from carbonx.extraction import review
 from carbonx.factors.registry import FactorNotFound, Policy
 from carbonx.lifecycle.automaton import DELTA, TERMINAL, State, Symbol
+from carbonx.materiality.assess import TRIGGERS, assess
+from carbonx.uncertainty.propagate import for_report
 from carbonx.units.core import DimensionError
 from carbonx.units.lang import LangError, run
 
@@ -65,7 +69,7 @@ Actor = Annotated[str, Header(alias="X-Actor")]
 
 def _fail(e: Exception) -> HTTPException:
     if isinstance(e, psycopg.errors.ExclusionViolation):
-        return HTTPException(409, "an activity already exists for this facility, "
+        return HTTPException(409, "a record already exists for this facility, "
                                   "type and period: correct it instead")
     status = 404 if isinstance(e, LookupError) and not isinstance(e, FactorNotFound) else 400
     return HTTPException(status, f"{type(e).__name__}: {e}")
@@ -302,6 +306,83 @@ def create_report(body: ReportIn, conn: Conn,
     return _report_summary(r.output, r.report_id, r.sha256)
 
 
+@app.get("/api/reports/{report_id}/uncertainty")
+def report_uncertainty(report_id: int, conn: Conn) -> dict[str, Any]:
+    """The band from published factor ranges only (IPCC 2006). Emissions whose
+    factor has no published range are reported as `unquantified`, not guessed."""
+    try:
+        b = for_report(conn, report_id)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return plain({"total": b.total, "low": b.low, "high": b.high,
+                  "low_if_independent": b.low_if_independent,
+                  "high_if_independent": b.high_if_independent,
+                  "unquantified": b.unquantified, "basis": list(b.basis)})
+
+
+class MaterialityIn(BaseModel):
+    trigger_type: str = "factor_supersession"
+
+
+@app.get("/api/materiality-triggers")
+def materiality_triggers() -> list[str]:
+    return sorted(TRIGGERS)
+
+
+@app.post("/api/reports/{report_id}/materiality")
+def report_materiality(report_id: int, body: MaterialityIn, conn: Conn,
+                       x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Compare a stored report with the same report computed now, against the
+    5% threshold, and store the assessment with a drafted disclosure."""
+    try:
+        a = assess(conn, report_id, body.trigger_type, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return plain(a.__dict__)
+
+
+class DemoIn(BaseModel):
+    org_id: int
+    compliance_year: str = "FY2025-26"
+
+
+@app.post("/api/demo/reproducibility")
+def demo_reproducibility(body: DemoIn) -> dict[str, Any]:
+    """Invariant 1, before and after a fictional factor revision and a backdated
+    correction. Runs on its own connection and is always rolled back."""
+    with psycopg.connect(URL) as conn:
+        try:
+            return demo.run(conn, body.org_id, body.compliance_year)
+        except EXPECTED as e:
+            raise _fail(e) from e
+        finally:
+            conn.rollback()
+
+
+class ProductionIn(BaseModel):
+    facility_id: int
+    product_code: str = Field(min_length=1)
+    unit: str = "t"
+    period_start: date
+    period_end: date  # exclusive
+    quantity: Decimal = Field(gt=0)
+    document_id: int | None = None
+
+
+@app.post("/api/production")
+def create_production(body: ProductionIn, conn: Conn,
+                      x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Output for a period: the denominator of emission intensity (GEI)."""
+    try:
+        pid = record_production(
+            conn, facility_id=body.facility_id, product_code=body.product_code,
+            unit=body.unit, period_start=body.period_start, period_end=body.period_end,
+            quantity=body.quantity, document_id=body.document_id, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"production_id": pid}
+
+
 @app.get("/api/reports/{report_id}/verify")
 def verify_report(report_id: int, conn: Conn) -> dict[str, Any]:
     """Regenerate a stored report AS OF its own time and compare byte for byte."""
@@ -327,6 +408,8 @@ def extract(document_id: int, conn: Conn, x_actor: Actor = "workbench") -> dict[
         return plain(review.extract_document(conn, document_id))
     except EXPECTED as e:
         raise _fail(e) from e
+    except ImportError as e:  # scikit-learn missing or blocked on this machine
+        raise HTTPException(503, f"the bill reader cannot load here: {e}") from e
 
 
 @app.get("/api/review-queue")

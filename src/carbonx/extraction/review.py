@@ -13,13 +13,17 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import psycopg
 from psycopg.rows import dict_row
 
-from carbonx.extraction.extract import ConsumptionModel, text_from_pdf
 from carbonx.extraction.synthetic import SEEN, corpus
+
+# The model (scikit-learn) is imported where it is used, so the queue, the
+# confirm step and the rest of the API work on a machine where it cannot load.
+if TYPE_CHECKING:
+    from carbonx.extraction.extract import ConsumptionModel
 
 MODEL_VERSION = "consumption-lr-synthetic-v1"
 
@@ -28,6 +32,7 @@ MODEL_VERSION = "consumption-lr-synthetic-v1"
 def model() -> ConsumptionModel:
     """Trained once per process, on the synthetic training layouts."""
     bills = corpus(240, SEEN, seed=20260926)
+    from carbonx.extraction.extract import ConsumptionModel
     m = ConsumptionModel()
     m.fit_leave_one_layout_out([b.text for b in bills], [b.kwh for b in bills],
                                [b.layout for b in bills])
@@ -41,6 +46,7 @@ def document_text(conn: psycopg.Connection, document_id: int) -> str:
         raise LookupError(f"no document {document_id}")
     path, mime, filename = Path(row[0]), row[1] or "", row[2]
     if "pdf" in mime or filename.lower().endswith(".pdf"):
+        from carbonx.extraction.extract import text_from_pdf
         return text_from_pdf(path)
     return path.read_text(encoding="utf-8", errors="replace")
 

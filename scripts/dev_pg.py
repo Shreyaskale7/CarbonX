@@ -27,6 +27,7 @@ version. A green run here is evidence; CI on Postgres 16 is the authority.
 import importlib.util
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -78,7 +79,22 @@ def server():
         import pixeltable_pgserver as pgserver
     except ImportError:
         sys.exit("pip install pixeltable-pgserver  (development only)")
+    _clear_stale_pid()
     return pgserver.get_server(str(DATA), cleanup_mode=None)
+
+
+def _clear_stale_pid() -> None:
+    """After a reboot, postmaster.pid can name a pid that Windows has given to
+    another program; pgserver then believes the server is up and every
+    connection times out. Remove the file only if that pid is not postgres."""
+    pid_file = DATA / "postmaster.pid"
+    if os.name != "nt" or not pid_file.exists():
+        return
+    pid = pid_file.read_text().split()[0]
+    listed = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                            capture_output=True, text=True, check=True).stdout
+    if "postgres" not in listed.lower():
+        pid_file.unlink()
 
 
 def urls(srv, name: str = "carbonx") -> tuple[str, str]:
