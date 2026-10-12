@@ -24,11 +24,13 @@ So this checks the schema, triggers, grants and application SQL for real. It
 does NOT prove the btree_gist form works, and it is a different Postgres
 version. A green run here is evidence; CI on Postgres 16 is the authority.
 """
+import contextlib
 import importlib.util
 import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,7 +82,19 @@ def server():
     except ImportError:
         sys.exit("pip install pixeltable-pgserver  (development only)")
     _clear_stale_pid()
-    return pgserver.get_server(str(DATA), cleanup_mode=None)
+    # After an unclean shutdown Postgres replays its log before accepting
+    # connections, which can outlast pgserver's wait. It is still starting, so
+    # ask again instead of failing.
+    for attempt in range(3):
+        try:
+            with contextlib.redirect_stdout(sys.stderr):  # keep `env` output clean
+                return pgserver.get_server(str(DATA), cleanup_mode=None)
+        except Exception as e:  # pgserver raises several kinds
+            if attempt == 2:
+                raise
+            print(f"postgres not ready ({type(e).__name__}); retrying in 15 s",
+                  file=sys.stderr)
+            time.sleep(15)
 
 
 def _clear_stale_pid() -> None:

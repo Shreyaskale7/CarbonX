@@ -77,6 +77,16 @@ It may recur, for example before a demo. If it does, the site still starts:
 the reader is loaded on demand and returns a clear error. Nothing in the
 repository works around the policy.
 
+**2026-10-12: the development database no longer starts on this laptop.** The
+same Windows policy now blocks the bundled `postgres.exe` ("blocked by your
+organization's Device Guard policy") and another scikit-learn file. Until that
+changes, nothing that needs a database can be run or verified here: the site
+with data, `reproduce.sh`, and the database tests. The 40 tests that need
+neither still pass. Work committed up to `c741d55` was verified before the
+block. The way forward is a PostgreSQL the policy allows: version 16 installed
+from postgresql.org, Docker, or CI on GitHub. Each of those is also the real
+target, with the real `btree_gist` and `pgcrypto`.
+
 ## What only the team can do
 
 1. Put names in `docs/TEAM.md`; each owner learns their component well enough
