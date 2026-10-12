@@ -102,7 +102,7 @@
   const body = $("check-body");
   let reports;
   try { reports = await api("/api/reports"); }
-  catch (e) { body.innerHTML = `<p class="bad small">Cannot reach the API: ${esc(e.message)}</p>`; return; }
+  catch (e) { body.innerHTML = `<p class="empty">Nothing to show yet: ${esc(e.message)}.</p>`; return; }
   if (!reports.length) {
     body.innerHTML = `<p class="empty">No reports stored yet. <a href="/reports">Generate one</a> in the workbench.</p>`;
     return;

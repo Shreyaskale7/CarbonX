@@ -6,6 +6,12 @@
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["scripts/dev_pg.py", "serve", "scratch"],
       "port": 8000
+    },
+    {
+      "name": "carbonx-site-no-db",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "carbonx.api.main:app", "--app-dir", "src", "--port", "8001"],
+      "port": 8001
     }
   ]
 }

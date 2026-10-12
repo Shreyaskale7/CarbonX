@@ -4,7 +4,11 @@ const esc = (s) => String(s ?? "-").replace(/[&<>"']/g, (c) =>
   ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 
 async function api(path, opts = {}) {
-  const r = await fetch(path, {...opts, headers: {"X-Actor": "workbench", ...(opts.headers || {})}});
+  // A page must end up showing data or a reason, never an endless placeholder.
+  const r = await fetch(path, {...opts, signal: AbortSignal.timeout(60000),
+    headers: {"X-Actor": "workbench", ...(opts.headers || {})}}).catch((e) => {
+      throw new Error(e.name === "TimeoutError" ? "the server did not answer within a minute"
+                                               : "the server is not running"); });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : r.statusText);
   return body;
@@ -63,5 +67,4 @@ async function orgs() {
   return {facilities, org: sel && sel.value ? +sel.value : null};
 }
 const unreachable = (e) => document.querySelector("main").insertAdjacentHTML("afterbegin",
-  `<div class="wrap"><p class="notice bad" style="margin:24px 0">Cannot reach the API: ${esc(e.message)}.
-   Is the database running and migrated?</p></div>`);
+  `<div class="wrap"><p class="notice bad" style="margin:24px 0">This page could not load its data: ${esc(e.message)}.</p></div>`);

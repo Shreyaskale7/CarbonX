@@ -190,6 +190,12 @@ def test_api_round_trip(conn, world):
         api.app.dependency_overrides.clear()
 
 
+def test_api_says_so_quickly_when_the_database_is_down(monkeypatch):
+    monkeypatch.setattr(api, "URL", "postgresql://nobody@127.0.0.1:1/none")
+    r = TestClient(api.app).get("/api/facilities")
+    assert r.status_code == 503 and "not reachable" in r.json()["detail"]
+
+
 def test_site_pages_and_databaseless_endpoints():
     client = TestClient(api.app)
     for page in ("findings", "registry", "method", "ledger", "evidence", "reports"):

@@ -58,9 +58,18 @@ if FIGURES.is_dir():
     app.mount("/figures", StaticFiles(directory=FIGURES), name="figures")
 
 
+def connect() -> psycopg.Connection:
+    """Fail fast and say why: a page must not hang because Postgres is down."""
+    try:
+        return psycopg.connect(URL, connect_timeout=3)
+    except psycopg.OperationalError as e:
+        raise HTTPException(503, "the database is not reachable; start it and "
+                                 "reload this page") from e
+
+
 def db() -> Iterator[psycopg.Connection]:
     # ponytail: one connection per request; add a pool if latency matters.
-    with psycopg.connect(URL) as conn:  # commits on success, rolls back on error
+    with connect() as conn:  # commits on success, rolls back on error
         yield conn
 
 
@@ -291,7 +300,7 @@ def lifecycle_try(body: WordIn) -> dict[str, Any]:
     throwaway credit between two throwaway organisations. Always rolled back.
     Stops at the first move the database refuses and returns its message."""
     steps: list[dict[str, Any]] = []
-    with psycopg.connect(URL) as conn:
+    with connect() as conn:
         try:
             orgs = [conn.execute("INSERT INTO organisation (name) VALUES (%s)"
                                  " RETURNING org_id", (f"lifecycle demo {i}",)
@@ -387,7 +396,7 @@ class DemoIn(BaseModel):
 def demo_reproducibility(body: DemoIn) -> dict[str, Any]:
     """Invariant 1, before and after a fictional factor revision and a backdated
     correction. Runs on its own connection and is always rolled back."""
-    with psycopg.connect(URL) as conn:
+    with connect() as conn:
         try:
             return demo.run(conn, body.org_id, body.compliance_year)
         except EXPECTED as e:
