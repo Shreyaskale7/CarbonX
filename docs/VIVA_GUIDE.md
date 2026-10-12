@@ -120,8 +120,25 @@ wrong together, so their ranges add linearly; different factors combine in
 quadrature. Treating lines as independent understates the band.
 `docs/UNCERTAINTY.md`, `tests/test_uncertainty.py`.
 
+**What is the nowcast, and what did it find?** Predicting a year's grid factor
+before CEA publishes it. "Use last year's value" missed by 1.99% on average over
+20 years, and drift, trend and AR(1) models did no better. `docs/NOWCAST.md`,
+`docs/NOWCAST_RESULTS.md`.
+
+**How do you know the backtest does not cheat?** The vintage rule: each forecast
+uses only values from CEA versions published before the target year first
+appeared. Be able to explain why using the latest restated values would leak.
+A test fails if the rule is broken.
+
+**Why such simple models?** About twenty yearly values. Anything tunable would be
+fitted to noise. A null result with an honest evaluation is the finding.
+
+**Why not predict from generation data?** CEA computes the factor from it, so
+that is accounting done early, not forecasting.
+
 **Why no uncertainty for the grid factor?** CEA publishes none, and invariant
-6 forbids inventing one.
+6 forbids inventing one. The nowcast band is the uncertainty of a guess made
+before publication, which is a different thing; keep the two apart.
 
 ### Research
 

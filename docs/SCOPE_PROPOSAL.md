@@ -17,6 +17,14 @@ Source: the LLM council verdict, `docs/council/council-report-20260926-2120.html
 | 11 | Verifier's workbench (Next.js) | **Shrink** to the existing FastAPI + static page | 4 of 5 advisors: the static page already walks the full provenance chain. As of 2026-10-05 it is a seven-page static site on the same API (no Node, no build step), with reports with verify, a review queue for extractions and an exception log. |
 | — | arXiv preprint | **Cut**; keep the Zenodo DOI | Zenodo is the deliverable; arXiv adds effort, not evidence. |
 
+## Proposed addition (needs the same sign-off as the cuts)
+
+| Component | Proposal | Reason |
+|---|---|---|
+| Grid-factor nowcast and revision analysis (AI/ML) | **Add, in place of component 9.** Built 2026-10-12 at a team member's request: `src/carbonx/forecast/nowcast.py`, `docs/NOWCAST.md`, `docs/NOWCAST_RESULTS.md`. | It uses real data already in the registry, has a leakage-safe rolling backtest, and measures the cost of the "latest at the deadline" reading in RQ3. Result: last year's value misses by 1.99% on average over 20 years and no simple model beats it. Unlike learning-to-rank, its labels are not manufactured. |
+
+If the team or the guides reject this, the code stays out of the report; nothing else depends on it.
+
 ## Proposed to keep, reshaped
 
 | # | Component | Proposal |

@@ -74,7 +74,7 @@ The site is static HTML served by the API (no Node, no build step):
 | Page | What it shows |
 |---|---|
 | `/` | Overview, with a live check that regenerates the newest stored report |
-| `/findings` | RQ1, RQ2, RQ3 and the BEE vs IPCC comparison, with the generated figures |
+| `/findings` | RQ1, RQ2, RQ3, the nowcast backtest and the BEE vs IPCC comparison, with the generated figures |
 | `/registry` | Every all-India CEA grid factor by year and version, with its history |
 | `/method` | The type checker and the credit lifecycle, both runnable in the page |
 | `/ledger`, `/evidence`, `/reports` | The workbench: provenance, corrections, uploads, review queue, production records, reports with verify, the uncertainty band, materiality assessment, exceptions, and a one-click before/after demonstration of reproducibility |

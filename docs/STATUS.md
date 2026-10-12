@@ -22,6 +22,7 @@ has not been pushed.
 | 7 Uncertainty | correlated band wider than naive, quantified; every variance traced, nothing invented | **Met, in reduced scope** | `test_uncertainty.py` (wider by √3); `UNCERTAINTY.md` | Fuel factors only. Grid factor, activity data and extraction carry no uncertainty, by invariant 6 |
 | 8 Materiality, RQ1 | per-sector curve with cited Scope 1/2 splits | **Partly** | engine: `test_materiality.py`; `RQ1_RESULTS.md` (sector-agnostic curve) | **No sector rows**: `data/sector_scope2_shares.csv` needs cited shares |
 | 9 Automaton | properties proved by enumeration | **Met** | `LIFECYCLE.md`: proofs, model checker, mutation tests; enforced in the DB (migration 0009) | Proof is by hand, not mechanised |
+| (proposed) Nowcast | leakage-safe rolling backtest against a naive baseline; bands with out-of-sample coverage; revision analysis | **Built, not in agreed scope** | `NOWCAST.md`, `NOWCAST_RESULTS.md`, `test_nowcast.py` (7 tests, no database) | Team sign-off in `SCOPE_PROPOSAL.md`. About 20 yearly values, so it can only show that nothing simple beats the naive forecast |
 | 9 Audit sampling | learned ranker beats two baselines at 5% and 10% | **Not built** | — | Proposed for cutting (`SCOPE_PROPOSAL.md`), unsigned. A confidence-ordered review queue exists; it is not a learned ranker |
 | 10 Workbench, release | demo with no developer at a terminal; DOI minted | **Partly** | a seven-page static site served by the API (overview, findings, factor registry, method, and a three-page workbench: ledger with provenance and corrections, evidence with the review queue and production records, reports with verify, uncertainty, materiality, exceptions and a rolled-back reproducibility demonstration); every page exercised in a browser on 2026-10-05 and 06 | **No DOI.** Licence and authors undecided. Not pushed to GitHub |
 
@@ -54,6 +55,12 @@ has not been pushed.
 - **RQ3 as a compliance outcome** (`RQ3_COMPLIANCE.md`): with no physical
   change, the three readings show a GEI change of 0%, −2.45% or −7.20% times
   the Scope 2 share. The baseline year (FY2023-24) is assumed, not verified.
+- **Nowcast** (`NOWCAST_RESULTS.md`; proposed addition, unsigned): predicting a
+  year's factor by the previous year's value missed by 1.99% on average over 20
+  years; none of four simple alternatives beat it. A band built from earlier
+  errors contained 10 of 12 (80%) and 11 of 12 (90%) later values. The FY2025-26
+  value fell outside the 90% band. CEA's later restatements of a year are far
+  smaller (median 0.07%).
 - **RQ2** (`RQ2_RESULTS.md`): every comparable year-on-year step in the
   all-India grid factor exceeded 1%; the latest was −4.93%.
 - **RQ1** (`RQ1_RESULTS.md`): CEA's restatements of a past year are too small
