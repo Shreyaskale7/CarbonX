@@ -68,6 +68,10 @@ has not been pushed.
   23% share.
 - **BEE vs IPCC** (`BEE_VS_IPCC.md`): 50 of BEE's 53 default CO2 factors equal
   IPCC 2006's. Three coal factors do not, by +1.6%, +5.1% and +5.9%.
+- **The denominator is under-determined too** (`RQ3_FINDINGS.md`): for plants
+  with more than one product BEE says "the main product or an equivalent
+  product ... per standard practice prevalent in the obligated entity's sector"
+  and gives no conversion. The procedure also never names the baseline year.
 - **2024-27 targets exclude process emissions** (BEE p. 7 note), which raises
   the Scope 2 share of the target basis in cement, steel and refining.
 

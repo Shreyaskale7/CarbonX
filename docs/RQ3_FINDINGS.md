@@ -77,7 +77,10 @@ fact.
   in tCO2e and GEI, not compliance outcomes.
 
 ## Also to verify
-- **Is FY2023-24 the CCTS baseline year?** (Unverified; raised by the council.)
+- **Is FY2023-24 the CCTS baseline year?** (Raised by the council.) Checked
+  against the procedure on 2026-10-12: **it does not name a year** (quotes
+  below, under "The baseline year and the denominator"). The year must come
+  from the target notifications, which nobody on the team has read yet.
   CEA's methodology break (build and combined margins include renewables from
   FY2023-24) would then land exactly on the baseline year. That would make it
   a finding, not noise to exclude. `docs/RQ2_RESULTS.md` currently excludes
@@ -134,6 +137,48 @@ direct combustion, (ii) process and (iii) indirect emissions):**
 > "In case of non-availability of the above data, the exported power shall be
 > adjusted using the Grid average emission as published by Central Electricity
 > Authority."
+
+### The baseline year and the denominator (read 2026-10-12)
+
+**Baseline year (p. 6, clause 3.4(1)):**
+> "To establish the GHG emission intensity targets, the technical committee set
+> up by the Bureau shall calculate the GHG emission intensity in the baseline
+> year and the targets of GHG emissions intensity for the trajectory period for
+> each compliance cycle"
+
+**Baseline data (p. 8, clause 3.4(5)):**
+> "The GHG emissions intensity shall be calculated for the baseline year from
+> the verified data for that year and submitted by the obligated entity."
+
+The phrase "baseline year" occurs four times in the 45 pages (pp. 6, 8, 16,
+18). None of them says which year it is. "2023-24" does not occur at all.
+
+**More than one product (p. 8, clause 3.4(4)):**
+> "In calculating the production for the purpose of deriving the GHG emission
+> intensity, where more than one product is produced, the main product or an
+> equivalent product worked out from the product mix per standard practice
+> prevalent in the obligated entity's sector shall be considered."
+
+**Unit of the target (p. 4, clause (2)):**
+> "shall notify the GHG Emission intensity targets in terms of tons of carbon
+> dioxide equivalent (tCO2e) per unit of equivalent product"
+
+Form I (Annexure V, p. 36) has one row per product and a "Total Equivalent
+Product" row, with no conversion given.
+
+**What this means.**
+- `docs/RQ3_COMPLIANCE.md` assumes FY2023-24. This document neither supports
+  nor contradicts that. The assumption stays an assumption.
+- The denominator is under-determined in the same way the grid factor is: the
+  procedure names "an equivalent product" and leaves the conversion to "standard
+  practice" in each sector. Two plants with the same emissions and the same
+  output could report different intensities by choosing "main product" or
+  "equivalent product". We have not measured how much; that needs a sector's
+  actual conversion practice.
+- CarbonX withholds intensity for a facility with more than one product, and
+  says why. Given this clause, the right extension is not a built-in formula. It
+  is to record the entity's own conversion factors, with their stated basis,
+  versioned like every other input. Not built.
 
 ### What the text settles, and what it leaves open
 

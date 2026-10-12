@@ -13,7 +13,8 @@ factor f_b by an assessment factor f_a changes GEI by exactly
 That is arithmetic, not a model. The three readings of f_a are the ones
 docs/RQ3_FINDINGS.md finds the procedure's text supports. What is ASSUMED, and
 must be checked against the target notifications before this is cited:
-  - which financial year is the baseline (FY2023-24 is the default here);
+  - which financial year is the baseline (FY2023-24 is the default here; BEE's
+    procedure does not name one, see docs/RQ3_FINDINGS.md);
   - that the baseline GEI was computed with that year's first-published factor.
 No plant data is used, real or synthetic.
 """
@@ -99,7 +100,8 @@ def main() -> None:
          "the change is exactly *s* × (*f*ₐ / *f*_b − 1). This file evaluates that for the "
          "three readings of BEE's rule found in `docs/RQ3_FINDINGS.md`."),
         (f"**Assumed, not verified.** (1) The baseline year is {DEFAULT_BASELINE}; the last "
-         "table repeats the calculation for neighbouring years. (2) The baseline GEI used "
+         "table repeats the calculation for neighbouring years. BEE's procedure does not "
+         "name the baseline year (`docs/RQ3_FINDINGS.md`). (2) The baseline GEI used "
          "that year's factor as first published. Both must be checked against the target "
          "notifications. Factor series: `" + GRID + "`. No plant data is used; this is a "
          "property of the published factors, stated per Scope 2 share. It is not a claim "
