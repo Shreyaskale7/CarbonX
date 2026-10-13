@@ -32,6 +32,7 @@
     <div class="panel">
       <h2>Lines to test</h2>
       <p class="small muted">Record the figure the evidence supports for each line, and what was checked. A result is recorded once.</p>
+      <p class="notice" id="all-certain" style="margin-top:12px" hidden></p>
       <div class="scroll" style="margin-top:8px"><table>
         <thead><tr><th>Why</th><th>Period</th><th>Activity</th><th class="num">Reported, tCO2e</th><th>Audited, tCO2e</th><th>What was checked</th><th></th></tr></thead>
         <tbody id="items"></tbody></table></div>
@@ -56,6 +57,9 @@ function render(s) {
     ["Lines to test", `${s.items.length} <span class="small muted">${certain} certain, ${s.items.length - certain} sampled</span>`],
     ["Sampling interval", s.interval_tco2e === null ? "none" : `${esc(grouped(s.interval_tco2e))} <span class="small muted">tCO2e</span>`],
   ].map(([k, v]) => `<div><div class="small muted">${k}</div><div class="stat">${v}</div></div>`).join("");
+  $("all-certain").hidden = s.interval_tco2e !== null;
+  $("all-certain").textContent = `These settings ask for ${s.planned_n} hits and the report has ${s.items.length} lines to choose from, so every line is to be tested. `
+    + "Sampling saves work only on a report with many more lines than hits, or with a larger tolerable misstatement.";
   $("items").innerHTML = s.items.map((i) => `<tr>
     <td class="small">${i.stratum === "certain" ? `<span class="tag">certain</span> ` : ""}${esc(i.reason)}</td>
     <td style="white-space:nowrap">${esc(i.period_start.slice(0, 7))}</td><td>${esc(i.activity_type)}</td>
@@ -70,7 +74,8 @@ function render(s) {
   $("evaluation").innerHTML = kv([
     ["Tested", `${e.tested} of ${e.selected} lines`],
     ["Projected misstatement", `<span class="mono">${esc(e.projected_tco2e)}</span> tCO2e (${esc(e.projected_pct)}% of the report)`],
-    [`Upper limit at ${Math.round(s.confidence * 100)}%`, `overstatement up to <strong>${esc(e.upper_overstatement_pct)}%</strong>, understatement up to <strong>${esc(e.upper_understatement_pct)}%</strong>`],
+    [`Upper limit at ${Math.round(s.confidence * 100)}%`, !e.complete ? "shown once every line is tested"
+      : `overstatement up to <strong>${esc(e.upper_overstatement_pct)}%</strong>, understatement up to <strong>${esc(e.upper_understatement_pct)}%</strong>`],
     ["Against the tolerable " + esc(qty(s.tolerable_pct)) + "%", !e.complete ? "not evaluated until every line is tested"
       : e.within_tolerable ? `<span class="ok">both limits are within it</span>` : `<span class="warn">a limit exceeds it</span>`],
   ]);
