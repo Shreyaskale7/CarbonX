@@ -85,10 +85,10 @@ grids (`IN-N`, `IN-E`, `IN-S`, `IN-W`, `IN-NE`); v4.0–v10.0 give two
    gives byte-identical files.
 
 Checks in `tests/test_cea_registry.py`: all 23 versions present and ordered;
-every row unique and traceable to a cell; for four versions spanning the three
-layout families (v1.0, v10.0, v19.0, v22.0) the committed CSV equals a fresh
-parse of the workbook; known values match (v19 FY2022-23 = 0.716). The other
-19 versions are parsed by the same code but not re-checked by that test.
+every row unique and traceable to a cell; for all 23 versions the committed CSV
+equals a fresh parse of the workbook (this needs the raw downloads, so it runs
+where they are present and is skipped elsewhere, including CI); known values
+match (v19 FY2022-23 = 0.716).
 
 ## Things a user of this data must know
 

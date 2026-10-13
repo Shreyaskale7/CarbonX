@@ -75,9 +75,10 @@ def test_labels_map_explicitly():
         metric("Gross Generation Total (GWh)")
 
 
-@pytest.mark.parametrize("version", ["v1.0", "v10.0", "v19.0", "v22.0"])
+@pytest.mark.parametrize("version", [v["version_label"] for v in VERSIONS])
 def test_reparse_matches_committed_csv(version):
-    """One version per layout family: the committed CSV is what the parser says."""
+    """Every version: the committed CSV is exactly what the parser reads from
+    the workbook. (Until 2026-10-13 only one version per layout was checked.)"""
     (v,) = [x for x in VERSIONS if x["version_label"] == version]
     found = list((ROOT / "data" / "raw" / "cea" / version).rglob(v["workbook"]))
     if not found:
