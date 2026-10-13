@@ -100,6 +100,12 @@ block. The way forward is a PostgreSQL the policy allows: version 16 installed
 from postgresql.org, Docker, or CI on GitHub. Each of those is also the real
 target, with the real `btree_gist` and `pgcrypto`.
 
+**2026-10-13: the block lifted.** `postgres.exe` runs again on the laptop, with
+no change on our side. Everything built while it was blocked was then verified
+on the database: the full suite (170 passed, 1 skipped), `reproduce.sh` on a
+fresh database, and the site with data. The block may return, so the advice
+above stands: have a PostgreSQL 16 or CI available before the viva.
+
 ## What only the team can do
 
 1. Put names in `docs/TEAM.md`; each owner learns their component well enough
