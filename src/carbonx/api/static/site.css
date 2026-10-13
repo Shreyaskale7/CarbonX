@@ -1,22 +1,24 @@
-/* CarbonX site. One theme following the system setting, one accent (cobalt),
-   one corner radius (6px) for every control and panel. No build step. */
+/* CarbonX site. Dark by default; the viewer can switch to light, and the
+   choice is remembered. One accent (blue), one corner radius (6px) for every
+   control and panel. No build step.
+   The dark neutrals match the figures' dark surface (scripts/figure_theme.py). */
 :root {
-  --bg: #fafafa; --surface: #ffffff; --sunk: #f4f4f5;
-  --ink: #18181b; --ink2: #52525b; --muted: #6b6b76; --line: #e4e4e7;
-  --accent: #1d4ed8; --on-accent: #fafafa; --accent-soft: #e8eefc;
-  --ok: #15803d; --warn: #a16207; --bad: #b91c1c;
+  color-scheme: dark;
+  --bg: #0e0e0d; --surface: #1a1a19; --sunk: #242422; --plate: #1a1a19;
+  --ink: #f5f5f3; --ink2: #c3c2b7; --muted: #9a9891; --line: #2f2f2c;
+  --accent: #7aa7f7; --on-accent: #0e0e0d; --accent-soft: #1b2638;
+  --ok: #4ade80; --warn: #facc15; --bad: #f87171;
   --r: 6px;
   --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1012; --surface: #17181b; --sunk: #1d1e22;
-    --ink: #f4f4f5; --ink2: #c4c4cc; --muted: #9a9aa5; --line: #2b2c31;
-    --accent: #7aa7f7; --on-accent: #0f1012; --accent-soft: #1a2437;
-    --ok: #4ade80; --warn: #facc15; --bad: #f87171;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fafafa; --surface: #ffffff; --sunk: #f4f4f5; --plate: #fcfcfb;
+  --ink: #18181b; --ink2: #52525b; --muted: #6b6b76; --line: #e4e4e7;
+  --accent: #1d4ed8; --on-accent: #fafafa; --accent-soft: #e8eefc;
+  --ok: #15803d; --warn: #a16207; --bad: #b91c1c;
 }
 * { box-sizing: border-box; }
 html { scroll-padding-top: 88px; }
@@ -121,8 +123,8 @@ section.tight { padding: 40px 0; }
 .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
 .split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 48px; align-items: start; }
 .split.even { grid-template-columns: 1fr 1fr; }
-.plate { background: #fcfcfb; border: 1px solid var(--line); border-radius: var(--r); padding: 8px; }
-.plate img { display: block; width: 100%; height: auto; }
+.plate { background: var(--plate); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; }
+.plate img { display: block; width: 100%; height: auto; aspect-ratio: 760 / 440; }
 figure { margin: 0; } figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
 .notice { font-size: 0.92rem; color: var(--ink2); border-left: 3px solid var(--accent);
           padding: 4px 0 4px 16px; max-width: 75ch; }

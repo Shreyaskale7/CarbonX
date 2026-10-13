@@ -20,6 +20,8 @@ import csv
 from collections import defaultdict
 from pathlib import Path
 
+from figure_theme import write as write_figure
+
 ROOT = Path(__file__).resolve().parents[1]
 FACTORS = ROOT / "data" / "cea" / "factors.csv"
 VERSIONS = ROOT / "data" / "cea" / "versions.csv"
@@ -169,11 +171,9 @@ def main() -> None:
     d = {name: abs(float(v.rstrip("%"))) for name, _, v, _ in effects}
     # ponytail: "latest" and "step" differ by 0.06 points and would overprint,
     # so the figure draws "latest" only; the table below it has both.
-    FIG.parent.mkdir(exist_ok=True)
-    FIG.write_text(figure([("Series choice", d["series"]),
-                           ("Reading of 'latest' (year step is within 0.1)", d["latest"]),
-                           ("Revision of a past year", d["revision"])]),
-                   encoding="utf-8", newline="\n")
+    write_figure(FIG, figure([("Series choice", d["series"]),
+                              ("Reading of 'latest' (year step is within 0.1)", d["latest"]),
+                              ("Revision of a past year", d["revision"])]))
 
     sectors = "_No sector rows yet: `data/sector_scope2_shares.csv` needs cited shares._"
     if SHARES.exists():

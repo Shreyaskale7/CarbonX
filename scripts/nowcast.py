@@ -10,6 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from figure_theme import write as write_figure
+
 from carbonx.forecast import nowcast as nc
 
 OUT = ROOT / "docs" / "NOWCAST_RESULTS.md"
@@ -149,8 +151,7 @@ def main() -> None:
     outliers = [(y, k, p) for y, k, p in nc.revisions(reg[HEADLINE]) if abs(p) > 2]
     final_median = next(r for r in nc.revision_summary(reg[HEADLINE]) if r[0] == "latest")[2]
 
-    FIG.parent.mkdir(exist_ok=True)
-    FIG.write_text(figure(targets, cov[0.8][2]), encoding="utf-8", newline="\n")
+    write_figure(FIG, figure(targets, cov[0.8][2]))
 
     robustness = []
     for key in ROBUSTNESS:

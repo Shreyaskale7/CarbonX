@@ -6,6 +6,7 @@
 <title>CarbonX: a carbon ledger where every figure is traceable</title>
 <meta name="description" content="A bitemporal carbon accounting ledger for India's Carbon Credit Trading Scheme. Research prototype.">
 <link rel="stylesheet" href="/static/site.css">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark"; } catch { document.documentElement.dataset.theme = "dark"; }</script>
 </head>
 <body>
 <main>
@@ -50,7 +51,7 @@
   <section>
     <div class="wrap split">
       <figure>
-        <div class="plate"><img src="/figures/rq1_sensitivity.svg" width="760" height="440"
+        <div class="plate"><img data-figure="rq1_sensitivity" width="760" height="440"
           alt="Change in total emissions against Scope 2 share: the choice of CEA series crosses the 5% threshold at a 23% share; the reading of 'latest' reaches 4.87% and never crosses."></div>
         <figcaption>Generated from the registry by <code>scripts/rq1_materiality.py</code>.</figcaption>
       </figure>

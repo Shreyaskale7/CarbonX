@@ -41,6 +41,7 @@ document.body.insertAdjacentHTML("afterbegin", `
   <header class="nav"><div class="wrap">
     <a class="brand" href="/">CarbonX</a>
     <nav aria-label="Main">${links(PUBLIC)}</nav>
+    <button class="ghost sm" id="theme" type="button"></button>
     <a class="btn primary sm" href="/ledger">Open workbench</a>
   </div></header>
   ${inApp ? `<div class="subnav"><div class="wrap">${links(APP)}
@@ -52,6 +53,21 @@ document.body.insertAdjacentHTML("beforeend", `
        verifiers in their work. It is not accredited and does not issue assurance opinions.</p>
     <p>${links([...PUBLIC, ...APP])}</p>
   </div></footer>`);
+
+// Theme: dark unless the viewer chose light. The <head> of each page sets the
+// attribute before first paint; this keeps the button and the figures in step.
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem("theme", theme); } catch { /* private mode: not remembered */ }
+  const btn = $("theme");
+  btn.textContent = theme === "dark" ? "Light" : "Dark";
+  btn.setAttribute("aria-label", `Switch to the ${theme === "dark" ? "light" : "dark"} theme`);
+  document.querySelectorAll("img[data-figure]").forEach((img) => {
+    img.src = `/figures/${img.dataset.figure}${theme === "dark" ? "_dark" : ""}.svg`; });
+}
+applyTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+$("theme").onclick = () =>
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 
 // Workbench pages share one selected organisation, kept across pages.
 async function orgs() {

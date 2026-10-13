@@ -16,6 +16,8 @@ from itertools import pairwise
 from pathlib import Path
 from statistics import median
 
+from figure_theme import write as write_figure
+
 ROOT = Path(__file__).resolve().parents[1]
 FACTORS = ROOT / "data" / "cea" / "factors.csv"
 VERSIONS = ROOT / "data" / "cea" / "versions.csv"
@@ -40,6 +42,7 @@ def table(header: list[str], rows: list[list[str]]) -> str:
 # Figure: light surface only; one series, so one colour and no legend.
 INK, INK2, MUTED, GRIDLINE, AXIS, SURFACE, BLUE = (
     "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb", "#2a78d6")
+BAND = "#ecebe5"   # the target range: its own colour so it survives the dark theme
 
 
 def figure(key: str, steps: list[tuple[str, float]]) -> str:
@@ -72,13 +75,13 @@ def figure(key: str, steps: list[tuple[str, float]]) -> str:
         text(x0, 64, "Comparable to the GEI target only for an entity whose basis"
              " is entirely Scope 2 (see RQ1)"),
         (f'<rect x="{x0}" y="{py(3):.1f}" width="{x1 - x0}" height="{py(1) - py(3):.1f}"'
-         f' fill="{GRIDLINE}" opacity="0.6"/>'),
+         f' fill="{BAND}"/>'),
     ]
     for v in range(ymax + 1):
         out.append(f'<line x1="{x0}" x2="{x1}" y1="{py(v):.1f}" y2="{py(v):.1f}"'
                    f' stroke="{AXIS if v == 0 else GRIDLINE}" stroke-width="1"/>')
         out.append(text(x0 - 8, py(v) + 4, f"{v}%", MUTED, "end"))
-    out.append(f'<rect x="{x0}" y="76" width="18" height="10" fill="{GRIDLINE}"/>')
+    out.append(f'<rect x="{x0}" y="76" width="18" height="10" fill="{BAND}"/>')
     out.append(text(x0 + 24, 86, "FY2025-26 GEI reduction target: 1–3%", INK2))
     top = max(steps, key=lambda fs: abs(fs[1]))
     for i, (fy, step) in enumerate(steps):
@@ -144,8 +147,7 @@ def main() -> None:
             f"{max(revisions):.2f}%" if revisions else "–",
         ])
 
-    FIG.parent.mkdir(exist_ok=True)
-    FIG.write_text(figure(FIG_KEY, drawn), encoding="utf-8", newline="\n")
+    write_figure(FIG, figure(FIG_KEY, drawn))
 
     OUT.write_text("\n\n".join([
         "# RQ2 results: CEA year-on-year factor changes",
