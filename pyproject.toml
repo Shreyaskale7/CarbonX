@@ -20,7 +20,9 @@ carbonx = ["api/static/*"]
 
 [tool.mypy]
 strict = true
-files = ["src/carbonx/units", "src/carbonx/factors", "src/carbonx/lifecycle"]
+files = ["src/carbonx/units", "src/carbonx/factors", "src/carbonx/lifecycle",
+         "src/carbonx/forecast", "src/carbonx/sampling", "src/carbonx/evidence/anchor.py",
+         "src/carbonx/engine/meters.py"]
 
 [tool.ruff]
 line-length = 88

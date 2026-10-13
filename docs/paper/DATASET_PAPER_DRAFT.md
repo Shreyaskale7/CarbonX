@@ -193,6 +193,11 @@ Python 3.11 or later; the parser depends on `openpyxl` and `xlrd`.
 2. **Remove or verify every [verify] statement.**
 3. **Have a second person re-derive a sample of values by hand** from the
    workbooks. The current validation is our own code checking itself.
+   `python scripts/hand_check.py sample` writes `docs/paper/HAND_CHECK.csv`: two
+   cells from each version, chosen by hash, with the registry's value left out.
+   Someone who did not write the parser fills it in from the workbooks;
+   `python scripts/hand_check.py check` compares. Report the count honestly,
+   including any disagreement, in Technical Validation.
 4. **Check novelty.** Search for an existing compilation of CEA's version
    history before claiming this is the first. We found none; that is not the
    same as there being none.

@@ -45,11 +45,19 @@ jobs:
           python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
           python -m carbonx.uncertainty.propagate --report 2
       - run: pytest -q
-      - name: generated results (RQ1, RQ2, BEE vs IPCC) are up to date
+      # Every generated document and figure must equal what its script produces
+      # from the committed data: nobody edits a result by hand.
+      - name: generated results are up to date
         run: |
           python scripts/rq1_materiality.py && python scripts/rq2_deltas.py
+          python scripts/rq3_compliance.py && python scripts/nowcast.py
+          python scripts/ember_crosscheck.py && python scripts/registry_changelog.py
           python scripts/compare_bee_ipcc.py
-          git diff --exit-code docs/RQ1_RESULTS.md docs/RQ2_RESULTS.md docs/BEE_VS_IPCC.md
+          git diff --exit-code docs/ data/cea/CHANGELOG.md
+      - name: the registry passes its release checks
+        run: python scripts/build_registry_release.py --draft
+      - name: one-command pipeline finishes with the reproducibility demonstration
+        run: python scripts/demo_reproducibility.py --org 1
       # Runs, but is not diffed: it comes from a numerical optimiser, so the
       # last printed digit may differ across platforms and library versions.
       - name: extraction evaluation runs
