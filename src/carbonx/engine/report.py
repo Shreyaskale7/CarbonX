@@ -55,7 +55,7 @@ from carbonx.engine.calculate import (
 from carbonx.factors.registry import FactorNotFound, Policy, fy_start
 from carbonx.units.core import Quantity, parse_unit
 
-SCHEMA = "carbonx.report/4"  # /2: production and GEI; /3: fuel (Scope 1); /4: equivalent product
+SCHEMA = "carbonx.report/5"  # /2: production, GEI; /3: fuel; /4: equivalent product; /5: meters
 
 
 class EngineVersionMismatch(RuntimeError):
@@ -82,10 +82,13 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
     activities = conn.execute("""
         SELECT a.activity_id, a.facility_id, a.activity_type, a.scope,
                lower(a.period), upper(a.period), a.quantity, a.unit, d.sha256,
-               a.ncv, a.ncv_unit, a.oxidation_factor
+               a.ncv, a.ncv_unit, a.oxidation_factor,
+               m.meter_id, m.meter_code, m.uncertainty_pct, c.sha256
         FROM activity a
         JOIN facility f USING (facility_id)
         LEFT JOIN source_document d USING (document_id)
+        LEFT JOIN meter m ON m.meter_id = a.meter_id   -- the pinned row, not "current"
+        LEFT JOIN source_document c ON c.document_id = m.calibration_document_id
         WHERE f.org_id = %s
           AND a.system_time_range @> %s::timestamptz
           AND a.period <@ daterange(%s, %s)
@@ -96,7 +99,8 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
     totals: dict[int, Fraction] = {1: Fraction(0), 2: Fraction(0)}
     by_facility: dict[int, Fraction] = {}
     for (activity_id, facility_id, activity_type, scope, p_start, p_end,
-         quantity, unit, doc_sha, ncv, ncv_unit, oxidation) in activities:
+         quantity, unit, doc_sha, ncv, ncv_unit, oxidation,
+         meter_id, meter_code, meter_u, certificate_sha) in activities:
         spec = activity_spec(activity_type)
         line: dict[str, Any] = {
             "activity_id": activity_id, "facility_id": facility_id,
@@ -104,6 +108,12 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
             "period": [p_start.isoformat(), p_end.isoformat()],
             "quantity": format(quantity, "f"), "unit": unit,
             "document_sha256": doc_sha,
+            # The meter the reading came from, with the uncertainty its
+            # calibration certificate states (or null: none is claimed).
+            "meter": None if meter_id is None else {
+                "meter_id": meter_id, "code": meter_code,
+                "uncertainty_pct": None if meter_u is None else format(meter_u, "f"),
+                "certificate_sha256": certificate_sha},
         }
         if spec.is_fuel:
             line |= {"ncv": format(ncv, "f"), "ncv_unit": ncv_unit,

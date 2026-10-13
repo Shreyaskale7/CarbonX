@@ -41,11 +41,32 @@
           </div>
           <div class="field"><label for="oxidation">Oxidation factor</label><input type="number" id="oxidation" min="0" max="1" step="any" value="1"></div>
         </div>
+        <div class="field"><label for="meter">Meter</label><select id="meter"><option value="">not stated</option></select>
+          <p class="help">Declared below. The reading keeps the meter as it was declared today.</p></div>
         <div class="field"><label for="doc">Evidence document id</label><input type="number" id="doc">
           <p class="help">Filled in when you store a document above. Leave empty to record without evidence.</p></div>
         <div class="field"><label for="policy">Factor resolution policy</label><select id="policy"></select></div>
         <button class="primary" id="record">Record and calculate</button>
         <div id="record-msg" class="msg" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h2>Meters</h2>
+        <p class="small muted">Which device measures what. An uncertainty is accepted only with the stored calibration
+          certificate that states it; without one, readings carry no measurement uncertainty and the report says so.</p>
+        <div class="row" style="margin-top:14px">
+          <div class="field"><label for="m-code">Meter code</label><input id="m-code">
+            <p class="help">As on the device or the bill.</p></div>
+          <div class="field"><label for="m-unc">Uncertainty, ±%</label><input type="number" id="m-unc" min="0" step="any">
+            <p class="help">Expanded, about 95%, from the certificate.</p></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="m-doc">Certificate document id</label><input type="number" id="m-doc"></div>
+          <div class="field"><label for="m-date">Calibrated on</label><input type="date" id="m-date"></div>
+        </div>
+        <p class="help" style="margin:-6px 0 14px">Measures the activity chosen above, at the facility chosen above.</p>
+        <button class="primary" id="m-save">Declare meter</button>
+        <div id="m-msg" class="msg" aria-live="polite"></div>
+        <div class="scroll" style="margin-top:10px"><table><tbody id="m-list"></tbody></table></div>
       </div>
       <div class="panel">
         <h2>Record production</h2>
@@ -131,6 +152,7 @@ $("extract").onclick = async () => {
 $("kind").onchange = () => {
   const fuel = $("kind").value.startsWith("fuel.");
   $("fuel-fields").hidden = !fuel;
+  meterOptions();
   $("qty-label").textContent = fuel ? "Quantity, tonnes" : "Quantity, kWh";
 };
 $("record").onclick = async () => {
@@ -140,7 +162,8 @@ $("record").onclick = async () => {
       period_end: $("end").value, quantity: $("qty").value, activity_type: $("kind").value,
       ...(fuel ? {unit: "t", ncv: $("ncv").value, ncv_unit: $("ncv-unit").value, oxidation_factor: $("oxidation").value}
                : {unit: "kWh"}),
-      document_id: $("doc").value ? +$("doc").value : null, policy: $("policy").value});
+      document_id: $("doc").value ? +$("doc").value : null,
+      meter_id: $("meter").value ? +$("meter").value : null, policy: $("policy").value});
     msg.className = "msg ok result";
     msg.innerHTML = `Calculation ${esc(r.calculation_id)}: <strong>${esc(grouped(r.tco2e))} tCO2e</strong>.
       <a href="/ledger?calc=${esc(r.calculation_id)}">See its provenance</a>`;
@@ -156,7 +179,33 @@ $("p-record").onclick = async () => {
     say(msg, `Production record ${r.production_id} stored. New reports will use it.`, "ok");
   } catch (e) { say(msg, e.message, "bad"); }
 };
-let ORG = null;
+let ORG = null, METERS = [];
+function meterOptions() {   // only meters of this facility that measure this activity
+  const fit = METERS.filter((m) => String(m.facility_id) === $("facility").value && m.measures === $("kind").value);
+  $("meter").innerHTML = `<option value="">not stated</option>` + fit.map((m) =>
+    `<option value="${m.meter_id}">${esc(m.meter_code)}${m.uncertainty_pct ? ` (±${esc(qty(m.uncertainty_pct))}%)` : ""}</option>`).join("");
+}
+async function loadMeters() {
+  METERS = await api(`/api/meters?org_id=${ORG}`);
+  $("m-list").innerHTML = METERS.length ? `<tr><th>Meter</th><th>Measures</th><th class="num">Uncertainty</th><th>Certificate</th></tr>`
+    + METERS.map((m) => `<tr><td class="mono">${esc(m.meter_code)}</td><td class="small">${esc(m.measures)}</td>
+      <td class="num mono">${m.uncertainty_pct ? `±${esc(qty(m.uncertainty_pct))}%` : '<span class="muted">none stated</span>'}</td>
+      <td class="small">${m.calibration_document_id ? `document ${esc(m.calibration_document_id)}${m.calibrated_on ? `, ${esc(m.calibrated_on)}` : ""}` : "-"}${m.supersedes ? ' <span class="muted">(re-declared)</span>' : ""}</td></tr>`).join("")
+    : `<tr><td class="empty">No meters declared.</td></tr>`;
+  meterOptions();
+}
+$("m-save").onclick = async () => {
+  const msg = $("m-msg");
+  if (!$("facility").value) { say(msg, "The page is still loading its data. Try again in a moment.", "warn"); return; }
+  if (!$("m-code").value.trim()) { say(msg, "Enter the meter code.", "bad"); return; }
+  if ($("m-unc").value && !$("m-doc").value) { say(msg, "An uncertainty needs the calibration certificate: store it above and enter its document id.", "bad"); return; }
+  try {
+    await post("/api/meters", {facility_id: +$("facility").value, meter_code: $("m-code").value.trim(), measures: $("kind").value,
+      uncertainty_pct: $("m-unc").value || null, calibration_document_id: $("m-doc").value ? +$("m-doc").value : null,
+      calibrated_on: $("m-date").value || null});
+    say(msg, "Declared. Readings recorded from now on can name it.", "ok"); await loadMeters();
+  } catch (e) { say(msg, e.message, "bad"); }
+};
 const fyLabel = (d) => { const y = +String(d).slice(0, 4); return `FY${y}-${String((y + 1) % 100).padStart(2, "0")}`; };
 async function loadEquivalences() {
   const rows = await api(`/api/equivalences?org_id=${ORG}`);
@@ -190,7 +239,7 @@ $("e-save").onclick = async () => {
     $("policy").value = "VINTAGE_MATCHED";
     $("kind").insertAdjacentHTML("beforeend", fuels.map((f) =>
       `<option value="fuel.${esc(f.slug)}">${esc(f.fuel)} (Scope 1)</option>`).join(""));
-    await loadQueue(); await loadEquivalences();
+    await loadQueue(); await loadEquivalences(); await loadMeters();
   } catch (e) { unreachable(e); }
 })();
 </script>

@@ -22,6 +22,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from carbonx.engine.calculate import edit_activity, record_activity
+from carbonx.engine.meters import declare_meter
 from carbonx.engine.production import (
     edit_production,
     record_production,
@@ -88,6 +89,7 @@ ops = st.lists(st.one_of(
     st.tuples(st.just("second_product_arrives"), st.integers(0, 11), quantities),
     st.tuples(st.just("conversion_declared"), st.sampled_from(["al", "billet"]),
               st.decimals("0.00", "2.00", places=2)),
+    st.tuples(st.just("meter_redeclared"), st.decimals("0.1", "5.0", places=1)),
     st.tuples(st.just("new_fuel_factor"), fuel_values, published),
     st.tuples(st.just("fuel_arrives"), st.integers(0, 11), quantities, ncvs),
     st.tuples(st.just("fuel_correction"), st.integers(0, 11), quantities, ncvs),
@@ -113,6 +115,17 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
         produced: dict[int, int] = {}
         burned: dict[int, int] = {}
         second: set[int] = set()
+        (certificate,) = conn.execute(
+            "INSERT INTO source_document (facility_id, doc_type, filename, storage_path,"
+            " sha256) VALUES (%s, 'meter_reading', 'cal.pdf', 'x', %s) RETURNING document_id",
+            (facility_id, uuid.uuid4().hex * 2)).fetchone()
+
+        def meter_with(pct):
+            return declare_meter(conn, facility_id=facility_id, meter_code="HT-1",
+                                 measures="grid_electricity", uncertainty_pct=pct,
+                                 calibration_document_id=certificate)
+
+        meter = [meter_with(Decimal("0.5"))]
 
         def add_factor(kind, fy, value, pub, key=GRID, units=("tCO2", "MWh")):
             counters[kind] += 1
@@ -132,7 +145,7 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
                 current[m] = record_activity(
                     conn, facility_id=facility_id, activity_type="grid_electricity",
                     period_start=MONTHS[m], period_end=_month_end(MONTHS[m]),
-                    quantity=qty, unit="kWh")
+                    quantity=qty, unit="kWh", meter_id=meter[0])
 
         add_factor("new", "FY2025-26", Decimal("0.700"), date(2026, 1, 1))
         add_fuel_factor(Decimal("56.155"), date(2024, 7, 1))
@@ -176,6 +189,8 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
                 set_equivalence(conn, facility_id=facility_id, product_code=args[0],
                                 fy=FY, factor=args[1], equivalent_unit="t",
                                 basis="generated")
+            elif op == "meter_redeclared":    # recalibrated: later readings pin the new row
+                meter[0] = meter_with(args[0])
             elif op == "new_fuel_factor":     # a default fuel factor is superseded
                 add_fuel_factor(*args)
             elif op == "fuel_arrives" and args[0] not in burned:

@@ -94,15 +94,16 @@ async function detail(id) {
   $("detail").scrollIntoView({behavior: "smooth", block: "start"});
   try {
     const b = await api(`/api/reports/${id}/uncertainty`), t = +b.total;
-    const none = +b.unquantified >= t;
+    const none = +b.low === t && +b.high === t;
     $("band").innerHTML = `<div class="result">${kv([
       ["Total", `<span class="mono">${esc(grouped(b.total))}</span> tCO2e`],
       ["Range", none ? "no published range for any factor in this report"
         : `<span class="mono">${esc(grouped(b.low))}</span> to <span class="mono">${esc(grouped(b.high))}</span> (${pctOf(+b.low, t)} / +${pctOf(+b.high, t)})`],
       ["If lines were independent", none ? "-" : `<span class="mono">${esc(grouped(b.low_if_independent))}</span> to <span class="mono">${esc(grouped(b.high_if_independent))}</span>`],
-      ["Point estimate only", `<span class="mono">${esc(grouped(b.unquantified))}</span> tCO2e has no published range`],
+      ["No factor range", `<span class="mono">${esc(grouped(b.unquantified))}</span> tCO2e uses a factor with no published range`],
+      ["No meter uncertainty", `<span class="mono">${esc(grouped(b.unmetered))}</span> tCO2e comes from readings with no stated measurement uncertainty`],
     ])}<p class="small muted" style="margin-top:12px">${b.basis.length ? esc(b.basis.join("; ")) + "." : ""}
-      Lines that share a factor move together, so their ranges add. Nothing is assumed where no range is published.</p></div>`;
+      Lines that share a factor or a meter move together, so their ranges add. Nothing is assumed where none is stated.</p></div>`;
   } catch (e) { $("band").innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
 }
 $("assess").onclick = async () => {

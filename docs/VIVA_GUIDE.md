@@ -154,6 +154,13 @@ fitted to noise. A null result with an honest evaluation is the finding.
 **Why not predict from generation data?** CEA computes the factor from it, so
 that is accounting done early, not forecasting.
 
+**Where does activity-data uncertainty come from?** Only from a meter's
+calibration certificate, stored and hashed like any evidence. The database
+refuses an uncertainty without the certificate. A nameplate accuracy class is
+not accepted, because turning it into an interval means assuming a
+distribution. Readings from one meter are correlated, so they add linearly.
+`docs/UNCERTAINTY.md`, `tests/test_meters.py`.
+
 **Why no uncertainty for the grid factor?** CEA publishes none, and invariant
 6 forbids inventing one. The nowcast band is the uncertainty of a guess made
 before publication, which is a different thing; keep the two apart.

@@ -172,8 +172,12 @@ def record_activity(
     reason: str | None = None, supersedes: int | None = None,
     t: datetime | None = None, ncv: Decimal | None = None,
     ncv_unit: str | None = None, oxidation_factor: Decimal = Decimal(1),
+    meter_id: int | None = None,
 ) -> int:
     """Insert an activity. `period_end` is exclusive, like every DATERANGE here.
+
+    `meter_id` names the meter row the reading came from (migration 0013). It
+    must belong to this facility and measure this activity type.
 
     A fuel activity ('fuel.<slug>') must carry its net calorific value, e.g.
     ncv=4000, ncv_unit='kcal/kg'.
@@ -199,14 +203,22 @@ def record_activity(
     with conn.transaction():
         set_audit_context(conn, actor, reason)
         t = t or system_now(conn)
+        if meter_id is not None:
+            meter = conn.execute("SELECT facility_id, measures, meter_code FROM meter"
+                                 " WHERE meter_id = %s", (meter_id,)).fetchone()
+            if meter is None:
+                raise LookupError(f"no meter {meter_id}")
+            if (meter[0], meter[1]) != (facility_id, activity_type):
+                raise ValueError(f"meter {meter[2]} measures {meter[1]} at facility "
+                                 f"{meter[0]}; it cannot be the source of this reading")
         row = conn.execute(
             "INSERT INTO activity (facility_id, activity_type, scope, period, quantity,"
-            " unit, document_id, supersedes, ncv, ncv_unit, oxidation_factor,"
+            " unit, document_id, supersedes, ncv, ncv_unit, oxidation_factor, meter_id,"
             " system_time_range)"
-            " VALUES (%s, %s, %s, daterange(%s, %s), %s, %s, %s, %s, %s, %s, %s,"
+            " VALUES (%s, %s, %s, daterange(%s, %s), %s, %s, %s, %s, %s, %s, %s, %s,"
             " tstzrange(%s, NULL)) RETURNING activity_id",
             (facility_id, activity_type, spec.scope, period_start, period_end, quantity,
-             unit, document_id, supersedes, ncv, ncv_unit, oxidation_factor, t),
+             unit, document_id, supersedes, ncv, ncv_unit, oxidation_factor, meter_id, t),
         ).fetchone()
     assert row is not None
     return int(row[0])
@@ -272,7 +284,7 @@ def edit_activity(
         t = system_now(conn)
         old = conn.execute(
             "SELECT facility_id, activity_type, lower(period), upper(period), unit,"
-            " document_id, ncv, ncv_unit, oxidation_factor FROM activity"
+            " document_id, ncv, ncv_unit, oxidation_factor, meter_id FROM activity"
             " WHERE activity_id = %s AND upper_inf(system_time_range) FOR UPDATE",
             (activity_id,)).fetchone()
         if old is None:
@@ -290,13 +302,13 @@ def edit_activity(
         conn.execute(f"UPDATE activity {close} WHERE activity_id = %s", (t, activity_id))
 
         (facility_id, activity_type, start, end, unit, document_id, old_ncv, ncv_unit,
-         oxidation) = old
+         oxidation, meter_id) = old   # a correction is still a reading of the same meter
         new_id = record_activity(
             conn, facility_id=facility_id, activity_type=activity_type,
             period_start=start, period_end=end, quantity=quantity, unit=unit,
             document_id=document_id, actor=actor, reason=reason,
             supersedes=activity_id, t=t, ncv=old_ncv if ncv is None else ncv,
-            ncv_unit=ncv_unit, oxidation_factor=oxidation)
+            ncv_unit=ncv_unit, oxidation_factor=oxidation, meter_id=meter_id)
         calcs = [calculate(conn, new_id, p, baseline_year=baseline_year, t=t)
                  for p in policies]
     return new_id, calcs

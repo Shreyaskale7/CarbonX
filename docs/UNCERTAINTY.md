@@ -2,7 +2,9 @@
 
 Code: `src/carbonx/uncertainty/propagate.py`. Tests: `tests/test_uncertainty.py`.
 This is component 8 of CLAUDE.md, in the reduced form the council proposed:
-fuel factors only, from published ranges.
+fuel factors from published ranges, plus (since 2026-10-13, a proposed
+addition) activity data where a meter's calibration certificate states an
+uncertainty.
 
     python -m carbonx.uncertainty.propagate --report 7
 
@@ -17,12 +19,28 @@ measured:
 | Three coal factors (other bituminous, sub-bituminous, lignite) | **No: point estimates** | BEE's value differs from IPCC's default (`docs/BEE_VS_IPCC.md`), so IPCC's range describes a different central value |
 | Grid emission factor (CEA) | **No: point estimate** | CEA publishes no uncertainty. Its version-to-version movement is a separate matter (RQ2, RQ3) |
 | Extraction confidence | **No** | not calibrated on unseen layouts (`docs/EXTRACTION.md`) |
-| Activity data (meter and weighbridge error), NCV | **No** | no measured error is recorded with an activity |
+| Activity data from a declared meter | **Yes, where the certificate states it** | the expanded uncertainty (about 95%) on the meter's calibration certificate. The database refuses a figure without the stored certificate (migration 0013) |
+| Activity data with no meter, or a meter with no certificate; NCV | **No** | nothing documented to take it from |
 | CH4 and N2O in the CO2e factor | carried with no range | under 1% of the factor for fossil fuels; IPCC's ranges for them are wide |
 
-A report line whose factor has no range adds no width to the band. Its
-emissions are reported separately as "no published range", so the reader can
-see how much of the total is a point estimate.
+A report line whose factor has no range adds no width to the band from its
+factor, and a line whose reading has no stated measurement uncertainty adds
+none from its activity data. Both amounts are reported separately ("no factor
+range", "no meter uncertainty"), so the reader can see how much of the total
+is a point estimate in each respect.
+
+**Why a certificate counts and an accuracy class does not.** Invariant 6 allows
+published ranges and calibrated measurements. A calibration certificate states
+an expanded uncertainty for that device, and we store the certificate. A
+nameplate accuracy class is a maximum permissible error; turning it into a
+95% interval needs an assumed distribution, which would be us inventing the
+number. So only the certificate's own figure is accepted. This extends the
+wording of invariant 6 in `CLAUDE.md` to a third source; that needs the team's
+agreement (`docs/SCOPE_PROPOSAL.md`).
+
+**Meters are correlated too.** All readings from one meter share its error, so
+they add linearly, like lines sharing a factor. Different meters, and meters
+and factors, are treated as independent.
 
 ## 2. Correlation: the reason this module exists
 
@@ -81,9 +99,12 @@ against an independent estimate.
 
 ## 4. Limits
 
-- **Only the emission factor is covered.** Activity data and NCV usually
-  carry real measurement error, and none of it is recorded. The band is
-  therefore a lower bound on the true uncertainty.
+- **Coverage is partial by design.** Activity data counts only where a meter
+  with a stored certificate is named; NCV never does. On the sample plant no
+  meter is declared, so its band is still from fuel factors alone. The band is
+  a lower bound on the true uncertainty.
+- **A certificate describes the meter on the day it was calibrated.** Drift
+  since then, installation effects and reading errors are not in it.
 - **Independence between factors is assumed.** IPCC's defaults for related
   fuels were derived from overlapping data, so some correlation between
   factors is likely and is ignored.

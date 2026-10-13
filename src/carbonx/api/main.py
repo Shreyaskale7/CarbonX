@@ -32,6 +32,7 @@ from carbonx.engine.calculate import (
     set_audit_context,
 )
 from carbonx.engine.exceptions import exceptions
+from carbonx.engine.meters import declare_meter
 from carbonx.engine.production import record_production, set_equivalence
 from carbonx.engine.provenance import attestation, coverage, plain, provenance
 from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
@@ -141,6 +142,7 @@ class ActivityIn(BaseModel):
     ncv: Decimal | None = Field(default=None, gt=0)
     ncv_unit: str | None = None
     oxidation_factor: Decimal = Field(default=Decimal(1), gt=0, le=1)
+    meter_id: int | None = None
     policy: Policy = Policy.VINTAGE_MATCHED
     baseline_year: str | None = None
 
@@ -263,7 +265,7 @@ def create_activity(body: ActivityIn, conn: Conn,
                 period_start=body.period_start, period_end=body.period_end,
                 quantity=body.quantity, unit=body.unit, document_id=body.document_id,
                 actor=x_actor, ncv=body.ncv, ncv_unit=body.ncv_unit,
-                oxidation_factor=body.oxidation_factor)
+                oxidation_factor=body.oxidation_factor, meter_id=body.meter_id)
             c = calculate(conn, activity_id, body.policy,
                           baseline_year=body.baseline_year)
     except EXPECTED as e:
@@ -412,7 +414,8 @@ def report_uncertainty(report_id: int, conn: Conn) -> dict[str, Any]:
     return plain({"total": b.total, "low": b.low, "high": b.high,
                   "low_if_independent": b.low_if_independent,
                   "high_if_independent": b.high_if_independent,
-                  "unquantified": b.unquantified, "basis": list(b.basis)})
+                  "unquantified": b.unquantified, "unmetered": b.unmetered,
+                  "basis": list(b.basis)})
 
 
 class MaterialityIn(BaseModel):
@@ -476,6 +479,43 @@ def create_production(body: ProductionIn, conn: Conn,
     except EXPECTED as e:
         raise _fail(e) from e
     return {"production_id": pid}
+
+
+class MeterIn(BaseModel):
+    facility_id: int
+    meter_code: str = Field(min_length=1)
+    measures: str = "grid_electricity"
+    uncertainty_pct: Decimal | None = Field(default=None, gt=0, le=100)
+    calibration_document_id: int | None = None
+    calibrated_on: date | None = None
+    note: str | None = None
+
+
+@app.post("/api/meters")
+def create_meter(body: MeterIn, conn: Conn, x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Declare a meter, or re-declare it after recalibration. An uncertainty is
+    accepted only with the stored calibration certificate that states it."""
+    try:
+        meter_id = declare_meter(
+            conn, facility_id=body.facility_id, meter_code=body.meter_code,
+            measures=body.measures, uncertainty_pct=body.uncertainty_pct,
+            calibration_document_id=body.calibration_document_id,
+            calibrated_on=body.calibrated_on, note=body.note, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"meter_id": meter_id}
+
+
+@app.get("/api/meters")
+def list_meters(org_id: int, conn: Conn) -> list[dict[str, Any]]:
+    """Current meters for an organisation's facilities."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        return plain(cur.execute(
+            "SELECT m.meter_id, m.facility_id, f.name AS facility, m.meter_code, m.measures,"
+            " m.uncertainty_pct, m.calibration_document_id, m.calibrated_on, m.supersedes"
+            " FROM meter m JOIN facility f USING (facility_id)"
+            " WHERE f.org_id = %s AND upper_inf(m.system_time_range)"
+            " ORDER BY f.name, m.measures, m.meter_code", (org_id,)).fetchall())
 
 
 class SampleIn(BaseModel):

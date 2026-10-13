@@ -145,6 +145,9 @@ activities, then 1–8 operations drawn from:
   migration 0011): the plant gains a second product, and conversions into the
   equivalent product are declared and revised, so the intensity's denominator
   changes meaning after reports were taken;
+- **meter redeclared** (added 2026-10-13, migration 0013): electricity readings
+  name a meter, and the meter is re-declared with a different uncertainty
+  mid-sequence, so later readings pin a different meter row;
 - **new fuel factor**, **fuel arrives** and **fuel correction** (added
   2026-10-05): a default fuel factor is superseded; natural gas is recorded
   with an NCV; its quantity and NCV are corrected later. If any fuel was

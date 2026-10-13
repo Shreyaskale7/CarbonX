@@ -29,6 +29,8 @@ Roles are ownership, not silos.
 | Materiality engine (5% base-year recalculation) | `src/carbonx/materiality/assess.py`, migration 0007 | Data / DB + Research |
 | Grid-factor nowcast and revision analysis (proposed, unsigned) | `src/carbonx/forecast/nowcast.py`, `scripts/nowcast.py`, `docs/NOWCAST.md` | ML + Research |
 | Audit sampling by size (proposed, unsigned) | `src/carbonx/sampling/pps.py`, migration 0012, `docs/SAMPLING.md` | Data / DB + Research |
+| Meters and activity-data uncertainty (proposed, unsigned) | `src/carbonx/engine/meters.py`, migration 0013, `docs/UNCERTAINTY.md` | Data / DB + ML |
+| Anchors for the audit chain (proposed, unsigned) | `src/carbonx/evidence/anchor.py`, `anchors/README.md` | Data / DB |
 | RQ1 sensitivity curve | `scripts/rq1_materiality.py`, `docs/RQ1_RESULTS.md`, `data/sector_scope2_shares.csv` | Research |
 | Scope 1 fuel combustion (BEE Annexure IV) | `scripts/load_bee_factors.py`, `data/bee/`, engine `fuel.<slug>` | Data / DB |
 | BEE vs IPCC comparison; uncertainty propagation | `scripts/compare_bee_ipcc.py`, `src/carbonx/uncertainty/`, `docs/UNCERTAINTY.md` | ML + Research |
