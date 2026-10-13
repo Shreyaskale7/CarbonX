@@ -21,6 +21,7 @@ Source: the LLM council verdict, `docs/council/council-report-20260926-2120.html
 
 | Component | Proposal | Reason |
 |---|---|---|
+| Audit sampling by size (component 9, new method) | **Keep the component, change the method.** Built 2026-10-13: `src/carbonx/sampling/pps.py`, `docs/SAMPLING.md`, migration 0012. | Monetary-unit sampling needs no labels, so the circularity that got the learned ranker cut does not arise. It is a statistics and database component, not an AI/ML one, so it does not count towards the AI/ML rubric. |
 | Grid-factor nowcast and revision analysis (AI/ML) | **Add, in place of component 9.** Built 2026-10-12 at a team member's request: `src/carbonx/forecast/nowcast.py`, `docs/NOWCAST.md`, `docs/NOWCAST_RESULTS.md`. | It uses real data already in the registry, has a leakage-safe rolling backtest, and measures the cost of the "latest at the deadline" reading in RQ3. Result: last year's value misses by 1.99% on average over 20 years and no simple model beats it. Unlike learning-to-rank, its labels are not manufactured. |
 
 If the team or the guides reject this, the code stays out of the report; nothing else depends on it.

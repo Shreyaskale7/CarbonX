@@ -31,7 +31,7 @@ const kv = (pairs) => `<dl class="kv">${pairs.map(([k, v]) =>
   `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
 
 const PUBLIC = [["/findings", "Findings"], ["/registry", "Factor registry"], ["/method", "How it works"]];
-const APP = [["/ledger", "Ledger"], ["/evidence", "Evidence"], ["/reports", "Reports"]];
+const APP = [["/ledger", "Ledger"], ["/evidence", "Evidence"], ["/reports", "Reports"], ["/sampling", "Sampling"]];
 const here = location.pathname.replace(/\/$/, "") || "/";
 const links = (items) => items.map(([href, label]) =>
   `<a href="${href}"${href === here ? ' aria-current="page"' : ""}>${label}</a>`).join("");

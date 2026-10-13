@@ -28,6 +28,7 @@ Roles are ownership, not silos.
 | Least-privilege app role | `src/carbonx/db.py`, migration 0005 | Data / DB |
 | Materiality engine (5% base-year recalculation) | `src/carbonx/materiality/assess.py`, migration 0007 | Data / DB + Research |
 | Grid-factor nowcast and revision analysis (proposed, unsigned) | `src/carbonx/forecast/nowcast.py`, `scripts/nowcast.py`, `docs/NOWCAST.md` | ML + Research |
+| Audit sampling by size (proposed, unsigned) | `src/carbonx/sampling/pps.py`, migration 0012, `docs/SAMPLING.md` | Data / DB + Research |
 | RQ1 sensitivity curve | `scripts/rq1_materiality.py`, `docs/RQ1_RESULTS.md`, `data/sector_scope2_shares.csv` | Research |
 | Scope 1 fuel combustion (BEE Annexure IV) | `scripts/load_bee_factors.py`, `data/bee/`, engine `fuel.<slug>` | Data / DB |
 | BEE vs IPCC comparison; uncertainty propagation | `scripts/compare_bee_ipcc.py`, `src/carbonx/uncertainty/`, `docs/UNCERTAINTY.md` | ML + Research |

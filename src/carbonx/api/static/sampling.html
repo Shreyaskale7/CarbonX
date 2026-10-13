@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sampling: CarbonX workbench</title>
+<link rel="stylesheet" href="/static/site.css">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark"; } catch { document.documentElement.dataset.theme = "dark"; }</script>
+</head>
+<body class="app">
+<main><div class="wrap stack-lg">
+  <div class="stack">
+    <h1>Sampling</h1>
+    <p class="muted">Which lines of a report to test. Lines are picked in proportion to their tonnes, so what the sample shows can be projected to the whole report.</p>
+  </div>
+  <div class="panel">
+    <h2>Plan a sample</h2>
+    <p class="small muted">The selection is fixed by the report's hash and the settings below. Anyone with the report can re-derive it.</p>
+    <div class="row" style="margin-top:14px">
+      <div class="field"><label for="report">Report</label><select id="report"></select></div>
+      <div class="field"><label for="confidence">Confidence</label>
+        <select id="confidence"><option value="0.90">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option></select></div>
+      <div class="field"><label for="tolerable">Tolerable misstatement, %</label><input type="number" id="tolerable" min="0.1" step="any" value="5">
+        <p class="help">Of the report's total. Take it from the scheme's verification rules.</p></div>
+      <div class="fit" style="padding-bottom:14px"><button class="primary" id="draw">Draw sample</button></div>
+    </div>
+    <div id="draw-msg" class="msg" aria-live="polite"></div>
+    <div id="earlier" class="small"></div>
+  </div>
+  <div id="sample" hidden class="stack-lg" aria-live="polite">
+    <div class="tiles" id="tiles"></div>
+    <div class="panel">
+      <h2>Lines to test</h2>
+      <p class="small muted">Record the figure the evidence supports for each line, and what was checked. A result is recorded once.</p>
+      <div class="scroll" style="margin-top:8px"><table>
+        <thead><tr><th>Why</th><th>Period</th><th>Activity</th><th class="num">Reported, tCO2e</th><th>Audited, tCO2e</th><th>What was checked</th><th></th></tr></thead>
+        <tbody id="items"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <h2>What the sample shows</h2>
+      <div id="evaluation" style="margin-top:10px"></div>
+      <p class="small muted" style="margin-top:14px">This is arithmetic on the results entered above. Whether the report can be relied on is the accredited verifier's judgement, not this page's.</p>
+    </div>
+  </div>
+</div></main>
+<script src="/static/site.js"></script>
+<script>
+let ORG_NAME = "", SAMPLE = null;
+
+function render(s) {
+  SAMPLE = s;
+  const e = s.evaluation, certain = s.items.filter((i) => i.stratum === "certain").length;
+  $("sample").hidden = false;
+  $("tiles").innerHTML = [
+    ["Population", `${esc(grouped(s.population_tco2e))} <span class="small muted">tCO2e</span>`],
+    ["Lines to test", `${s.items.length} <span class="small muted">${certain} certain, ${s.items.length - certain} sampled</span>`],
+    ["Sampling interval", s.interval_tco2e === null ? "none" : `${esc(grouped(s.interval_tco2e))} <span class="small muted">tCO2e</span>`],
+  ].map(([k, v]) => `<div><div class="small muted">${k}</div><div class="stat">${v}</div></div>`).join("");
+  $("items").innerHTML = s.items.map((i) => `<tr>
+    <td class="small">${i.stratum === "certain" ? `<span class="tag">certain</span> ` : ""}${esc(i.reason)}</td>
+    <td style="white-space:nowrap">${esc(i.period_start.slice(0, 7))}</td><td>${esc(i.activity_type)}</td>
+    <td class="num mono">${esc(grouped(i.book_tco2e))}</td>
+    ${i.audited_tco2e === null
+      ? `<td><input type="number" min="0" step="any" id="a-${i.item_id}" aria-label="Audited tCO2e" style="min-width:120px"></td>
+         <td><input id="f-${i.item_id}" aria-label="What was checked" style="min-width:180px"></td>
+         <td style="white-space:nowrap"><button class="link" data-agree="${i.item_id}" data-book="${esc(i.book_tco2e)}">Agrees</button>
+             <button class="link" data-save="${i.item_id}" style="margin-left:10px">Save</button></td>`
+      : `<td class="num mono ${i.audited_tco2e === i.book_tco2e ? "" : "warn"}">${esc(grouped(i.audited_tco2e))}</td>
+         <td class="small" colspan="2">${esc(i.finding)}</td>`}</tr>`).join("");
+  $("evaluation").innerHTML = kv([
+    ["Tested", `${e.tested} of ${e.selected} lines`],
+    ["Projected misstatement", `<span class="mono">${esc(e.projected_tco2e)}</span> tCO2e (${esc(e.projected_pct)}% of the report)`],
+    [`Upper limit at ${Math.round(s.confidence * 100)}%`, `overstatement up to <strong>${esc(e.upper_overstatement_pct)}%</strong>, understatement up to <strong>${esc(e.upper_understatement_pct)}%</strong>`],
+    ["Against the tolerable " + esc(qty(s.tolerable_pct)) + "%", !e.complete ? "not evaluated until every line is tested"
+      : e.within_tolerable ? `<span class="ok">both limits are within it</span>` : `<span class="warn">a limit exceeds it</span>`],
+  ]);
+}
+
+async function loadEarlier() {
+  const id = $("report").value;
+  if (!id) return;
+  const rows = await api(`/api/reports/${id}/samples`);
+  $("earlier").innerHTML = rows.length ? "Samples already drawn for this report: " + rows.map((r) =>
+    `<button class="link" data-open="${r.sample_id}">#${r.sample_id} (${Math.round(r.confidence * 100)}%, ${esc(qty(r.tolerable_pct))}%)</button>`).join(" ") : "";
+}
+
+$("draw").onclick = async () => {
+  const msg = $("draw-msg");
+  if (!$("report").value) { say(msg, "There is no stored report to sample. Generate one on the Reports page.", "warn"); return; }
+  try {
+    render(await post(`/api/reports/${$("report").value}/sample`,
+      {confidence: $("confidence").value, tolerable_pct: $("tolerable").value}));
+    say(msg, `Sample ${SAMPLE.sample_id} drawn.`, "ok"); await loadEarlier();
+  } catch (e) { say(msg, e.message, "bad"); }
+};
+$("report").onchange = () => loadEarlier().catch((e) => say($("draw-msg"), e.message, "bad"));
+document.addEventListener("click", async (ev) => {
+  const t = ev.target;
+  try {
+    if (t.dataset.open) render(await api(`/api/samples/${t.dataset.open}`));
+    if (t.dataset.agree) { $(`a-${t.dataset.agree}`).value = t.dataset.book;
+      if (!$(`f-${t.dataset.agree}`).value) $(`f-${t.dataset.agree}`).value = "agrees with the source document"; }
+    if (t.dataset.save) {
+      const id = t.dataset.save;
+      if ($(`a-${id}`).value === "" || !$(`f-${id}`).value.trim()) { alert("Enter the audited figure and what was checked."); return; }
+      await post(`/api/sample-items/${id}/result`, {audited_tco2e: $(`a-${id}`).value, finding: $(`f-${id}`).value.trim()});
+      render(await api(`/api/samples/${SAMPLE.sample_id}`));
+    }
+  } catch (e) { alert(e.message); }
+});
+
+(async () => {
+  try {
+    const o = await orgs();
+    ORG_NAME = (o.facilities.find((f) => f.org_id === o.org) || {}).organisation || "";
+    const reports = (await api("/api/reports")).filter((r) => r.organisation === ORG_NAME);
+    $("report").innerHTML = reports.map((r) =>
+      `<option value="${r.report_id}">#${r.report_id} ${esc(r.policy)}, ${esc(grouped(r.total_tco2e))} tCO2e</option>`).join("");
+    const wanted = new URLSearchParams(location.search).get("report");
+    if (wanted && reports.some((r) => String(r.report_id) === wanted)) $("report").value = wanted;
+    await loadEarlier();
+  } catch (e) { unreachable(e); }
+})();
+</script>
+</body>
+</html>

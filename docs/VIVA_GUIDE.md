@@ -22,6 +22,7 @@ http://127.0.0.1:8000. Everything below is clicks.
 | 3 | Ledger | In the same panel, point at **The same activity under each factor policy** | "Same meter reading, four defensible readings of the rule, different tonnes. The difference is policy alone." |
 | 4 | Ledger | **Correct** a quantity, give a reason | "The old row is closed, not edited. It is still there under 'Before correction', and the reason is in the audit trail." |
 | 5 | Reports | **Run the demonstration** | "A factor revision and a backdated correction arrive. A new report changes. The old report, regenerated, does not. Then it is all rolled back." |
+| 5b | Sampling | **Draw sample**, press **Agrees** and **Save** on a line | "The tool picks which lines to test, in proportion to their tonnes, and anyone can re-derive the pick from the report. It projects what the sample shows. It does not decide." |
 | 6 | Reports | **Details** on a report | "The uncertainty band uses only published IPCC ranges. Most of this total has no published range, and we say so instead of inventing one." |
 | 7 | How it works | **Wrong factor unit**, then the lifecycle buttons and **Ask the database** | "The calculation language refuses kWh times kg per litre before computing anything. The credit lifecycle is refused by the database itself, not by the page." |
 | 8 | Findings | Scroll to **The same plant, three outcomes** | "This is the research result: BEE's rule names a factor but does not fix a number." |
@@ -55,6 +56,13 @@ equivalent product" by sector practice and gives no conversion. So CarbonX has
 no formula: the entity declares a factor per product with its basis, stored
 bitemporally like a factor. Until every product has one, the report withholds
 intensity and names what is missing. Migration `0011`, `tests/test_production.py`.
+
+**How does a verifier choose what to test?** A sample in proportion to tonnes
+(monetary-unit sampling, borrowed from financial audit): size from the
+confidence and the tolerable misstatement, large and undocumented lines always
+tested, the rest hit at a fixed interval from a seed derived from the report's
+hash. Be ready for "why not a learned ranker?": its labels would have been
+faults we injected ourselves. `docs/SAMPLING.md`.
 
 **What is the hash chain, and is it a blockchain?** Each audit event stores the
 hash of the previous one, so altering history is detectable. It is tamper

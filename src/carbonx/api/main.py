@@ -41,6 +41,7 @@ from carbonx.factors.registry import FactorNotFound, Policy
 from carbonx.lifecycle import registry as credits
 from carbonx.lifecycle.automaton import DELTA, TERMINAL, State, Symbol
 from carbonx.materiality.assess import TRIGGERS, assess
+from carbonx.sampling import pps
 from carbonx.uncertainty.propagate import for_report
 from carbonx.units.core import DimensionError
 from carbonx.units.lang import LangError, run
@@ -51,7 +52,7 @@ STATIC = Path(__file__).with_name("static")
 ROOT = Path(__file__).resolve().parents[3]
 FUELS = ROOT / "data" / "bee" / "fuel_factors.csv"
 FIGURES = ROOT / "docs" / "figures"   # written by scripts/rq1_materiality.py, rq2_deltas.py
-PAGES = {"findings", "registry", "method", "ledger", "evidence", "reports"}
+PAGES = {"findings", "registry", "method", "ledger", "evidence", "reports", "sampling"}
 
 app = FastAPI(title="CarbonX", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
@@ -474,6 +475,65 @@ def create_production(body: ProductionIn, conn: Conn,
     except EXPECTED as e:
         raise _fail(e) from e
     return {"production_id": pid}
+
+
+class SampleIn(BaseModel):
+    confidence: Decimal = Field(default=Decimal("0.95"), gt=0, lt=1)
+    tolerable_pct: Decimal = Field(default=Decimal(5), gt=0, le=100)
+    nonce: str = Field(default="1", max_length=40)
+
+
+@app.post("/api/reports/{report_id}/sample")
+def draw_sample(report_id: int, body: SampleIn, conn: Conn,
+                x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Plan an audit sample of a stored report: lines picked in proportion to
+    their tonnes, from a seed fixed by the report's hash. Drawing the same
+    sample twice returns the first."""
+    try:
+        existing = conn.execute(
+            "SELECT s.sample_id FROM audit_sample s JOIN report r USING (report_id)"
+            " WHERE s.report_id = %s AND s.confidence = %s AND s.tolerable_pct = %s"
+            " AND s.seed = r.output_sha256 || ':' || %s",
+            (report_id, body.confidence, body.tolerable_pct, body.nonce)).fetchone()
+        sample_id = existing[0] if existing else pps.draw(
+            conn, report_id, confidence=body.confidence,
+            tolerable_pct=body.tolerable_pct, nonce=body.nonce, actor=x_actor)
+        return pps.summary(conn, sample_id)
+    except EXPECTED as e:
+        raise _fail(e) from e
+
+
+@app.get("/api/reports/{report_id}/samples")
+def list_samples(report_id: int, conn: Conn) -> list[dict[str, Any]]:
+    with conn.cursor(row_factory=dict_row) as cur:
+        return plain(cur.execute(
+            "SELECT sample_id, confidence, tolerable_pct, planned_n, created_at"
+            " FROM audit_sample WHERE report_id = %s ORDER BY sample_id",
+            (report_id,)).fetchall())
+
+
+@app.get("/api/samples/{sample_id}")
+def get_sample(sample_id: int, conn: Conn) -> dict[str, Any]:
+    try:
+        return pps.summary(conn, sample_id)
+    except EXPECTED as e:
+        raise _fail(e) from e
+
+
+class ResultIn(BaseModel):
+    audited_tco2e: Decimal = Field(ge=0)
+    finding: str = Field(min_length=1)
+
+
+@app.post("/api/sample-items/{item_id}/result")
+def sample_result(item_id: int, body: ResultIn, conn: Conn,
+                  x_actor: Actor = "workbench") -> dict[str, Any]:
+    """The figure the evidence supports for one selected line. Recorded once."""
+    try:
+        pps.record_result(conn, item_id, body.audited_tco2e, body.finding, x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"item_id": item_id, "recorded": True}
 
 
 class EquivalenceIn(BaseModel):

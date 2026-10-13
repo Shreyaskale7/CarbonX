@@ -220,7 +220,8 @@ def test_connections_are_reused_and_a_dead_one_is_replaced(conn, monkeypatch):
 
 def test_site_pages_and_databaseless_endpoints():
     client = TestClient(api.app)
-    for page in ("findings", "registry", "method", "ledger", "evidence", "reports"):
+    for page in ("findings", "registry", "method", "ledger", "evidence", "reports",
+                 "sampling"):
         assert client.get(f"/{page}").status_code == 200
     assert client.get("/static/site.css").status_code == 200
     assert client.get("/no-such-page").status_code == 404
