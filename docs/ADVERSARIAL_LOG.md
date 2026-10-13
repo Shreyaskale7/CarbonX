@@ -224,6 +224,10 @@ the triggers; they can no longer do it and leave no trace before an anchor.
   declared conversion for every product (migration 0011); until then it is
   withheld with the reason. The property test adds a second product and
   declares and revises conversions mid-sequence.
-- **Reports block writers briefly.** Report generation holds the global write
-  lock for its duration. That is fine for a prototype; partitioning the lock by
-  organisation is the upgrade path.
+- **Audited writes are serialised.** Each one appends to the single hash chain,
+  so writers queue behind one another. A report no longer joins that queue for
+  its whole build: since migration 0014 it holds the write lock only while it
+  reads the clock, and reads everything else as of that time
+  (`test_a_report_being_built_does_not_block_writers`, and the earlier
+  `test_report_waits_for_an_in_flight_writer` still holds). One chain per
+  organisation would be the next step, at the cost of a simpler story.

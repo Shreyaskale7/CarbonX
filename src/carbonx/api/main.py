@@ -690,7 +690,8 @@ def audit_chain(conn: Conn) -> dict[str, Any]:
 
 
 @app.get("/api/coverage")
-def audit_coverage(org_id: int, conn: Conn) -> dict[str, Any]:
-    """Share of currently reported tCO2e with a hashed source document."""
-    return coverage(conn, org_id)
+def audit_coverage(org_id: int, conn: Conn, policy: Policy | None = None) -> dict[str, Any]:
+    """Share of currently reported tCO2e with a hashed source document, under
+    one factor policy (figures under different policies are never added)."""
+    return coverage(conn, org_id, policy.value if policy else None)
 

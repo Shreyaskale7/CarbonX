@@ -216,8 +216,15 @@ def test_coverage_counts_only_emissions_with_a_document(conn, org):
                               period_start=date(2025, 5, 1), period_end=date(2025, 6, 1))
     for a in (with_doc, without):
         calculate(conn, a, Policy.VINTAGE_MATCHED)
-    assert coverage(conn, org_id) == {"org_id": org_id, "total_tco2e": "400.000000",
-                                      "traced_tco2e": "300.000000", "coverage_pct": "75.00"}
+    expected = {"org_id": org_id, "policy": "VINTAGE_MATCHED", "total_tco2e": "400.000000",
+                "traced_tco2e": "300.000000", "coverage_pct": "75.00"}
+    assert coverage(conn, org_id) == expected | {"policies": ["VINTAGE_MATCHED"]}
+    # The same activities under a second policy must not be added to the first.
+    for a in (with_doc, without):
+        calculate(conn, a, Policy.LATEST_AVAILABLE)
+    both = ["LATEST_AVAILABLE", "VINTAGE_MATCHED"]
+    assert coverage(conn, org_id) == expected | {"policies": both}
+    assert coverage(conn, org_id, "LATEST_AVAILABLE")["total_tco2e"] == "400.000000"
 
 
 def test_uncertainty_band_of_a_stored_report(conn, org):

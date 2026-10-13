@@ -163,18 +163,32 @@ def attestation(conn: psycopg.Connection, calculation_id: int,
                   "policy_dependent": not spec.is_fuel, "alternatives": rows})
 
 
-def coverage(conn: psycopg.Connection, org_id: int) -> dict[str, Any]:
+def coverage(conn: psycopg.Connection, org_id: int,
+             policy: str | None = None) -> dict[str, Any]:
     """Audit coverage: the share of currently reported tCO2e whose activity
     carries a hashed source document. (A document on file, not a judgment that
-    it supports the figure.)"""
-    row = conn.execute(
-        "SELECT coalesce(sum(c.result_value), 0),"
+    it supports the figure.)
+
+    Under ONE factor policy. An activity calculated under several policies has
+    several current figures, and adding them together would count it more than
+    once. Without `policy`, VINTAGE_MATCHED is used if present, else the first.
+    The total is a sum of entries each rounded to six places, so it can differ
+    from a report's total (the exact sum, rounded once) in the last digit.
+    """
+    rows = conn.execute(
+        "SELECT p.code, coalesce(sum(c.result_value), 0),"
         " coalesce(sum(c.result_value) FILTER (WHERE a.document_id IS NOT NULL), 0)"
         " FROM calculation c JOIN activity a USING (activity_id)"
         " JOIN facility f ON f.facility_id = a.facility_id"
+        " JOIN resolution_policy p ON p.policy_id = c.policy_id"
         " WHERE f.org_id = %s AND upper_inf(c.system_time_range)"
-        " AND upper_inf(a.system_time_range)", (org_id,)).fetchone()
-    assert row is not None
-    total, traced = row
-    return plain({"org_id": org_id, "total_tco2e": total, "traced_tco2e": traced,
+        " AND upper_inf(a.system_time_range) GROUP BY p.code ORDER BY p.code",
+        (org_id,)).fetchall()
+    by_policy = {code: (total, traced) for code, total, traced in rows}
+    if policy is None:
+        policy = "VINTAGE_MATCHED" if "VINTAGE_MATCHED" in by_policy else next(
+            iter(by_policy), None)
+    total, traced = by_policy.get(policy, (0, 0)) if policy else (0, 0)
+    return plain({"org_id": org_id, "policy": policy, "policies": sorted(by_policy),
+                  "total_tco2e": total, "traced_tco2e": traced,
                   "coverage_pct": None if not total else round(traced * 100 / total, 2)})

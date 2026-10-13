@@ -14,10 +14,11 @@
     <p class="muted">Current entries for the selected organisation. Select a figure to walk its chain back to the evidence.</p>
   </div>
   <div class="tiles" id="tiles">
-    <div><div class="small muted">Reported, all current calculations</div><div class="stat" id="t-total">-</div></div>
+    <div><div class="small muted" id="t-label">Current ledger</div><div class="stat" id="t-total">-</div></div>
     <div><div class="small muted">With a hashed source document</div><div class="stat" id="t-cov">-</div></div>
     <div><div class="small muted">Ledger entries</div><div class="stat" id="t-n">-</div></div>
   </div>
+  <p class="small muted" id="t-note" style="margin-top:-16px;max-width:none"></p>
   <div class="panel">
     <div class="scroll"><table class="nowrap">
       <thead><tr><th>Period</th><th>Facility</th><th>Scope</th><th>Activity</th><th class="num">Quantity</th>
@@ -56,6 +57,9 @@ async function loadLedger() {
   if (ORG) {
     const cov = await api(`/api/coverage?org_id=${ORG}`);
     $("t-total").innerHTML = `${esc(grouped(cov.total_tco2e))} <span class="small muted">tCO2e</span>`;
+    $("t-label").textContent = cov.policy ? `Current ledger under ${cov.policy}` : "Current ledger";
+    $("t-note").textContent = "The total adds entries that are each rounded to six places, so it can differ from a report's total in the last digit."
+      + (cov.policies.length > 1 ? ` The ledger also holds figures under ${cov.policies.filter((p) => p !== cov.policy).join(", ")}; totals are never added across policies.` : "");
     $("t-cov").textContent = cov.coverage_pct === null ? "-" : `${cov.coverage_pct}%`;
   }
   $("ledger").innerHTML = rows.length ? rows.map((r) => `<tr>

@@ -277,7 +277,10 @@ def _sha(output: str) -> str:
 def generate_report(conn: psycopg.Connection, org_id: int, compliance_year: str,
                     policy: Policy, baseline_year: str | None = None) -> Report:
     with conn.transaction():
-        row = conn.execute("SELECT fn_system_now()").fetchone()  # takes the lock
+        # The write lock is held only while the clock is read (migration 0014):
+        # everything stamped before as_of is committed by then, and everything
+        # below is read AS OF as_of, so writers need not wait for the build.
+        row = conn.execute("SELECT fn_report_time()").fetchone()
         assert row is not None
         as_of: datetime = row[0]
         output = build(conn, org_id, compliance_year, policy, as_of, baseline_year)

@@ -333,6 +333,54 @@ def test_report_waits_for_an_in_flight_writer():
         setup.close()
 
 
+def test_a_report_being_built_does_not_block_writers():
+    """Migration 0014. A report has taken its time and is still open; a writer
+    must get through. Before 0014 the writer waited until the report committed.
+    And the row it writes must not appear in that report: it is stamped later.
+
+    Commits real rows under a uniquely named organisation.
+    """
+    setup, reporter = connect(), connect()
+    try:
+        _policies(setup)
+        (org_id,) = setup.execute("INSERT INTO organisation (name) VALUES (%s)"
+                                  " RETURNING org_id",
+                                  (f"lock-test {uuid.uuid4()}",)).fetchone()
+        (facility_id,) = setup.execute(
+            "INSERT INTO facility (org_id, name, state) VALUES (%s, 'p', 'KA')"
+            " RETURNING facility_id", (org_id,)).fetchone()
+        setup.commit()
+
+        (as_of,) = reporter.execute("SELECT fn_report_time()").fetchone()  # open, uncommitted
+        done = {}
+
+        def write():
+            try:
+                with connect() as c:
+                    done["activity"] = record_activity(
+                        c, facility_id=facility_id, activity_type="grid_electricity",
+                        period_start=date(2025, 4, 1), period_end=date(2025, 5, 1),
+                        quantity=Decimal(1000), unit="kWh")
+            except BaseException as e:  # noqa: BLE001
+                done["error"] = e
+
+        t = threading.Thread(target=write)
+        t.start()
+        t.join(timeout=10)
+        assert not t.is_alive(), "the writer waited for the open report"
+        assert "error" not in done, done.get("error")
+        # The reporter now reads: the new row is committed and visible, and is
+        # still not part of the world as of the report's time.
+        visible = reporter.execute(
+            "SELECT count(*), count(*) FILTER (WHERE system_time_range @> %s::timestamptz)"
+            " FROM activity WHERE activity_id = %s", (as_of, done["activity"])).fetchone()
+        assert visible == (1, 0)
+    finally:
+        reporter.rollback()
+        reporter.close()
+        setup.close()
+
+
 # ---- migration 0004: transaction time only moves forward ------------------
 
 def _facility(conn):
