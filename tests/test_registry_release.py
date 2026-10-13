@@ -32,7 +32,7 @@ def test_draft_bundle_is_complete_checksummed_and_deterministic(tmp_path):
     assert first.read_bytes() == second.read_bytes()
     with zipfile.ZipFile(first) as z:
         names = set(z.namelist())
-        assert {"factors.csv", "versions.csv", "manifest.json", "README.md",
+        assert {"factors.csv", "versions.csv", "manifest.json", "README.md", "CHANGELOG.md",
                 "datapackage.json", ".zenodo.json", "SHA256SUMS"} == names
         for line in z.read("SHA256SUMS").decode().splitlines():
             digest, name = line.split("  ")

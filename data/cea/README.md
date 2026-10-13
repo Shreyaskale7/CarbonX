@@ -23,6 +23,7 @@ file you have is the one read here.
 | `factors.csv` | 2,071 | one row per (version, financial year, factor, geography) |
 | `versions.csv` | 23 | one row per CEA version: date, year covered, source URLs and hashes |
 | `manifest.json` | 23 | download record: URL, SHA-256, size, retrieval time per file |
+| `CHANGELOG.md` | 23 | per version: years first published, values restated, series added or missing |
 
 ### `factors.csv`
 

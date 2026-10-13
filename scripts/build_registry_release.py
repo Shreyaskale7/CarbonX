@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "cea"
 META = DATA / "release.json"
 DIST = ROOT / "dist"
-FILES = ["README.md", "factors.csv", "versions.csv", "manifest.json"]
+FILES = ["README.md", "CHANGELOG.md", "factors.csv", "versions.csv", "manifest.json"]
 EPOCH = (1980, 1, 1, 0, 0, 0)   # fixed timestamp: the zip must not depend on when it was built
 
 FIELDS = {
