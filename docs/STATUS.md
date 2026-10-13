@@ -61,6 +61,11 @@ has not been pushed.
   errors contained 10 of 12 (80%) and 11 of 12 (90%) later values. The FY2025-26
   value fell outside the 90% band. CEA's later restatements of a year are far
   smaller (median 0.07%).
+- **Ember cross-check** (`EMBER_CROSSCHECK.md`; part of the proposed nowcast
+  addition): scaling last year's CEA factor by the change in Ember's intensity
+  gave a mean error of 1.36% against 2.62% for the naive nowcast over 8 cases.
+  For the series CarbonX uses it was 0.52% against 3.82%, but on **two** cases,
+  and using Ember's current file, not what was public at each deadline.
 - **RQ2** (`RQ2_RESULTS.md`): every comparable year-on-year step in the
   all-India grid factor exceeded 1%; the latest was −4.93%.
 - **RQ1** (`RQ1_RESULTS.md`): CEA's restatements of a past year are too small

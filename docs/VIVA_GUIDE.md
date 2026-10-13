@@ -152,7 +152,10 @@ A test fails if the rule is broken.
 fitted to noise. A null result with an honest evaluation is the finding.
 
 **Why not predict from generation data?** CEA computes the factor from it, so
-that is accounting done early, not forecasting.
+that is accounting done early, not forecasting. We tried it separately with
+Ember's independent estimate (`docs/EMBER_CROSSCHECK.md`): it helped on the few
+cases there are. Say "eight cases, two for our series, current data not
+archived data" in the same breath as the numbers.
 
 **Where does activity-data uncertainty come from?** Only from a meter's
 calibration certificate, stored and hashed like any evidence. The database

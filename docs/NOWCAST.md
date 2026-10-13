@@ -102,9 +102,15 @@ latest.
 - **The series CarbonX calculates with is too short.** It first appeared in
   version 19. Its nowcast band borrows the percentage errors of the longer
   plain weighted average. That is an assumption and is labelled as one.
-- **No outside predictors.** Generation-mix data would predict the factor
-  well, because CEA computes the factor from it. That would be reproducing an
-  accounting identity early, not forecasting, so it is left out.
+- **No outside predictors in the backtest.** Generation-mix data would predict
+  the factor well, because CEA computes the factor from it. That would be
+  reproducing an accounting identity early, not forecasting, so it is left out
+  of the models above. It is tried separately and labelled as what it is:
+  `docs/EMBER_CROSSCHECK.md` scales last year's CEA factor by the change in
+  Ember's independently calculated intensity. On the few cases available that
+  did better than the naive nowcast, most clearly for the renewables-inclusive
+  series (two cases). It is an early indicator worth testing properly, not a
+  result.
 - **Method changes are in the data.** CEA's series definitions shift over
   time. The build and combined margins have a known break in FY2023-24 and are
   not used here. Smaller undocumented changes may sit inside the series that
