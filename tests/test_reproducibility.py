@@ -22,7 +22,11 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from carbonx.engine.calculate import edit_activity, record_activity
-from carbonx.engine.production import edit_production, record_production
+from carbonx.engine.production import (
+    edit_production,
+    record_production,
+    set_equivalence,
+)
 from carbonx.engine.report import (
     EngineVersionMismatch,
     generate_report,
@@ -81,6 +85,9 @@ ops = st.lists(st.one_of(
     st.tuples(st.just("move_facility")),
     st.tuples(st.just("production_arrives"), st.integers(0, 11), quantities),
     st.tuples(st.just("production_correction"), st.integers(0, 11), quantities),
+    st.tuples(st.just("second_product_arrives"), st.integers(0, 11), quantities),
+    st.tuples(st.just("conversion_declared"), st.sampled_from(["al", "billet"]),
+              st.decimals("0.00", "2.00", places=2)),
     st.tuples(st.just("new_fuel_factor"), fuel_values, published),
     st.tuples(st.just("fuel_arrives"), st.integers(0, 11), quantities, ncvs),
     st.tuples(st.just("fuel_correction"), st.integers(0, 11), quantities, ncvs),
@@ -105,6 +112,7 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
         current: dict[int, int] = {}
         produced: dict[int, int] = {}
         burned: dict[int, int] = {}
+        second: set[int] = set()
 
         def add_factor(kind, fy, value, pub, key=GRID, units=("tCO2", "MWh")):
             counters[kind] += 1
@@ -158,6 +166,16 @@ def test_reports_reproduce_after_any_sequence(conn, initial, sequence):
             elif op == "production_correction" and args[0] in produced:
                 produced[args[0]] = edit_production(
                     conn, produced[args[0]], quantity=args[1] / 1000, reason="re-weighed")
+            elif op == "second_product_arrives" and args[0] not in second:
+                second.add(args[0])           # the plant now has two products
+                record_production(
+                    conn, facility_id=facility_id, product_code="billet", unit="t",
+                    period_start=MONTHS[args[0]], period_end=_month_end(MONTHS[args[0]]),
+                    quantity=args[1] / 1000)
+            elif op == "conversion_declared":  # declared, or revised if one exists
+                set_equivalence(conn, facility_id=facility_id, product_code=args[0],
+                                fy=FY, factor=args[1], equivalent_unit="t",
+                                basis="generated")
             elif op == "new_fuel_factor":     # a default fuel factor is superseded
                 add_fuel_factor(*args)
             elif op == "fuel_arrives" and args[0] not in burned:

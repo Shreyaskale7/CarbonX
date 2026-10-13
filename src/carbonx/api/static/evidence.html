@@ -59,6 +59,26 @@
         <button class="primary" id="p-record">Record production</button>
         <div id="p-msg" class="msg" aria-live="polite"></div>
       </div>
+      <div class="panel">
+        <h2>Equivalent product</h2>
+        <p class="small muted">For a plant with more than one product. BEE's procedure allows "the main product or an
+          equivalent product" by the sector's standard practice and gives no conversion, so it is declared here with its basis.
+          Factor 0 leaves a product out. Intensity is withheld until every product has one.</p>
+        <div class="row" style="margin-top:14px">
+          <div class="field"><label for="e-code">Product</label><input id="e-code"></div>
+          <div class="field"><label for="e-fy">Year</label><input id="e-fy" value="FY2025-26"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="e-factor">Factor</label><input type="number" id="e-factor" min="0" step="any">
+            <p class="help">Equivalent units per unit of this product.</p></div>
+          <div class="field"><label for="e-unit">Equivalent unit</label><input id="e-unit" value="t"></div>
+        </div>
+        <div class="field"><label for="e-basis">Basis</label><input id="e-basis">
+          <p class="help">The practice or document the factor comes from. Shown to the verifier and kept in the audit trail.</p></div>
+        <button class="primary" id="e-save">Declare conversion</button>
+        <div id="e-msg" class="msg" aria-live="polite"></div>
+        <div class="scroll" style="margin-top:10px"><table><tbody id="e-list"></tbody></table></div>
+      </div>
     </div>
     <div class="panel">
       <h2>Review queue</h2>
@@ -128,6 +148,7 @@ $("record").onclick = async () => {
 };
 $("p-record").onclick = async () => {
   const msg = $("p-msg");
+  if (!$("facility").value) { say(msg, "The page is still loading its data. Try again in a moment.", "warn"); return; }
   if (!$("p-qty").value) { say(msg, "Enter a quantity.", "bad"); return; }
   try {
     const r = await post("/api/production", {facility_id: +$("facility").value, product_code: $("p-code").value.trim(),
@@ -135,9 +156,33 @@ $("p-record").onclick = async () => {
     say(msg, `Production record ${r.production_id} stored. New reports will use it.`, "ok");
   } catch (e) { say(msg, e.message, "bad"); }
 };
+let ORG = null;
+const fyLabel = (d) => { const y = +String(d).slice(0, 4); return `FY${y}-${String((y + 1) % 100).padStart(2, "0")}`; };
+async function loadEquivalences() {
+  const rows = await api(`/api/equivalences?org_id=${ORG}`);
+  $("e-list").innerHTML = rows.length ? `<tr><th>Product</th><th>Year</th><th class="num">Factor</th><th>Basis</th></tr>`
+    + rows.map((r) => `<tr><td class="mono">${esc(r.product_code)}</td><td>${esc(fyLabel(r.fy_start))}</td>
+      <td class="num mono">${esc(qty(r.factor))} ${esc(r.equivalent_unit)}</td>
+      <td class="small">${esc(r.basis)}${r.supersedes ? ' <span class="muted">(revised)</span>' : ""}</td></tr>`).join("")
+    : `<tr><td class="empty">No conversions declared.</td></tr>`;
+}
+$("e-save").onclick = async () => {
+  const msg = $("e-msg");
+  if (!$("facility").value) { say(msg, "The page is still loading its data. Try again in a moment.", "warn"); return; }
+  if (!$("e-code").value.trim() || $("e-factor").value === "" || !$("e-basis").value.trim()) {
+    say(msg, "Enter a product, a factor and the basis for it.", "bad"); return; }
+  try {
+    await post("/api/equivalences", {facility_id: +$("facility").value, product_code: $("e-code").value.trim(),
+      compliance_year: $("e-fy").value.trim(), factor: $("e-factor").value,
+      equivalent_unit: $("e-unit").value.trim(), basis: $("e-basis").value.trim()});
+    say(msg, "Declared. Reports generated from now on use it; earlier reports keep what they read.", "ok");
+    await loadEquivalences();
+  } catch (e) { say(msg, e.message, "bad"); }
+};
 (async () => {
   try {
     const o = await orgs();
+    ORG = o.org;
     const [policies, fuels] = await Promise.all([api("/api/policies"), api("/api/fuels")]);
     $("facility").innerHTML = o.facilities.filter((f) => f.org_id === o.org).map((f) =>
       `<option value="${f.facility_id}">${esc(f.name)}</option>`).join("");
@@ -145,7 +190,7 @@ $("p-record").onclick = async () => {
     $("policy").value = "VINTAGE_MATCHED";
     $("kind").insertAdjacentHTML("beforeend", fuels.map((f) =>
       `<option value="fuel.${esc(f.slug)}">${esc(f.fuel)} (Scope 1)</option>`).join(""));
-    await loadQueue();
+    await loadQueue(); await loadEquivalences();
   } catch (e) { unreachable(e); }
 })();
 </script>

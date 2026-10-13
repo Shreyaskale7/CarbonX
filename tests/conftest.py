@@ -23,6 +23,11 @@ def connect(url: str | None = None) -> psycopg.Connection:
     except psycopg.OperationalError:
         if os.environ.get("CI"):
             raise
+    try:
+        # One slow connection must not skip the rest of the run: ask again,
+        # patiently, before deciding the database is down.
+        return psycopg.connect(url, connect_timeout=15)
+    except psycopg.OperationalError:
         _unreachable.add(url)
         pytest.skip(_DOWN)
 

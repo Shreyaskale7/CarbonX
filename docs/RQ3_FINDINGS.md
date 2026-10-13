@@ -175,10 +175,18 @@ Product" row, with no conversion given.
   output could report different intensities by choosing "main product" or
   "equivalent product". We have not measured how much; that needs a sector's
   actual conversion practice.
-- CarbonX withholds intensity for a facility with more than one product, and
-  says why. Given this clause, the right extension is not a built-in formula. It
-  is to record the entity's own conversion factors, with their stated basis,
-  versioned like every other input. Not built.
+- Given this clause, CarbonX has no built-in conversion formula. The entity
+  declares a factor into the equivalent product for each product and year, with
+  the basis it claims; "main product only" is factor 0 for the others. The
+  declarations are versioned like every other input (migration 0011,
+  `engine/production.py`), so a report keeps the conversion it was made with.
+  Until every product of a plant has one, intensity is withheld and the report
+  names the product that is missing.
+- The two permitted readings give different intensities on the same data. In
+  `tests/test_production.py`, a synthetic plant with 980 tCO2e, 90 t of one
+  product and 20 t of another reports 10.89 tCO2e/t under "main product" and
+  8.91 under tonne-for-tonne equivalence: 22% higher. That is an illustration of
+  the arithmetic, not a measured sector effect.
 
 ### What the text settles, and what it leaves open
 

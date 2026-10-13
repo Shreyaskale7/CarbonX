@@ -3,6 +3,7 @@ ledger, and corrections that never overwrite. DB tests roll back.
 
 Factors here come from a synthetic TEST source, never CEA.
 """
+import queue
 from datetime import date
 from decimal import Decimal
 from fractions import Fraction
@@ -192,8 +193,29 @@ def test_api_round_trip(conn, world):
 
 def test_api_says_so_quickly_when_the_database_is_down(monkeypatch):
     monkeypatch.setattr(api, "URL", "postgresql://nobody@127.0.0.1:1/none")
+    monkeypatch.setattr(api, "_idle", queue.LifoQueue(maxsize=4))   # no idle connections
     r = TestClient(api.app).get("/api/facilities")
     assert r.status_code == 503 and "not reachable" in r.json()["detail"]
+
+
+def test_connections_are_reused_and_a_dead_one_is_replaced(conn, monkeypatch):
+    """`conn` only makes this skip when Postgres is down."""
+    monkeypatch.setattr(api, "_idle", queue.LifoQueue(maxsize=4))
+    client = TestClient(api.app)
+    assert client.get("/api/facilities").status_code == 200
+    assert api._idle.qsize() == 1
+    first = api._idle.queue[0]
+    assert client.get("/api/facilities").status_code == 200
+    assert api._idle.qsize() == 1 and api._idle.queue[0] is first      # reused
+    first.close()                                                      # the database 'restarted'
+    assert client.get("/api/facilities").status_code == 200
+    assert api._idle.queue[0] is not first and not api._idle.queue[0].closed
+    bad = client.post("/api/production", json={
+        "facility_id": 999_999_999, "product_code": "x", "period_start": "2025-04-01",
+        "period_end": "2025-05-01", "quantity": "1"})
+    assert bad.status_code == 400 and "does not exist" in bad.json()["detail"]
+    while not api._idle.empty():
+        api._idle.get_nowait().close()
 
 
 def test_site_pages_and_databaseless_endpoints():

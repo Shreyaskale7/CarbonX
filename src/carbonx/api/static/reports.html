@@ -38,10 +38,11 @@
         <th>Read as of</th><th>SHA-256</th><th>Regenerated</th><th></th></tr></thead>
       <tbody id="reports"><tr><td colspan="9"><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></td></tr></tbody>
     </table></div>
-    <p class="small muted" style="margin-top:12px">Intensity is tCO2e per unit of product. It is withheld when a facility makes more than one product.</p>
+    <p class="small muted" style="margin-top:12px">Intensity is tCO2e per unit of product, or of equivalent product where a plant makes several. When it is withheld, <strong>Details</strong> gives the reason.</p>
   </div>
   <div class="panel" id="detail" hidden aria-live="polite">
     <h2>Report <span id="detail-id"></span></h2>
+    <p id="withheld" class="notice" style="margin-top:12px" hidden></p>
     <div class="split even" style="margin-top:16px">
       <div class="stack"><h3>Uncertainty</h3><div id="band"></div></div>
       <div class="stack"><h3>Materiality against today</h3>
@@ -59,13 +60,15 @@
 </div></main>
 <script src="/static/site.js"></script>
 <script>
-let ORG = null, ORG_NAME = "", POLICIES = [];
+let ORG = null, ORG_NAME = "", POLICIES = [], REPORTS = [];
 
 async function loadReports() {
-  const rows = (await api("/api/reports")).filter((r) => r.organisation === ORG_NAME);
+  const rows = REPORTS = (await api("/api/reports")).filter((r) => r.organisation === ORG_NAME);
   $("reports").innerHTML = rows.length ? rows.map((r) => `<tr>
     <td>#${esc(r.report_id)}</td><td>${esc(r.compliance_year)}</td><td class="small">${esc(r.policy)}</td>
-    <td class="num mono">${esc(grouped(r.total_tco2e))}</td><td class="num mono">${r.gei === null ? "-" : esc(r.gei)}</td>
+    <td class="num mono">${esc(grouped(r.total_tco2e))}</td><td class="num mono">${r.gei === null
+      ? `<span class="warn small" style="font-family:var(--sans);white-space:normal">withheld</span>`
+      : `${esc(r.gei)} <span class="muted">${esc(r.gei_unit)}</span>`}</td>
     <td>${esc(when(r.as_of))}</td><td><code>${short(r.sha256)}</code></td>
     <td id="v-${r.report_id}"><button class="link" data-verify="${r.report_id}">Verify</button></td>
     <td><button class="link" data-detail="${r.report_id}">Details</button></td></tr>`).join("")
@@ -83,6 +86,9 @@ let DETAIL = null;
 const pctOf = (x, total) => `${(100 * (x - total) / total).toFixed(2)}%`;
 async function detail(id) {
   DETAIL = id; $("detail-id").textContent = `#${id}`; $("detail").hidden = false; $("assess-out").innerHTML = "";
+  const why = (REPORTS.find((r) => String(r.report_id) === String(id)) || {}).gei_withheld_because || [];
+  $("withheld").hidden = !why.length;
+  $("withheld").textContent = why.length ? `No intensity in this report: ${why.join("; ")}.` : "";
   $("band").innerHTML = `<div class="skeleton"></div>`;
   $("detail").scrollIntoView({behavior: "smooth", block: "start"});
   try {
@@ -138,6 +144,7 @@ $("verify-all").onclick = async () => {
 };
 $("run").onclick = async () => {
   const msg = $("run-msg"), base = $("base").value.trim();
+  if (!POLICIES.length || !ORG) { say(msg, "The page is still loading its data. Try again in a moment.", "warn"); return; }
   $("run").disabled = true; say(msg, "Generating.");
   try {
     let n = 0;

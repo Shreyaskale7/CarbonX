@@ -24,7 +24,7 @@ Roles are ownership, not silos.
 | CEA registry (23 versions) + RQ2 | `src/carbonx/ingest/cea.py`, `scripts/*cea*`, `scripts/rq2_deltas.py` | Data / DB + Research |
 | Units language, checker, soundness | `src/carbonx/units/`, `docs/TYPE_SOUNDNESS.md` | Formal |
 | Engine, evidence store, provenance, API | `src/carbonx/engine/`, `src/carbonx/evidence/`, `src/carbonx/api/` | Data / DB |
-| Production and GEI (denominator) | `src/carbonx/engine/production.py`, migration 0006 | Data / DB |
+| Production and GEI (denominator), equivalent product | `src/carbonx/engine/production.py`, migrations 0006 and 0011 | Data / DB |
 | Least-privilege app role | `src/carbonx/db.py`, migration 0005 | Data / DB |
 | Materiality engine (5% base-year recalculation) | `src/carbonx/materiality/assess.py`, migration 0007 | Data / DB + Research |
 | Grid-factor nowcast and revision analysis (proposed, unsigned) | `src/carbonx/forecast/nowcast.py`, `scripts/nowcast.py`, `docs/NOWCAST.md` | ML + Research |

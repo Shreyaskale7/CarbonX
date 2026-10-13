@@ -5,10 +5,14 @@ GEI = emissions / product output. A production basis says what is counted
 records carry the quantities. Both are bitemporal, and a correction closes the
 old record and inserts a new one that `supersedes` it, exactly like activity.
 
-Deliberately not built: equivalent-product conversion for multi-product plants
-(the BEE procedure's "main product or an equivalent product ... per standard
-practice prevalent in the obligated entity's sector"). A facility reporting
-more than one product gets no GEI, and the report says why.
+Plants with more than one product: BEE's procedure says "the main product or
+an equivalent product worked out from the product mix per standard practice
+prevalent in the obligated entity's sector" and gives no conversion. So the
+conversion is declared, not built in: `set_equivalence` records a factor into
+the equivalent product for one product and year, with the basis claimed for
+it. Declarations are bitemporal too. A plant with several products and an
+incomplete set of declarations gets no GEI, and the report says which is
+missing.
 """
 
 from __future__ import annotations
@@ -79,6 +83,43 @@ def record_production(
             " RETURNING production_id",
             (basis_id, period_start, period_end, quantity, unit, document_id,
              supersedes, t)).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+def set_equivalence(conn: psycopg.Connection, *, facility_id: int, product_code: str,
+                    fy: str, factor: Decimal, equivalent_unit: str, basis: str,
+                    actor: str | None = None, reason: str | None = None) -> int:
+    """Declare how one product converts into the equivalent product for a
+    financial year: quantity x factor, in `equivalent_unit`. Factor 0 leaves a
+    product out (the "main product" reading). A new declaration supersedes the
+    current one; reports made earlier keep the one they read."""
+    if factor < 0:
+        raise ValueError("factor must be >= 0")
+    if not basis.strip():
+        raise ValueError("state the basis for the conversion: BEE leaves it to sector "
+                         "practice, so a verifier must be able to see which one")
+    parse_unit(equivalent_unit)
+    start = fy_start(fy)
+    with conn.transaction():
+        set_audit_context(conn, actor, reason or basis)
+        t = system_now(conn)
+        old = conn.execute(
+            "SELECT equivalence_id FROM product_equivalence WHERE facility_id = %s"
+            " AND product_code = %s AND valid_time @> %s::date"
+            " AND upper_inf(system_time_range) FOR UPDATE",
+            (facility_id, product_code, start)).fetchone()
+        if old:
+            conn.execute("UPDATE product_equivalence SET system_time_range ="
+                         " tstzrange(lower(system_time_range), %s)"
+                         " WHERE equivalence_id = %s", (t, old[0]))
+        row = conn.execute(
+            "INSERT INTO product_equivalence (facility_id, product_code, valid_time,"
+            " factor, equivalent_unit, basis, supersedes, system_time_range)"
+            " VALUES (%s, %s, daterange(%s, %s), %s, %s, %s, %s, tstzrange(%s, NULL))"
+            " RETURNING equivalence_id",
+            (facility_id, product_code, start, date(start.year + 1, 4, 1), factor,
+             equivalent_unit, basis.strip(), old[0] if old else None, t)).fetchone()
     assert row is not None
     return int(row[0])
 

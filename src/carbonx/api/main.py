@@ -9,6 +9,7 @@ scope). The actor recorded in the audit trail is the X-Actor header.
 
 import csv
 import json
+import queue
 from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
@@ -31,7 +32,7 @@ from carbonx.engine.calculate import (
     set_audit_context,
 )
 from carbonx.engine.exceptions import exceptions
-from carbonx.engine.production import record_production
+from carbonx.engine.production import record_production, set_equivalence
 from carbonx.engine.provenance import attestation, coverage, plain, provenance
 from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
 from carbonx.evidence.store import store_document
@@ -67,10 +68,44 @@ def connect() -> psycopg.Connection:
                                  "reload this page") from e
 
 
+# Opening a connection costs far more than a query (about a second on the
+# Windows development machine, where each backend is a new process), so a few
+# idle ones are kept. Safe to reuse: everything a request sets (audit actor and
+# reason, the transaction-time floor, the write lock) is transaction-local.
+# ponytail: a LIFO of four, no psycopg_pool dependency; swap it in if this
+# ever serves more than a demo.
+_idle: queue.LifoQueue[psycopg.Connection] = queue.LifoQueue(maxsize=4)
+
+
+def _checkout() -> psycopg.Connection:
+    while True:
+        try:
+            conn = _idle.get_nowait()
+        except queue.Empty:
+            return connect()
+        try:   # an idle connection dies if the database restarts; do not hand it out
+            conn.execute("SELECT 1")
+            conn.rollback()
+            return conn
+        except psycopg.Error:
+            conn.close()
+
+
 def db() -> Iterator[psycopg.Connection]:
-    # ponytail: one connection per request; add a pool if latency matters.
-    with connect() as conn:  # commits on success, rolls back on error
+    conn = _checkout()
+    try:
         yield conn
+        conn.commit()       # commits on success, rolls back on error
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        try:
+            if conn.closed or conn.broken:
+                raise queue.Full
+            _idle.put_nowait(conn)
+        except queue.Full:
+            conn.close()
 
 
 Conn = Annotated[psycopg.Connection, Depends(db)]
@@ -81,12 +116,15 @@ def _fail(e: Exception) -> HTTPException:
     if isinstance(e, psycopg.errors.ExclusionViolation):
         return HTTPException(409, "a record already exists for this facility, "
                                   "type and period: correct it instead")
+    if isinstance(e, psycopg.errors.ForeignKeyViolation):
+        return HTTPException(400, "that refers to a facility, document or record "
+                                  "that does not exist")
     status = 404 if isinstance(e, LookupError) and not isinstance(e, FactorNotFound) else 400
     return HTTPException(status, f"{type(e).__name__}: {e}")
 
 
 EXPECTED = (ValueError, LookupError, DimensionError, LangError, EngineVersionMismatch,
-            psycopg.errors.ExclusionViolation)
+            psycopg.errors.ExclusionViolation, psycopg.errors.ForeignKeyViolation)
 
 
 class ActivityIn(BaseModel):
@@ -330,13 +368,22 @@ def lifecycle_try(body: WordIn) -> dict[str, Any]:
 def list_reports(conn: Conn) -> list[dict[str, Any]]:
     """Stored reports, newest first."""
     with conn.cursor(row_factory=dict_row) as cur:
-        return plain(cur.execute(
+        rows = cur.execute(
             "SELECT r.report_id, o.name AS organisation, r.compliance_year,"
             " p.code AS policy, r.as_of, r.total_tco2e, r.gei,"
-            " r.output_sha256 AS sha256 FROM report r"
+            " r.output_sha256 AS sha256, r.output FROM report r"
             " JOIN organisation o USING (org_id)"
             " JOIN resolution_policy p USING (policy_id)"
-            " ORDER BY r.report_id DESC LIMIT 100").fetchall())
+            " ORDER BY r.report_id DESC LIMIT 100").fetchall()
+    for r in rows:   # why there is no intensity, per facility, from the report itself
+        facilities = json.loads(r.pop("output")).get("facilities", [])
+        r["gei_unit"] = facilities[0]["gei_unit"] if len(facilities) == 1 else None
+        r["gei_withheld_because"] = sorted(
+            {f["gei_withheld_because"] for f in facilities if f["gei_withheld_because"]})
+        if len(facilities) > 1 and not r["gei_withheld_because"]:
+            r["gei_withheld_because"] = [
+                f"intensity is per facility; this report covers {len(facilities)}"]
+    return plain(rows)
 
 
 @app.post("/api/reports")
@@ -427,6 +474,43 @@ def create_production(body: ProductionIn, conn: Conn,
     except EXPECTED as e:
         raise _fail(e) from e
     return {"production_id": pid}
+
+
+class EquivalenceIn(BaseModel):
+    facility_id: int
+    product_code: str = Field(min_length=1)
+    compliance_year: str = "FY2025-26"
+    factor: Decimal = Field(ge=0)
+    equivalent_unit: str = "t"
+    basis: str = Field(min_length=1)
+
+
+@app.post("/api/equivalences")
+def declare_equivalence(body: EquivalenceIn, conn: Conn,
+                        x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Declare how a product converts into the equivalent product (BEE p. 8,
+    clause 3.4(4)). Supersedes the current declaration, if any."""
+    try:
+        eid = set_equivalence(
+            conn, facility_id=body.facility_id, product_code=body.product_code,
+            fy=body.compliance_year, factor=body.factor,
+            equivalent_unit=body.equivalent_unit, basis=body.basis, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"equivalence_id": eid}
+
+
+@app.get("/api/equivalences")
+def list_equivalences(org_id: int, conn: Conn) -> list[dict[str, Any]]:
+    """Current declarations for an organisation's facilities."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        return plain(cur.execute(
+            "SELECT e.equivalence_id, f.name AS facility, e.product_code,"
+            " lower(e.valid_time) AS fy_start, e.factor, e.equivalent_unit, e.basis,"
+            " lower(e.system_time_range) AS declared_at, e.supersedes"
+            " FROM product_equivalence e JOIN facility f USING (facility_id)"
+            " WHERE f.org_id = %s AND upper_inf(e.system_time_range)"
+            " ORDER BY f.name, lower(e.valid_time), e.product_code", (org_id,)).fetchall())
 
 
 @app.get("/api/reports/{report_id}/verify")

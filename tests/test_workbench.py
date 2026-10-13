@@ -161,6 +161,25 @@ def test_report_and_registry_endpoints(conn, org):
             "facility_id": fid, "product_code": "al", "period_start": "2025-04-01",
             "period_end": "2025-05-01", "quantity": "10"})
         assert made.status_code == 200 and made.json()["production_id"]
+        # a second product: intensity withheld, with the reason, until both are declared
+        client.post("/api/production", json={
+            "facility_id": fid, "product_code": "billet", "period_start": "2025-04-01",
+            "period_end": "2025-05-01", "quantity": "5"})
+        client.post("/api/reports", json={"org_id": org_id})
+        newest = client.get("/api/reports").json()[0]
+        assert newest["gei"] is None
+        assert "declared for al, billet" in newest["gei_withheld_because"][0]
+        for code, factor in (("al", "1"), ("billet", "0.5")):
+            assert client.post("/api/equivalences", json={
+                "facility_id": fid, "product_code": code, "factor": factor,
+                "basis": "test practice"}).status_code == 200
+        assert client.post("/api/equivalences", json={
+            "facility_id": fid, "product_code": "al", "factor": "1", "basis": ""}
+        ).status_code == 422
+        assert len(client.get(f"/api/equivalences?org_id={org_id}").json()) == 2
+        done = client.post("/api/reports", json={"org_id": org_id}).json()
+        assert done["gei"] == "0.056000000"          # 0.7 tCO2e / (10 + 0.5 x 5) t
+        assert client.get("/api/reports").json()[0]["gei_unit"] == "tCO2e/t"
         history = client.get(f"/api/factors?factor_key={GRID}").json()
         assert any(h["version_label"] == "wb880001" for h in history)
     finally:

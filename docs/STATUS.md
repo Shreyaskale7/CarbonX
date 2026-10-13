@@ -72,6 +72,8 @@ has not been pushed.
   with more than one product BEE says "the main product or an equivalent
   product ... per standard practice prevalent in the obligated entity's sector"
   and gives no conversion. The procedure also never names the baseline year.
+  CarbonX therefore takes the conversion as a declared, versioned input
+  (migration 0011) and withholds intensity until every product has one.
 - **2024-27 targets exclude process emissions** (BEE p. 7 note), which raises
   the Scope 2 share of the target basis in cement, steel and refining.
 

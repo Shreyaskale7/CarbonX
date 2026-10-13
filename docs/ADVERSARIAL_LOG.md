@@ -141,6 +141,10 @@ activities, then 1–8 operations drawn from:
 - **tamper factor source** and **move facility:** must be rejected;
 - **production arrives** and **production correction:** the GEI
   denominator changes after the report was taken;
+- **second product arrives** and **conversion declared** (added 2026-10-13,
+  migration 0011): the plant gains a second product, and conversions into the
+  equivalent product are declared and revised, so the intensity's denominator
+  changes meaning after reports were taken;
 - **new fuel factor**, **fuel arrives** and **fuel correction** (added
   2026-10-05): a default fuel factor is superseded; natural gas is recorded
   with an NCV; its quantity and NCV are corrected later. If any fuel was
@@ -203,9 +207,10 @@ against the application, not against the DBA.
 - **Reports cover grid electricity (Scope 2) and fuel combustion (Scope 1),
   not process emissions.** Production and GEI (component 2, migration 0006)
   are covered, and the property test corrects production and fuel
-  mid-sequence. GEI is withheld, with a stated reason, for
-  multi-product facilities, because equivalent-product conversion is not
-  built.
+  mid-sequence. For a plant with more than one product, GEI needs a
+  declared conversion for every product (migration 0011); until then it is
+  withheld with the reason. The property test adds a second product and
+  declares and revises conversions mid-sequence.
 - **Reports block writers briefly.** Report generation holds the global write
   lock for its duration. That is fine for a prototype; partitioning the lock by
   organisation is the upgrade path.

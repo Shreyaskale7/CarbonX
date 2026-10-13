@@ -50,6 +50,12 @@ tables and cannot disable triggers. Migration `0005`,
 **Can a DBA still break it?** Yes. The owner and any superuser can. Say so
 before you are asked. `docs/ADVERSARIAL_LOG.md`, attempt 12.
 
+**What about a plant with several products?** BEE allows "the main product or an
+equivalent product" by sector practice and gives no conversion. So CarbonX has
+no formula: the entity declares a factor per product with its basis, stored
+bitemporally like a factor. Until every product has one, the report withholds
+intensity and names what is missing. Migration `0011`, `tests/test_production.py`.
+
 **What is the hash chain, and is it a blockchain?** Each audit event stores the
 hash of the previous one, so altering history is detectable. It is tamper
 evidence. It is not a blockchain: one writer, no consensus.

@@ -55,7 +55,7 @@ from carbonx.engine.calculate import (
 from carbonx.factors.registry import FactorNotFound, Policy, fy_start
 from carbonx.units.core import Quantity, parse_unit
 
-SCHEMA = "carbonx.report/3"  # /2: production and GEI; /3: fuel combustion (Scope 1)
+SCHEMA = "carbonx.report/4"  # /2: production and GEI; /3: fuel (Scope 1); /4: equivalent product
 
 
 class EngineVersionMismatch(RuntimeError):
@@ -147,12 +147,26 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
                 "period": [p_s.isoformat(), p_e.isoformat()],
                 "quantity": format(qty, "f"), "unit": unit, "document_sha256": sha}
                for fid, code, unit, pid, qty, p_s, p_e, sha in production]
+    declared = conn.execute("""
+        SELECT e.equivalence_id, e.facility_id, e.product_code, e.factor,
+               e.equivalent_unit, e.basis
+        FROM product_equivalence e
+        JOIN facility f ON f.facility_id = e.facility_id
+        WHERE f.org_id = %s
+          AND e.system_time_range @> %s::timestamptz
+          AND e.valid_time @> %s::date
+        ORDER BY e.facility_id, e.product_code""", (org_id, as_of, start)).fetchall()
+    equivalences = [{"equivalence_id": eid, "facility_id": fid, "product_code": code,
+                     "factor": format(factor, "f"), "equivalent_unit": unit, "basis": why}
+                    for eid, fid, code, factor, unit, why in declared]
     unresolved_at = {line["facility_id"] for line in unresolved}
     facility_ids = sorted({line["facility_id"] for line in lines + unresolved}
                           | {r["facility_id"] for r in records})
     facilities = [_facility_gei(fid, by_facility.get(fid, Fraction(0)),
                                 [r for r in records if r["facility_id"] == fid],
-                                fid in unresolved_at)
+                                fid in unresolved_at,
+                                {e["product_code"]: e for e in equivalences
+                                 if e["facility_id"] == fid})
                   for fid in facility_ids]
 
     return json.dumps({
@@ -169,6 +183,8 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
         "totals": {"scope1_tco2e": _num(totals[1]), "scope2_tco2e": _num(totals[2]),
                    "total_tco2e": _num(totals[1] + totals[2])},
         "production_records": records,
+        # Declared conversions into an equivalent product, as read at as_of.
+        "product_equivalences": equivalences,
         # GEI is per facility (gate-to-gate). The top level repeats it only
         # when the report covers exactly one facility.
         "facilities": facilities,
@@ -177,12 +193,18 @@ def build(conn: psycopg.Connection, org_id: int, compliance_year: str,
 
 
 def _facility_gei(facility_id: int, tco2e: Fraction, records: list[dict[str, Any]],
-                  has_unresolved: bool) -> dict[str, Any]:
+                  has_unresolved: bool,
+                  equivalence: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """GEI = emissions / production for one facility, or null with the reason.
 
     Null rather than a wrong number: an unresolved emission line would
-    understate the numerator; several products need an equivalent-product
-    conversion that is not implemented.
+    understate the numerator; several products without a complete set of
+    declared conversions have no defined denominator.
+
+    One product and no declaration: its own quantity. Otherwise every product
+    needs a declared factor into one common equivalent unit, and the
+    denominator is the sum of quantity x factor. The units language checks
+    each conversion, so a factor in the wrong unit is an error, not a number.
     """
     out: dict[str, Any] = {"facility_id": facility_id, "tco2e": _num(tco2e),
                            "production": None, "gei": None, "gei_unit": None,
@@ -191,13 +213,40 @@ def _facility_gei(facility_id: int, tco2e: Fraction, records: list[dict[str, Any
     if not products:
         out["gei_withheld_because"] = "no production recorded"
         return out
-    if len(products) > 1:
-        out["gei_withheld_because"] = ("more than one product or unit: equivalent-product "
-                                       "conversion is not implemented")
+    codes = sorted({code for code, _ in products})
+    if len(products) > len(codes):
+        out["gei_withheld_because"] = "a product is recorded in more than one unit"
         return out
-    (code, unit), = products
-    quantity = sum((Fraction(r["quantity"]) for r in records), Fraction(0))
-    out["production"] = {"product_code": code, "quantity": _num(quantity), "unit": unit}
+    if len(codes) == 1 and not equivalence:
+        (code, unit), = products
+        quantity = sum((Fraction(r["quantity"]) for r in records), Fraction(0))
+        out["production"] = {"product_code": code, "quantity": _num(quantity), "unit": unit}
+    else:
+        missing = [c for c in codes if c not in equivalence]
+        if missing:
+            out["gei_withheld_because"] = (
+                "more than one product: no equivalent-product conversion declared for "
+                + ", ".join(missing))
+            return out
+        units = sorted({equivalence[c]["equivalent_unit"] for c in codes})
+        if len(units) > 1:
+            out["gei_withheld_because"] = ("the declared conversions give different "
+                                           "equivalent units: " + ", ".join(units))
+            return out
+        unit, quantity, parts = units[0], Fraction(0), []
+        for code, own_unit in products:
+            own = sum((Fraction(r["quantity"]) for r in records
+                       if r["product_code"] == code), Fraction(0))
+            e = equivalence[code]
+            converted = (Quantity(own, parse_unit(own_unit))
+                         * Quantity(Fraction(e["factor"]), parse_unit(f"{unit}/{own_unit}"))
+                         ).to(parse_unit(unit)).value
+            quantity += converted
+            parts.append({"product_code": code, "quantity": _num(own), "unit": own_unit,
+                          "factor": e["factor"], "equivalent_quantity": _num(converted),
+                          "equivalence_id": e["equivalence_id"]})
+        out["production"] = {"product_code": "equivalent product",
+                             "quantity": _num(quantity), "unit": unit, "from": parts}
     if has_unresolved:
         out["gei_withheld_because"] = "some emission lines are unresolved under this policy"
     elif quantity == 0:
