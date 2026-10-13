@@ -223,7 +223,8 @@ def test_site_pages_and_databaseless_endpoints():
     for page in ("findings", "registry", "method", "ledger", "evidence", "reports",
                  "sampling"):
         assert client.get(f"/{page}").status_code == 200
-    assert client.get("/static/site.css").status_code == 200
+    css = client.get("/static/site.css")
+    assert css.status_code == 200 and css.headers["cache-control"] == "no-cache"
     assert client.get("/no-such-page").status_code == 404
     ok = client.post("/api/typecheck", json={
         "program": "let e : [tCO2e] = 1200 [kWh] * 0.7272 [tCO2/MWh]"}).json()

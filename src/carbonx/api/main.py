@@ -57,6 +57,19 @@ FIGURES = ROOT / "docs" / "figures"   # written by scripts/rq1_materiality.py, r
 PAGES = {"findings", "registry", "method", "ledger", "evidence", "reports", "sampling"}
 
 app = FastAPI(title="CarbonX", version="0.1.0")
+
+
+@app.middleware("http")
+async def revalidate_pages(request: Request, call_next: Any) -> Any:
+    """Pages, scripts and figures are small and change between runs: make the
+    browser check with the server each time (a cheap 304) instead of showing
+    a stale copy. API responses are left alone."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 if FIGURES.is_dir():
     app.mount("/figures", StaticFiles(directory=FIGURES), name="figures")

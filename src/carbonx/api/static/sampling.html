@@ -46,7 +46,7 @@
 </div></main>
 <script src="/static/site.js"></script>
 <script>
-let ORG_NAME = "", SAMPLE = null;
+let ORG_NAME = "", SAMPLE = null, READY = false;
 
 function render(s) {
   SAMPLE = s;
@@ -91,6 +91,7 @@ async function loadEarlier() {
 
 $("draw").onclick = async () => {
   const msg = $("draw-msg");
+  if (!READY) { say(msg, "The page is still loading its data. Try again in a moment.", "warn"); return; }
   if (!$("report").value) { say(msg, "There is no stored report to sample. Generate one on the Reports page.", "warn"); return; }
   try {
     render(await post(`/api/reports/${$("report").value}/sample`,
@@ -123,6 +124,7 @@ document.addEventListener("click", async (ev) => {
       `<option value="${r.report_id}">#${r.report_id} ${esc(r.policy)}, ${esc(grouped(r.total_tco2e))} tCO2e</option>`).join("");
     const wanted = new URLSearchParams(location.search).get("report");
     if (wanted && reports.some((r) => String(r.report_id) === wanted)) $("report").value = wanted;
+    READY = true;
     await loadEarlier();
   } catch (e) { unreachable(e); }
 })();

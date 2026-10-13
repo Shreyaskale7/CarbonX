@@ -164,7 +164,11 @@ generator, not run). The run took 1 h 35 min
 (`HYPOTHESIS_PROFILE=thorough pytest tests/test_reproducibility.py -k any_sequence`)
 and included the fuel operations.
 
-What this run does not show: it ran on the local development Postgres (18.4,
+**Repeated 2026-10-13, commit `37757cf`: 10,000 passed, 0 failed** (787 generated
+cases discarded as invalid; 42 min). This run added a second product and
+conversions into an equivalent product, declared and revised mid-sequence.
+
+What these runs do not show: they ran on the local development Postgres (18.4,
 with `btree_gist` and `pgcrypto` emulated by `scripts/dev_pg.py`), not on the
 target Postgres 16, and in one transaction (see the limits below). An earlier
 run without the fuel operations was stopped by a time limit and gives no result.

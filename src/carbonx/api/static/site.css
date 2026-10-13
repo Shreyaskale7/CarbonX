@@ -188,7 +188,11 @@ footer a:hover { color: var(--ink); }
   .chain li::before { top: 4px; left: -6px; }
   .tiles { grid-template-columns: 1fr; }
   .tiles > div + div { border-left: 0; border-top: 1px solid var(--line); }
-  .nav .wrap { gap: 16px; }
+  /* Phone: brand and buttons on one row, the links on their own row below. */
+  .nav .wrap { gap: 8px 12px; flex-wrap: wrap; height: auto; padding-block: 10px; }
+  .nav .brand { margin-right: auto; }
+  .nav nav { order: 3; flex: 1 0 100%; gap: 20px; }
+  body.app .nav a.btn { display: none; }   /* already in the workbench */
   dl.kv { grid-template-columns: 104px 1fr; }
   .wrap { padding: 0 16px; }
 }
