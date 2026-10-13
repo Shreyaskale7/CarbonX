@@ -11,6 +11,7 @@ from typing import Any
 
 import psycopg
 
+from carbonx.evidence import anchor
 from carbonx.evidence.store import verify_document
 
 
@@ -25,6 +26,11 @@ def exceptions(conn: psycopg.Connection, org_id: int) -> list[dict[str, Any]]:
         add("audit_chain_broken", "high",
             f"the audit hash chain fails at event {broken[0]}: {broken[1]}",
             event_id=broken[0])
+
+    # The chain can be rewritten consistently by a database owner; an anchor
+    # kept outside the database would no longer match.
+    for problem in anchor.check(conn)["problems"]:
+        add("audit_chain_anchor_mismatch", "high", problem)
 
     for activity_id, kind, start in conn.execute(
             "SELECT a.activity_id, a.activity_type, lower(a.period) FROM activity a"

@@ -41,7 +41,7 @@ has not been pushed.
 |---|---|---|
 | 1 | Reports reproduce byte-identically | Yes against the application; `ADVERSARIAL_LOG.md` lists what it took. 10,000 generated sequences pass on the development Postgres |
 | 2 | No in-place factor updates | Yes: trigger-enforced |
-| 3 | Audit trail enforced at the database layer | Yes against the application, which runs as a non-owner role. Not against the database owner or a superuser |
+| 3 | Audit trail enforced at the database layer | Yes against the application, which runs as a non-owner role. Not against the database owner or a superuser; a rewrite by them before an anchor is detectable if the anchor file is kept elsewhere (`anchors/README.md`) |
 | 4 | Dimensional soundness | Yes for the calculation language; eight documented escape hatches |
 | 5 | Evidence hashed; audit log hash-chained | Yes. Tamper-evidence, not a blockchain |
 | 6 | Uncertainty never invented | Yes for factors. **Not yet for extraction**: its confidence is not calibrated on unseen layouts, so it must not be used as a probability |

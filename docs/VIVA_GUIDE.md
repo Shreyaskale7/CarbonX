@@ -49,7 +49,11 @@ tables and cannot disable triggers. Migration `0005`,
 `test_app_role_cannot_bypass_the_database_rules`.
 
 **Can a DBA still break it?** Yes. The owner and any superuser can. Say so
-before you are asked. `docs/ADVERSARIAL_LOG.md`, attempt 12.
+before you are asked. `docs/ADVERSARIAL_LOG.md`, attempt 12. What we added:
+they can even recompute the hash chain so it looks intact, so we copy the
+chain's latest hash to a file outside the database (an anchor). A rewrite of
+anything before that point then shows. It is only as good as where the file is
+kept, and it detects, it does not prevent. `anchors/README.md`.
 
 **What about a plant with several products?** BEE allows "the main product or an
 equivalent product" by sector practice and gives no conversion. So CarbonX has

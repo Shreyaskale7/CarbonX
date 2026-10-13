@@ -197,6 +197,16 @@ checks each refusal.
 must be trusted. Invariant 3 ("enforced at the database layer") now holds
 against the application, not against the DBA.
 
+**Narrowed, not closed (2026-10-13): anchors.** An owner who rewrites an event
+can also recompute the hash chain, so `fn_verify_audit_chain()` passes on the
+falsified history. `carbonx.evidence.anchor` records the chain's latest hash in
+a file outside the database; after such a rewrite the hash at the anchored event
+no longer matches. `tests/test_anchor.py` performs the rewrite, shows the
+chain's own check passing, and shows the anchor failing. This is detection after
+the fact, only for history before an anchor, and only as trustworthy as the
+place the anchor file is kept (`anchors/README.md`). The DBA can still disable
+the triggers; they can no longer do it and leave no trace before an anchor.
+
 ## Limits of the evidence
 
 - **The property test runs all 10,000 sequences in one database

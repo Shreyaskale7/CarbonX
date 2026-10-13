@@ -1,4 +1,9 @@
 import os
+import tempfile
+
+# Tests must not read a developer's real anchor file: it describes another database.
+os.environ["CARBONX_ANCHOR_FILE"] = os.path.join(tempfile.gettempdir(),
+                                                 "carbonx-test-no-anchors.jsonl")
 
 import psycopg
 import pytest

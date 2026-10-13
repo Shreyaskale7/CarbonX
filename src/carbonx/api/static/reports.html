@@ -54,6 +54,7 @@
   </div>
   <div class="panel">
     <h2>Exceptions</h2>
+    <p id="chain" class="small" aria-live="polite"></p>
     <p class="small muted">Conditions a verifier should look at. An empty list means none of these was found. It does not mean the figures are correct.</p>
     <div class="scroll" style="margin-top:8px"><table><tbody id="exceptions"><tr><td><div class="skeleton"></div></td></tr></tbody></table></div>
   </div>
@@ -158,7 +159,16 @@ $("run").onclick = async () => {
   } catch (e) { say(msg, e.message, "bad"); }
   $("run").disabled = false;
 };
+async function loadChain() {
+  const c = await api("/api/audit-chain");
+  $("chain").innerHTML = `Audit trail: ${c.intact ? '<span class="ok">hash chain consistent</span>' : '<span class="bad">hash chain broken</span>'}`
+    + (c.head ? `, latest event ${esc(c.head.event_id)} <code>${short(c.head.event_hash)}</code>` : "")
+    + (c.anchors === 0 ? `. <span class="muted">No anchor outside the database yet, so a consistent rewrite by its owner would not show.</span>`
+       : c.problems.length ? `. <span class="bad">${c.problems.length} anchor mismatch</span>`
+       : `. <span class="ok">${c.checked} outside anchor${c.checked === 1 ? "" : "s"} match</span>, latest at event ${esc(c.latest.event_id)}.`);
+}
 async function loadExceptions() {
+  loadChain().catch(() => {});
   const rows = await api(`/api/exceptions?org_id=${ORG}`);
   $("exceptions").innerHTML = rows.length ? rows.map((r) => `<tr>
     <td class="${r.severity === "high" ? "bad" : "warn"}" style="white-space:nowrap"><strong>${esc(r.severity)}</strong></td>

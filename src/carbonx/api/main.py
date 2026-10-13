@@ -35,6 +35,7 @@ from carbonx.engine.exceptions import exceptions
 from carbonx.engine.production import record_production, set_equivalence
 from carbonx.engine.provenance import attestation, coverage, plain, provenance
 from carbonx.engine.report import EngineVersionMismatch, generate_report, regenerate
+from carbonx.evidence import anchor
 from carbonx.evidence.store import store_document
 from carbonx.extraction import review
 from carbonx.factors.registry import FactorNotFound, Policy
@@ -635,6 +636,17 @@ def factor_attestation(calculation_id: int, conn: Conn,
         return attestation(conn, calculation_id, baseline_year)
     except EXPECTED as e:
         raise _fail(e) from e
+
+
+@app.get("/api/audit-chain")
+def audit_chain(conn: Conn) -> dict[str, Any]:
+    """The chain's latest hash, whether the chain is internally consistent, and
+    whether it still matches the anchors kept outside the database."""
+    broken = conn.execute("SELECT * FROM fn_verify_audit_chain()").fetchone()
+    return anchor.check(conn) | {
+        "intact": broken is None,
+        "first_break": None if broken is None else {"event_id": broken[0],
+                                                    "problem": broken[1]}}
 
 
 @app.get("/api/coverage")
