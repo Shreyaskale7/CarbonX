@@ -108,4 +108,6 @@ target, with the real `btree_gist` and `pgcrypto`.
 5. Collect and redact real bills (decision point: week 4).
 6. Cite per-sector Scope 2 shares of the 2024-27 target basis.
 7. Check RVCE's AI-use policy and complete `docs/AI_USE.md`.
-8. Choose a licence and authors for the registry; mint the DOI.
+8. Choose a licence and authors for the registry and put them in
+   `data/cea/release.json`; `python scripts/build_registry_release.py` then
+   builds the bundle to upload. Mint the DOI.

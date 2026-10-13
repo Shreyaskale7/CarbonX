@@ -15,12 +15,21 @@ settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 def connect(url: str | None = None) -> psycopg.Connection:
     """A connection (default: the app role), or skip locally when Postgres is
     down. In CI, fail instead."""
+    url = url or db.url()
+    if url in _unreachable:   # found down once: do not wait again for every test
+        pytest.skip(_DOWN)
     try:
-        return psycopg.connect(url or db.url(), connect_timeout=3)
+        return psycopg.connect(url, connect_timeout=3)
     except psycopg.OperationalError:
         if os.environ.get("CI"):
             raise
-        pytest.skip("Postgres not reachable; run `docker compose up -d`")
+        _unreachable.add(url)
+        pytest.skip(_DOWN)
+
+
+_unreachable: set[str] = set()
+_DOWN = ("Postgres not reachable; start it (`docker compose up -d`, or "
+         "`python scripts/dev_pg.py env`) and set DATABASE_URL")
 
 
 def _rolled_back(url: str | None):

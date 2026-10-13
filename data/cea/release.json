@@ -1,0 +1,9 @@
+{
+  "name": "india-cea-grid-emission-factor-registry",
+  "title": "Open registry of India's CEA grid emission factors, v1.0 to v22.0",
+  "version": "1.0.0",
+  "description": "A machine-readable version history of the Central Electricity Authority's CO2 Baseline Database for the Indian Power Sector: every factor in every published version (2006 to 2026), each traced to the workbook cell it came from, with the source URLs and SHA-256 hashes. A research dataset from a student project; not an official CEA product.",
+  "keywords": ["grid emission factor", "India", "CEA", "CO2 Baseline Database", "carbon accounting", "CCTS", "Scope 2"],
+  "license": null,
+  "authors": []
+}

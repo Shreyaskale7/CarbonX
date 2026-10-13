@@ -119,6 +119,28 @@ parse of the workbook; known values match (v19 FY2022-23 = 0.716). The other
 9. **v20 omits the plain `weighted_avg` factor.** Its table gives only the
    net-effective-injection average. That is a gap in the source, not in the
    parser.
+10. **One value in v18.0 disagrees with every other version.** For FY2016-17,
+    `grid.weighted_avg.incl_imports` is 0.7656 in v18.0 (`Results!N13`), and
+    0.8237 in v13.0 to v17.0 and in v22.0. The v18.0 figure is close to the
+    renewables-inclusive value one row below it. It is what CEA's workbook
+    contains, so it is kept. We do not know whether it is a slip. Found by
+    `scripts/nowcast.py` (`docs/NOWCAST_RESULTS.md`).
+
+## Releasing it
+
+```
+python scripts/build_registry_release.py --draft   # a bundle to inspect, in dist/
+python scripts/build_registry_release.py           # the release; refuses until decided
+```
+
+The bundle holds these files plus `datapackage.json` (a Frictionless schema),
+`SHA256SUMS` and `.zenodo.json`. It is deterministic, so its SHA-256 can be
+quoted. Before building it the script checks the registry: no repeated rows,
+every factor's version listed, units and values in range, every version with a
+source hash, and the counts in this file up to date.
+
+The script will not build a release until `release.json` names a licence and at
+least one author. Those are the team's decisions; see the note at the top.
 
 ## Reproducing it
 

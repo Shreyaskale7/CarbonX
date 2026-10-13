@@ -1,4 +1,5 @@
 data/raw/
+dist/
 data/bills/
 data/evidence/
 *.pdf
