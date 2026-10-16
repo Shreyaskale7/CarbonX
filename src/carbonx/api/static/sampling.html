@@ -33,6 +33,7 @@
       <h2>Lines to test</h2>
       <p class="small muted">Record the figure the evidence supports for each line, and what was checked. A result is recorded once.</p>
       <p class="notice" id="all-certain" style="margin-top:12px" hidden></p>
+      <p class="notice bad" id="unpriced" style="margin-top:12px" hidden></p>
       <div class="scroll" style="margin-top:8px"><table>
         <thead><tr><th>Why</th><th>Period</th><th>Activity</th><th class="num">Reported, tCO2e</th><th>Audited, tCO2e</th><th>What was checked</th><th></th></tr></thead>
         <tbody id="items"></tbody></table></div>
@@ -58,6 +59,9 @@ function render(s) {
     ["Sampling interval", s.interval_tco2e === null ? "none (earlier method)" : `${esc(grouped(s.interval_tco2e))} <span class="small muted">tCO2e</span>`],
   ].map(([k, v]) => `<div><div class="small muted">${k}</div><div class="stat">${v}</div></div>`).join("");
   const sampled = s.items.filter((i) => i.stratum === "sampled").length;
+  $("unpriced").hidden = !s.unpriced_lines;
+  $("unpriced").textContent = `${s.unpriced_lines} line${s.unpriced_lines === 1 ? "" : "s"} of this report could not be priced under its factor policy, `
+    + "so they carry no tonnes and no sample can reach them. Look at them separately; nothing on this page covers them.";
   $("all-certain").hidden = !(e.superseded_method || sampled === 0);
   $("all-certain").textContent = e.superseded_method
     ? "This sample was drawn with an earlier method that could leave some lines neither tested nor sampled. It gets no verdict; draw a new one."

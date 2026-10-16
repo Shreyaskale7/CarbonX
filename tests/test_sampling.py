@@ -169,6 +169,7 @@ def test_a_sample_can_be_rederived_from_the_report_alone(conn, report):
     undocumented = next(ln["activity_id"] for ln in lines if not ln["document_sha256"])
     assert (undocumented, "certain") in stored
     assert s["evaluation"]["within_tolerable"] is None            # nothing tested yet
+    assert s["unpriced_lines"] == 0
 
 
 def test_results_are_recorded_once_and_evaluated(conn, report):

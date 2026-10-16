@@ -82,5 +82,8 @@ the sample projects to the report with a stated confidence.
   hit, and a taint below −100% is capped. This is a known property of the
   method. Completeness (emission sources missing from the report altogether)
   needs a different test and is not covered.
+- **Unpriced lines are outside the population.** A line the report could not
+  price (no factor under its policy) has no tonnes and cannot be sampled. The
+  page counts them and says they need looking at separately.
 - **Controls are not assessed.** In practice the confidence level is chosen
   after testing the entity's controls. Here it is simply a setting.

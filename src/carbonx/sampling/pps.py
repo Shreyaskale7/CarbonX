@@ -244,6 +244,11 @@ def summary(conn: psycopg.Connection, sample_id: int) -> dict[str, Any]:
     if head is None:
         raise LookupError(f"no sample {sample_id}")
     report_id, confidence, tolerable_pct, seed, total, planned, interval, created = head
+    # Lines the report could not price (no factor under its policy) carry no
+    # tonnes, so no sample can reach them. Say so rather than stay silent.
+    out = conn.execute("SELECT output FROM report WHERE report_id = %s",
+                       (report_id,)).fetchone()
+    unpriced = len(json.loads(out[0])["unresolved"]) if out else 0
     items = conn.execute(
         "SELECT i.item_id, i.activity_id, i.stratum, i.reason, i.book_tco2e, i.audited_tco2e,"
         " i.finding, a.activity_type, lower(a.period), f.name"
@@ -268,6 +273,7 @@ def summary(conn: psycopg.Connection, sample_id: int) -> dict[str, Any]:
                    "audited_tco2e": None if a is None else format(a, "f"), "finding": note,
                    "activity_type": kind, "period_start": start.isoformat(), "facility": fac}
                   for iid, aid, s, why, b, a, note, kind, start, fac in items],
+        "unpriced_lines": unpriced,
         "evaluation": {
             "tested": ev.tested, "selected": ev.selected, "complete": ev.complete,
             "projected_tco2e": f"{float(ev.projected):.6f}",
