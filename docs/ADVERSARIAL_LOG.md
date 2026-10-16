@@ -168,6 +168,12 @@ and included the fuel operations.
 cases discarded as invalid; 42 min). This run added a second product and
 conversions into an equivalent product, declared and revised mid-sequence.
 
+**Repeated again 2026-10-13/14, commit `6b54cd1`: 10,000 passed, 0 failed** (801
+discarded as invalid). This run added meters re-declared mid-sequence, and was the
+first after migration 0014, where a report holds the write lock only while it
+reads the clock. It took about 12 hours of wall-clock time, most of it with the
+machine idle; the database showed it progressing at about 80 reports a second.
+
 What these runs do not show: they ran on the local development Postgres (18.4,
 with `btree_gist` and `pgcrypto` emulated by `scripts/dev_pg.py`), not on the
 target Postgres 16, and in one transaction (see the limits below). An earlier
