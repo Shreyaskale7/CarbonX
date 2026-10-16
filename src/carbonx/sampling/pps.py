@@ -5,11 +5,15 @@ in place of money. Every tonne has the same chance of being picked, so a line
 is picked in proportion to its size, and what is found in the sample can be
 projected to the whole report with a stated confidence.
 
-    1. Size.      n = population x factor(confidence) / tolerable misstatement
-    2. Certain.   Lines at least one interval large, and lines with no source
-                  document, are always tested. They are not sampled.
-    3. Sample.    The rest, systematically: one hit every `interval` tonnes,
-                  from a start fixed by the seed.
+    1. Interval.  J = tolerable misstatement / factor(confidence). With no
+                  error found, the upper limit is factor x J = tolerable:
+                  that is what the interval is chosen for.
+    2. Certain.   Lines at least J in size, and lines with no source document,
+                  are always tested. They are not sampled.
+    3. Sample.    Every other line, systematically: one hit every J tonnes,
+                  from a start fixed by the seed. The number of hits follows
+                  from the tonnes left to sample, never from how many lines
+                  happened to be certain.
     4. Evaluate.  Once tested: projected misstatement and a Stringer upper
                   limit, compared with the tolerable misstatement.
 
@@ -28,7 +32,7 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
-from math import ceil, exp
+from math import ceil, exp, floor
 from typing import Any
 
 import psycopg
@@ -77,37 +81,37 @@ class Item:
     certain_because: str | None = None   # a fact that puts it in the 100% stratum
 
 
+def interval_for(tolerable: Fraction, confidence: float) -> Fraction:
+    """J = tolerable / factor, rounded DOWN to six places: the stored figure is
+    exactly the one used, and factor x J never exceeds the tolerable."""
+    j = Fraction(floor(tolerable / Fraction(confidence_factor(confidence)) * 10**6), 10**6)
+    if j <= 0:
+        raise ValueError("the tolerable misstatement is too small to sample against")
+    return j
+
+
 @dataclass(frozen=True)
 class Selection:
-    planned_n: int
-    interval: Fraction | None            # None when every line ended up certain
+    interval: Fraction
     certain: tuple[tuple[int, str], ...]   # (key, reason)
     sampled: tuple[int, ...]
 
 
-def select(items: list[Item], planned_n: int, seed: str) -> Selection:
+def select(items: list[Item], interval: Fraction, seed: str) -> Selection:
     """Deterministic. Items are taken in key order; a zero-size line cannot be
     hit, and is tested only if a fact makes it certain."""
+    if interval <= 0:
+        raise ValueError("the sampling interval must be positive")
     items = sorted(items, key=lambda i: i.key)
-    certain = {i.key: i.certain_because for i in items if i.certain_because}
-    while True:   # a line as large as the interval would be hit for sure: test it outright
-        rest = [i for i in items if i.key not in certain]
-        hits = planned_n - len(certain)
-        total = sum((i.value for i in rest), Fraction(0))
-        if hits <= 0 or total == 0:
-            return Selection(planned_n, None, tuple(sorted(certain.items())), ())
-        interval = total / hits
-        big = [i for i in rest if i.value >= interval]
-        if not big:
-            break
-        certain |= {i.key: "at least one sampling interval in size" for i in big}
+    certain = {i.key: i.certain_because or "at least one sampling interval in size"
+               for i in items if i.certain_because or i.value >= interval}
     point, running, sampled = _start(seed) * interval, Fraction(0), []
-    for item in rest:
+    for item in (i for i in items if i.key not in certain):
         running += item.value
         if point < running:           # each line is smaller than the interval: one hit at most
             sampled.append(item.key)
             point += interval
-    return Selection(planned_n, interval, tuple(sorted(certain.items())), tuple(sampled))
+    return Selection(interval, tuple(sorted(certain.items())), tuple(sampled))
 
 
 @dataclass(frozen=True)
@@ -188,9 +192,9 @@ def draw(conn: psycopg.Connection, report_id: int, *, confidence: Decimal = Deci
     if total <= 0:
         raise ValueError("the report has no emissions to sample")
     tolerable = total * Fraction(tolerable_pct) / 100
-    n = sample_size(total, tolerable, float(confidence))
+    n = sample_size(total, tolerable, float(confidence))   # nominal, for the record
     seed = f"{sha}:{nonce}"
-    chosen = select(items, n, seed)
+    chosen = select(items, interval_for(tolerable, float(confidence)), seed)
     book = {i.key: i.value for i in items}
 
     def money(x: Fraction) -> Decimal:
@@ -203,7 +207,7 @@ def draw(conn: psycopg.Connection, report_id: int, *, confidence: Decimal = Deci
             " population_tco2e, planned_n, interval_tco2e)"
             " VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING sample_id",
             (report_id, confidence, tolerable_pct, seed, money(total), n,
-             None if chosen.interval is None else money(chosen.interval))).fetchone()
+             money(chosen.interval))).fetchone()   # exact: six places by construction
         assert row is not None
         rows = ([(row[0], k, "certain", why, money(book[k])) for k, why in chosen.certain]
                 + [(row[0], k, "sampled", "hit by the sampling interval", money(book[k]))
@@ -270,6 +274,10 @@ def summary(conn: psycopg.Connection, sample_id: int) -> dict[str, Any]:
             "projected_pct": pct(ev.projected),
             "upper_overstatement_pct": pct(ev.upper_over),
             "upper_understatement_pct": pct(ev.upper_under),
-            "within_tolerable": ev.within if ev.complete else None,
+            # Samples drawn before 2026-10-16 have no fixed interval: that method
+            # could leave documented lines neither tested nor sampled, so they get
+            # no verdict. Draw again.
+            "within_tolerable": ev.within if ev.complete and interval is not None else None,
+            "superseded_method": interval is None,
         },
     }

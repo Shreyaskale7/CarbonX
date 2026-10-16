@@ -36,33 +36,62 @@ def test_sample_size_is_population_times_factor_over_tolerable():
         pps.sample_size(Fraction(1000), Fraction(0), 0.95)
 
 
+def test_the_interval_makes_a_clean_sample_land_exactly_within_tolerance():
+    for tolerable in (Fraction(350), Fraction(1, 7), Fraction(552_315, 100)):
+        j = pps.interval_for(tolerable, 0.95)
+        assert j * 10**6 == int(j * 10**6)                           # stored exactly
+        assert Fraction(pps.confidence_factor(0.95)) * j <= tolerable
+        assert tolerable - Fraction(pps.confidence_factor(0.95)) * j < Fraction(1, 10**5)
+    with pytest.raises(ValueError):
+        pps.interval_for(Fraction(1, 10**9), 0.95)
+
+
 items = st.lists(st.integers(0, 5000), min_size=1, max_size=40).map(
-    lambda vs: [pps.Item(k, Fraction(v, 10)) for k, v in enumerate(vs)])
+    lambda vs: [pps.Item(k, Fraction(v, 10), "no source document" if v % 7 == 0 else None)
+                for k, v in enumerate(vs)])
 
 
 @settings(max_examples=300, deadline=None)
-@given(items=items, n=st.integers(1, 30), seed=st.text(max_size=8))
-def test_selection_properties(items, n, seed):
-    s = pps.select(items, n, seed)
-    assert s == pps.select(list(reversed(items)), n, seed)          # deterministic, order-free
+@given(items=items, interval=st.integers(1, 3000).map(lambda v: Fraction(v, 10)),
+       seed=st.text(max_size=8))
+def test_selection_properties(items, interval, seed):
+    s = pps.select(items, interval, seed)
+    assert s == pps.select(list(reversed(items)), interval, seed)   # deterministic, order-free
     chosen = [k for k, _ in s.certain] + list(s.sampled)
     assert len(chosen) == len(set(chosen))                           # no line twice
     value = {i.key: i.value for i in items}
-    if s.interval is not None:
-        assert len(s.sampled) == n - len(s.certain)                  # every planned hit lands
-        assert all(value[k] < s.interval for k in s.sampled)
-        left_out = set(value) - set(chosen)
-        assert all(value[k] < s.interval for k in left_out)          # nothing large is skipped
-    assert all(value[k] > 0 for k in s.sampled)                      # a zero line cannot be hit
+    flagged = {i.key for i in items if i.certain_because}
+    assert flagged <= dict(s.certain).keys()                         # undocumented: always tested
+    assert {k for k, v in value.items() if v >= interval} <= dict(s.certain).keys()
+    assert all(0 < value[k] < interval for k in s.sampled)
+    # The number of hits depends only on the tonnes left to sample.
+    rest = sum((v for k, v in value.items() if k not in dict(s.certain)), Fraction(0))
+    first = pps._start(seed) * interval
+    expected = 0 if rest <= first else -((first - rest) // interval)   # ceil((rest - first) / J)
+    assert len(s.sampled) == expected
+
+
+def test_many_undocumented_lines_do_not_crowd_out_the_rest():
+    """The flaw fixed on 2026-10-16: with the sample size split as 'planned hits
+    minus certain lines', 15 undocumented lines could use up every hit and leave
+    the documented lines neither tested nor sampled, yet the evaluation passed."""
+    items = ([pps.Item(k, Fraction(10), "no source document") for k in range(15)]
+             + [pps.Item(100 + k, Fraction(60)) for k in range(5)])        # 300 t documented
+    s = pps.select(items, Fraction(100), "x")
+    assert len(s.certain) == 15 and len(s.sampled) == 3                    # 300 / 100 hits
+    results = ([("certain", Fraction(10), Fraction(10))] * 15
+               + [("sampled", Fraction(60), Fraction(60))] * 3)
+    ev = pps.evaluate(results, s.interval, 0.95, Fraction(300))
+    assert ev.within and float(ev.upper_over) == pytest.approx(299.6, abs=0.1)
 
 
 def test_a_line_is_picked_in_proportion_to_its_size():
     """Over many seeds, a line a quarter of an interval in size is hit about a
     quarter of the time, and one three times larger three times as often."""
-    items = [pps.Item(k, Fraction(v)) for k, v in enumerate([25, 75, 100, 100, 100])]
+    items = [pps.Item(k, Fraction(v)) for k, v in enumerate([25, 75, 90, 60, 50])]
     hits = {0: 0, 1: 0}
     for seed in range(2000):
-        s = pps.select(items, 4, str(seed))          # interval = 400 / 4 = 100
+        s = pps.select(items, Fraction(100), str(seed))
         for k in hits:
             hits[k] += k in s.sampled
     assert 0.21 < hits[0] / 2000 < 0.29
@@ -72,10 +101,10 @@ def test_a_line_is_picked_in_proportion_to_its_size():
 def test_certain_items_are_taken_out_before_sampling():
     items = [pps.Item(1, Fraction(900)), pps.Item(2, Fraction(40)), pps.Item(3, Fraction(60)),
              pps.Item(4, Fraction(0), "no source document")]
-    s = pps.select(items, 3, "x")
+    s = pps.select(items, Fraction(100), "x")
     assert dict(s.certain) == {1: "at least one sampling interval in size",
                                4: "no source document"}
-    assert s.interval == 100 and set(s.sampled) <= {2, 3} and len(s.sampled) == 1
+    assert set(s.sampled) <= {2, 3} and len(s.sampled) == 1
 
 
 def test_evaluation_with_no_errors_and_with_one_half_tainted_line():
@@ -133,7 +162,7 @@ def test_a_sample_can_be_rederived_from_the_report_alone(conn, report):
     again = pps.select(
         [pps.Item(ln["activity_id"], Fraction(ln["tco2e"]),
                   None if ln["document_sha256"] else "no source document") for ln in lines],
-        s["planned_n"], s["seed"])
+        Fraction(s["interval_tco2e"]), s["seed"])
     stored = {(i["activity_id"], i["stratum"]) for i in s["items"]}
     assert stored == ({(k, "certain") for k, _ in again.certain}
                       | {(k, "sampled") for k in again.sampled})

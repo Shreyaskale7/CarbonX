@@ -24,15 +24,28 @@ CO2e in place of money. Each tonne in the report is equally likely to be
 picked. A line is therefore picked in proportion to its size, and a result on
 the sample projects to the report with a stated confidence.
 
-1. **Size.** `n = population × factor / tolerable`. The factor is the Poisson
-   mean that would still produce zero errors with probability `1 − confidence`
-   (3.00 at 95%). `tolerable` is the largest misstatement the verifier accepts,
-   as a share of the report.
-2. **Certain lines.** Tested always, never sampled: any line at least one
-   sampling interval in size, and any line with **no source document** (an
-   untraced figure is looked at, not left to chance).
-3. **Sampled lines.** From the rest, one hit every `interval` tonnes, starting
-   at a point fixed by the seed.
+1. **Interval.** `J = tolerable / factor`. The factor is the Poisson mean that
+   would still produce zero errors with probability `1 − confidence` (3.00 at
+   95%). `tolerable` is the largest misstatement the verifier accepts, as a
+   share of the report. J is rounded down to six places, so the stored figure
+   is exactly the one used. The point of this choice: if no error is found,
+   the upper limit is factor × J, which is the tolerable misstatement.
+2. **Certain lines.** Tested always, never sampled: any line at least J in
+   size, and any line with **no source document** (an untraced figure is
+   looked at, not left to chance).
+3. **Sampled lines.** Every other line, one hit every J tonnes, starting at a
+   point fixed by the seed. The number of hits is the tonnes left to sample
+   divided by J. It never depends on how many lines happened to be certain.
+   (The first version, until 2026-10-16, split a planned number of hits
+   between certain and sampled lines, so every certain line took a hit away
+   from the rest and widened the interval. On the sample report, at 95% and
+   a 20% tolerance, it sampled 3 of the 12 documented lines at an interval of
+   3,392 tCO2e; a clean result could never have supported the tolerance. This
+   method's interval is 771 tCO2e, every documented line there is larger, so
+   all 24 lines are tested. With
+   enough undocumented lines it was worse: documented lines could be left
+   neither tested nor sampled while the evaluation passed. Those samples get
+   no verdict. `test_many_undocumented_lines_do_not_crowd_out_the_rest`.)
 4. **Evaluation.** For each tested line the verifier records the figure the
    evidence supports. A sampled line's *taint* is (reported − audited) /
    reported. Projected misstatement is the known error in the certain lines

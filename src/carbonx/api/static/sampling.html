@@ -55,11 +55,14 @@ function render(s) {
   $("tiles").innerHTML = [
     ["Population", `${esc(grouped(s.population_tco2e))} <span class="small muted">tCO2e</span>`],
     ["Lines to test", `${s.items.length} <span class="small muted">${certain} certain, ${s.items.length - certain} sampled</span>`],
-    ["Sampling interval", s.interval_tco2e === null ? "none" : `${esc(grouped(s.interval_tco2e))} <span class="small muted">tCO2e</span>`],
+    ["Sampling interval", s.interval_tco2e === null ? "none (earlier method)" : `${esc(grouped(s.interval_tco2e))} <span class="small muted">tCO2e</span>`],
   ].map(([k, v]) => `<div><div class="small muted">${k}</div><div class="stat">${v}</div></div>`).join("");
-  $("all-certain").hidden = s.interval_tco2e !== null;
-  $("all-certain").textContent = `These settings ask for ${s.planned_n} hits and the report has ${s.items.length} lines to choose from, so every line is to be tested. `
-    + "Sampling saves work only on a report with many more lines than hits, or with a larger tolerable misstatement.";
+  const sampled = s.items.filter((i) => i.stratum === "sampled").length;
+  $("all-certain").hidden = !(e.superseded_method || sampled === 0);
+  $("all-certain").textContent = e.superseded_method
+    ? "This sample was drawn with an earlier method that could leave some lines neither tested nor sampled. It gets no verdict; draw a new one."
+    : `Every line is to be tested: each one either has no source document or is at least one sampling interval in size. `
+      + "With a larger tolerable misstatement the interval grows and fewer lines need testing.";
   $("items").innerHTML = s.items.map((i) => `<tr>
     <td class="small">${i.stratum === "certain" ? `<span class="tag">certain</span> ` : ""}${esc(i.reason)}</td>
     <td style="white-space:nowrap">${esc(i.period_start.slice(0, 7))}</td><td>${esc(i.activity_type)}</td>
