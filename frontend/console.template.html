@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>CarbonX Console</title>
+<style>
+/* Design tokens. Six hexes; every other tone is a mix of Ink into Canvas or Surface. */
+:root {
+  color-scheme: dark;
+  --canvas: #0B0D0F; --surface: #12161A; --ink: #E6E8EB;
+  --accent: #4DA3FF; --ok: #3DD68C; --bad: #FF6B5E;
+  --muted: color-mix(in srgb, var(--ink) 62%, var(--canvas));   /* text, 6.1:1 on Surface */
+  --faint: color-mix(in srgb, var(--ink) 45%, var(--canvas));   /* hairlines and marks only */
+  --rule: color-mix(in srgb, var(--ink) 11%, var(--canvas));
+  --rule-2: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+  --raise: color-mix(in srgb, var(--ink) 5%, var(--surface));
+  --accent-soft: color-mix(in srgb, var(--accent) 13%, var(--surface));
+  --ok-soft: color-mix(in srgb, var(--ok) 13%, var(--surface));
+  --bad-soft: color-mix(in srgb, var(--bad) 14%, var(--surface));
+  --r: 4px; --bar: 48px; --rail: 208px;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 64px; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font: 14px/20px var(--sans);
+       -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+button { font: inherit; color: inherit; }
+a { color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r); }
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.mono, code, kbd, .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+code { font-size: 12.5px; background: var(--raise); padding: 1px 5px; border-radius: var(--r); overflow-wrap: anywhere; }
+kbd { font-size: 11px; line-height: 16px; border: 1px solid var(--rule-2); border-radius: var(--r); padding: 0 5px; color: var(--muted); }
+.muted { color: var(--muted); } .small { font-size: 12px; line-height: 16px; }
+.ok { color: var(--ok); } .bad { color: var(--bad); } .acc { color: var(--accent); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -48px; background: var(--accent); color: var(--canvas); padding: 8px 12px;
+        border-radius: var(--r); z-index: 100; font-weight: 600; }
+.skip:focus { top: 8px; }
+[hidden] { display: none !important; }
+
+/* Shell */
+.bar { position: sticky; top: 0; z-index: 30; height: var(--bar); display: flex; align-items: center; gap: 16px;
+       padding: 0 16px; background: var(--canvas); border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; }
+.mark { width: 16px; height: 16px; border: 1.5px solid var(--accent); border-radius: 3px; position: relative; }
+.mark::after { content: ""; position: absolute; inset: 3px 3px 3px 7px; background: var(--accent); border-radius: 1px; }
+.org { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.spacer { flex: 1; }
+.find { display: flex; align-items: center; gap: 24px; height: 28px; padding: 0 8px 0 12px; background: var(--surface);
+        border: 1px solid var(--rule-2); border-radius: var(--r); color: var(--muted); cursor: pointer; min-width: 220px; justify-content: space-between; }
+.find:hover { border-color: var(--faint); color: var(--ink); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--rule-2);
+        border-radius: var(--r); background: var(--surface); cursor: pointer; font-size: 12px; white-space: nowrap; }
+.chip:hover { border-color: var(--faint); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.dot.bad { background: var(--bad); }
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); min-height: calc(100dvh - var(--bar)); }
+.rail { position: sticky; top: var(--bar); align-self: start; height: calc(100dvh - var(--bar)); padding: 12px 8px;
+        border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.rail a { display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 8px 0 12px; border-radius: var(--r);
+          color: var(--muted); text-decoration: none; transition: background-color .12s, color .12s; }
+.rail a:hover { background: var(--raise); color: var(--ink); }
+.rail a[aria-current="page"] { background: var(--accent-soft); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+.rail .count { font: 12px var(--mono); color: var(--muted); }
+.rail .note { margin-top: auto; padding: 12px; color: var(--muted); font-size: 12px; line-height: 16px; border-top: 1px solid var(--rule); }
+main { min-width: 0; padding: 24px 32px 64px; max-width: 1320px; width: 100%; }
+main:focus { outline: none; }
+.view { animation: rise .18s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+h1 { margin: 0; font: 600 22px/28px var(--sans); letter-spacing: -0.02em; }
+h2 { margin: 0; font: 600 13px/20px var(--sans); }
+h3 { margin: 0 0 8px; font: 600 13px/20px var(--sans); }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 72ch; }
+.tag { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border: 1px solid var(--rule-2); border-radius: var(--r);
+       font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--canvas)); background: var(--ok-soft); }
+.tag.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--canvas)); background: var(--bad-soft); }
+.tag.acc { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); background: var(--accent-soft); }
+
+/* Panels and tables */
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); box-shadow: inset 0 1px 0 rgb(255 255 255 / .03); min-width: 0; }
+.panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 8px 16px; border-bottom: 1px solid var(--rule); }
+.pad { padding: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.stack > * + * { margin-top: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--rule);
+        border-radius: var(--r); box-shadow: inset 0 1px 0 rgb(255 255 255 / .03); }
+.kpi { padding: 16px 20px; min-width: 0; } .kpi + .kpi { border-left: 1px solid var(--rule); }
+.kpi .k { color: var(--muted); font-size: 12px; }
+.kpi .v { font: 500 30px/40px var(--mono); letter-spacing: -0.03em; margin-top: 2px; white-space: nowrap; }
+.kpi .v small { font-size: 15px; color: var(--muted); letter-spacing: 0; }
+.kpi .d { font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 2px; }
+.scroll { overflow: auto; max-width: 100%; }
+table { width: 100%; border-collapse: collapse; }
+th { position: sticky; top: 0; z-index: 1; background: var(--surface); text-align: left; font-weight: 500; font-size: 12px; color: var(--muted);
+     height: 32px; padding: 0 12px; border-bottom: 1px solid var(--rule-2); white-space: nowrap; }
+td { height: 32px; padding: 4px 12px; border-bottom: 1px solid var(--rule); vertical-align: middle; white-space: nowrap; }
+td.wrap { white-space: normal; }
+tr:last-child td { border-bottom: 0; }
+th.n, td.n { text-align: right; }
+tbody tr { transition: background-color .1s; }
+tbody tr[data-calc], tbody tr[data-open] { cursor: pointer; }
+tbody tr:hover { background: var(--raise); }
+tbody tr[aria-current="true"] { background: var(--accent-soft); }
+tfoot td { border-top: 1px solid var(--rule-2); border-bottom: 0; color: var(--muted); }
+.sortbtn { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; height: 32px; }
+.sortbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sortbtn::after { content: ""; border: 3.5px solid transparent; border-top-color: var(--faint); margin-top: 3px; opacity: 0; }
+th[aria-sort] .sortbtn::after { opacity: 1; }
+th[aria-sort="ascending"] .sortbtn::after { transform: rotate(180deg); margin-top: -3px; }
+.rowlink { all: unset; cursor: pointer; font-family: var(--mono); }
+.rowlink:hover { color: var(--accent); }
+.rowlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r); }
+.empty { padding: 32px 16px; text-align: center; color: var(--muted); }
+.empty strong { display: block; color: var(--ink); margin-bottom: 4px; }
+
+/* Controls */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: var(--r);
+       border: 1px solid var(--rule-2); background: var(--surface); cursor: pointer; white-space: nowrap;
+       transition: background-color .12s, border-color .12s, transform .06s; }
+.btn:hover { background: var(--raise); border-color: var(--faint); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); color: var(--canvas); border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.quiet:hover { color: var(--ink); background: var(--raise); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; }
+.seg { display: inline-flex; border: 1px solid var(--rule-2); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+.seg button { all: unset; box-sizing: border-box; cursor: pointer; height: 26px; padding: 0 10px; font-size: 13px; color: var(--muted);
+              display: inline-flex; align-items: center; white-space: nowrap; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button:hover { color: var(--ink); background: var(--raise); }
+.seg button[aria-pressed="true"], .seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--canvas); border: 1px solid var(--rule-2); border-radius: var(--r);
+                          height: 28px; padding: 0 8px; min-width: 0; }
+textarea { height: auto; padding: 6px 8px; resize: vertical; width: 100%; }
+input:hover, select:hover, textarea:hover { border-color: var(--faint); }
+input::placeholder, textarea::placeholder { color: var(--muted); }
+label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+.tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.tools .grow { flex: 1; min-width: 160px; }
+.field { min-width: 0; }
+.field input, .field select { width: 100%; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.msg { font-size: 13px; margin-top: 8px; }
+.notice { border: 1px solid var(--rule-2); border-left: 2px solid var(--accent); background: var(--accent-soft); padding: 8px 12px; border-radius: var(--r); font-size: 13px; }
+.notice.warn { border-left-color: var(--bad); background: var(--bad-soft); }
+.notice.good { border-left-color: var(--ok); background: var(--ok-soft); }
+
+/* Key-value, hashes */
+dl.kv { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; }
+dl.kv dt { color: var(--muted); } dl.kv dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.hash { display: flex; align-items: center; gap: 8px; font: 12px/16px var(--mono); overflow-wrap: anywhere; }
+.copy { all: unset; cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 6px; border: 1px solid var(--rule-2); border-radius: var(--r); white-space: nowrap; }
+.copy:hover { color: var(--ink); border-color: var(--faint); } .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+pre { margin: 0; padding: 12px; background: var(--canvas); border: 1px solid var(--rule); border-radius: var(--r); overflow: auto; font: 12px/18px var(--mono); }
+.diff-a { color: var(--bad); } .diff-b { color: var(--ok); }
+
+/* Drawer */
+.drawer { position: fixed; z-index: 40; top: var(--bar); right: 0; bottom: 0; width: min(480px, 100vw); background: var(--surface);
+          border-left: 1px solid var(--rule-2); transform: translateX(100%); visibility: hidden;
+          transition: transform .18s ease, visibility 0s .18s; display: flex; flex-direction: column; }
+.drawer.open { transform: none; visibility: visible; transition: transform .18s ease; box-shadow: -24px 0 48px rgb(0 0 0 / .35); }
+.drawer > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--rule); }
+.drawer .body { overflow: auto; flex: 1; }
+.drawer section { padding: 16px; border-bottom: 1px solid var(--rule); }
+.drawer section:last-child { border-bottom: 0; }
+.drawer h2 { margin-bottom: 12px; }
+.step { position: relative; padding-left: 16px; }
+.step::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; background: var(--rule-2); border-radius: 1px; }
+.step.now::before { background: var(--accent); }
+
+/* Dialogs */
+dialog { color: var(--ink); background: var(--surface); border: 1px solid var(--rule-2); border-radius: var(--r); padding: 0; width: min(520px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(5 6 8 / .65); }
+dialog .dhead { padding: 16px 16px 0; } dialog .dbody { padding: 12px 16px 16px; } dialog .dfoot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--rule); }
+#palette { width: min(560px, calc(100vw - 32px)); margin-top: 14vh; }
+#palette input { width: 100%; height: 44px; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 0 16px; font-size: 15px; background: transparent; }
+#palette input:focus-visible { outline: none; }
+#palette ul { list-style: none; margin: 0; padding: 4px; max-height: 320px; overflow: auto; }
+#palette li { display: flex; justify-content: space-between; gap: 12px; align-items: center; height: 32px; padding: 0 12px; border-radius: var(--r); cursor: pointer; }
+#palette li[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+#palette .none { padding: 16px; color: var(--muted); }
+
+/* Charts */
+.chart { position: relative; } .chart svg { display: block; width: 100%; height: auto; }
+.tip { position: absolute; pointer-events: none; background: var(--canvas); border: 1px solid var(--rule-2); border-radius: var(--r);
+       padding: 6px 8px; font-size: 12px; line-height: 16px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); z-index: 2; }
+.strip { display: grid; grid-template-columns: 148px minmax(0, 1fr) 112px 72px; gap: 8px 12px; align-items: center; }
+.track { position: relative; height: 24px; border-bottom: 1px solid var(--rule); }
+.track i { position: absolute; top: 6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--faint); border: 2px solid var(--surface); box-sizing: content-box; }
+.track i.sel { background: var(--accent); }
+.bandbar { position: relative; height: 28px; background: var(--canvas); border: 1px solid var(--rule); border-radius: var(--r); }
+.bandbar b { position: absolute; top: 5px; bottom: 5px; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 2px; }
+.bandbar i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+
+footer.page { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12px; line-height: 16px; max-width: 90ch; }
+
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--rule); }
+                              .grid2 { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; flex-direction: row; overflow-x: auto; padding: 8px; border-right: 0; border-bottom: 1px solid var(--rule); gap: 4px; }
+  .rail a { flex: 0 0 auto; gap: 8px; } .rail .note, .rail kbd { display: none; }
+  main { padding: 16px 16px 48px; } .org, .find span.hint { display: none; } .find { min-width: 0; gap: 8px; }
+  .strip { grid-template-columns: 112px minmax(0, 1fr) 84px; } .strip .delta { display: none; }
+  dl.kv { grid-template-columns: 104px minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .find kbd { display: none; } .find span.hint { display: inline; font-size: 0; } .find span.hint::after { content: "Search"; font-size: 13px; }
+  .kpis { grid-template-columns: minmax(0, 1fr); } .kpi + .kpi, .kpi:nth-child(3) { border-left: 0; border-top: 1px solid var(--rule); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="brand" href="#/overview" aria-label="CarbonX, overview"><span class="mark" aria-hidden="true"></span>CarbonX</a>
+  <span class="org" id="org"></span>
+  <span class="spacer"></span>
+  <button class="find" id="find" type="button" aria-haspopup="dialog" aria-label="Search and commands"><span class="hint">Search or jump to</span><kbd>Ctrl K</kbd></button>
+  <button class="chip" id="chain-chip" type="button" aria-label="Audit chain status"><span class="dot" id="chain-dot"></span><span id="chain-text"></span></button>
+</header>
+<div class="shell">
+  <nav class="rail" aria-label="Sections" id="rail"></nav>
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="drawer-title" aria-hidden="true">
+  <header><div><div class="small muted" id="drawer-kicker"></div><h2 id="drawer-title" tabindex="-1" style="font-size:16px;line-height:24px"></h2></div>
+    <button class="btn quiet" id="drawer-close" type="button" aria-label="Close provenance">Close <kbd>Esc</kbd></button></header>
+  <div class="body" id="drawer-body"></div>
+</aside>
+
+<dialog id="palette" aria-label="Command palette">
+  <input id="palette-input" type="text" placeholder="Search sections, figures and actions" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list">
+  <ul id="palette-list" role="listbox" aria-label="Results"></ul>
+</dialog>
+
+<dialog id="correct" aria-labelledby="correct-title">
+  <form method="dialog" id="correct-form">
+    <div class="dhead"><h2 id="correct-title" style="font-size:16px;line-height:24px">Correct an activity</h2>
+      <p class="muted" style="margin:4px 0 0">On the workbench this closes the old row and writes a new one, with your reason in the audit trail. Here it is a preview: this file has no database, so nothing is stored.</p></div>
+    <div class="dbody stack" id="correct-body"></div>
+    <div class="dfoot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" id="correct-apply" value="apply">Show the effect</button></div>
+  </form>
+</dialog>
+
+<noscript><p style="padding:24px">The console needs JavaScript. It has no server and loads nothing from the network.</p></noscript>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+
+/* ==== PURE LOGIC START ==== (no DOM: tested against the Python engine by tests/test_console.py) */
+const TEN6 = 1000000n, TEN9 = 1000000000n;
+function parseDec(s, places) {                       // "837.43" -> 837430000n at 6 places; no rounding, extra digits are an error
+  const m = /^(-?)(\d+)(?:\.(\d*))?$/.exec(String(s).trim());
+  if (!m) throw new Error("not a decimal number: " + s);
+  const frac = m[3] || "";
+  if (frac.replace(/0+$/, "").length > places) throw new Error("more than " + places + " decimal places: " + s);
+  const v = BigInt(m[2]) * 10n ** BigInt(places) + BigInt((frac + "0".repeat(places)).slice(0, places));
+  return m[1] ? -v : v;
+}
+function formatScaled(v, places) {                   // inverse of parseDec
+  const neg = v < 0n, a = neg ? -v : v, p = 10n ** BigInt(places);
+  return (neg ? "-" : "") + (a / p) + (places ? "." + String(a % p).padStart(places, "0") : "");
+}
+function floorDiv(n, d) { let q = n / d; if (n % d !== 0n && (n < 0n) !== (d < 0n)) q -= 1n; return q; }
+function roundHalfEven(n, d) {                       // d > 0; the rounding the engine uses (Python round on a Fraction)
+  let q = floorDiv(n, d); const twice = 2n * (n - q * d);
+  if (twice > d || (twice === d && q % 2n !== 0n)) q += 1n;
+  return q;
+}
+/* Emissions, exactly as the engine computes them, from the stored quantity and factor. */
+function emissionsScaled(row, quantityStr) {
+  const q = parseDec(quantityStr, 6), f = parseDec(row.factor.value, 9);
+  if (row.type === "grid_electricity") {
+    if (row.unit !== "kWh" || row.factor.unit !== "tCO2/MWh") throw new Error("unsupported units");
+    return roundHalfEven(q * f, 10n ** 12n);          // kWh / 1000 -> MWh, times tCO2/MWh
+  }
+  if (row.unit !== "t" || row.ncv_unit !== "GJ/t" || row.factor.unit !== "tCO2e/TJ") throw new Error("unsupported units");
+  return roundHalfEven(q * parseDec(row.ncv, 6) * parseDec(row.oxidation, 6) * f, 10n ** 24n);   // t x GJ/t / 1000 -> TJ
+}
+async function sha256Hex(text) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+/* Audit sampling by size: the same arithmetic as src/carbonx/sampling/pps.py. */
+function confidenceFactor(conf, errors = 0) {        // Poisson mean with P(X <= errors) = 1 - conf
+  const cdf = (m) => { let t = Math.exp(-m), s = t; for (let k = 1; k <= errors; k++) { t *= m / k; s += t; } return s; };
+  let lo = 0, hi = 10 + 10 * errors;
+  for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (cdf(mid) > 1 - conf) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+function doubleToRational(x) {                       // exact value of a double, as [numerator, denominator]
+  const dv = new DataView(new ArrayBuffer(8)); dv.setFloat64(0, x);
+  const bits = dv.getBigUint64(0), e = Number((bits >> 52n) & 0x7ffn); let m = bits & ((1n << 52n) - 1n);
+  if (e === 0) return [m, 1n << 1074n];
+  m |= 1n << 52n; const x2 = e - 1075;
+  return x2 >= 0 ? [m << BigInt(x2), 1n] : [m, 1n << BigInt(-x2)];
+}
+function intervalFor(totalScaled, pctStr, conf) {    // J = tolerable / factor, floored to six places
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(String(pctStr).trim());
+  if (!m) throw new Error("tolerable misstatement must be a positive number");
+  const pd = 10n ** BigInt((m[2] || "").length), pn = BigInt(m[1] + (m[2] || ""));
+  const [fn, fd] = doubleToRational(confidenceFactor(conf));
+  const j = floorDiv(totalScaled * pn * fd, pd * 100n * fn);
+  if (j <= 0n) throw new Error("the tolerable misstatement is too small to sample against");
+  return j;
+}
+async function seedFraction(seed) { return BigInt("0x" + await sha256Hex(seed)) % TEN9; }
+function selectLines(items, jScaled, h9) {           // items: [{key, value (BigInt, 6dp), reason|null}]
+  items = [...items].sort((a, b) => a.key - b.key);
+  const certain = new Map();
+  for (const it of items) if (it.reason || it.value >= jScaled) certain.set(it.key, it.reason || "at least one sampling interval in size");
+  let point = h9 * jScaled, running = 0n; const step = jScaled * TEN9, sampled = [];
+  for (const it of items) {
+    if (certain.has(it.key)) continue;
+    running += it.value * TEN9;
+    if (point < running) { sampled.push(it.key); point += step; }
+  }
+  return {certain: [...certain].sort((a, b) => a[0] - b[0]), sampled};
+}
+function evaluateSample(results, interval, conf, tolerable) {   // results: [{stratum, book, audited|null}], numbers in tCO2e
+  const tested = results.filter((r) => r.audited !== null);
+  const certain = tested.filter((r) => r.stratum === "certain");
+  const taints = tested.filter((r) => r.stratum === "sampled" && r.book).map((r) => (r.book - r.audited) / r.book);
+  const stringer = (ts) => {
+    ts = ts.filter((t) => t > 0).map((t) => Math.min(t, 1)).sort((a, b) => b - a);
+    let bound = confidenceFactor(conf, 0);
+    ts.forEach((t, i) => { bound += (confidenceFactor(conf, i + 1) - confidenceFactor(conf, i)) * t; });
+    return bound * interval;
+  };
+  const sum = (xs) => xs.reduce((a, b) => a + b, 0);
+  const over = sum(certain.map((r) => Math.max(r.book - r.audited, 0))), under = sum(certain.map((r) => Math.max(r.audited - r.book, 0)));
+  const out = {tested: tested.length, selected: results.length,
+    projected: sum(certain.map((r) => r.book - r.audited)) + interval * sum(taints),
+    upperOver: over + stringer(taints), upperUnder: under + stringer(taints.map((t) => -t))};
+  out.complete = out.tested === out.selected;
+  out.within = out.complete && out.upperOver <= tolerable && out.upperUnder <= tolerable;
+  return out;
+}
+/* ==== PURE LOGIC END ==== */
+
+let DATA = null;
+try { DATA = JSON.parse($("#data").textContent); } catch (e) { DATA = null; }
+if (!DATA) {
+  $("#main").innerHTML = '<div class="notice warn"><strong>This file was opened without its data.</strong> It is a template. Run <code>python scripts/build_console.py</code> to build the console from the sample database.</div>';
+  throw new Error("no data");
+}
+
+const POLICIES = DATA.policies.map((p) => p.code);
+const byId = (id) => DATA.reports.find((r) => r.id === id);
+const latest = (policy) => [...DATA.reports].reverse().find((r) => r.policy === policy);
+const lineOf = (calc) => DATA.ledger.find((r) => r.calc_id === calc);
+const grp = (s) => { const [i, f] = String(s).split("."); return i.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (f ? "." + f : ""); };
+const split = (s) => { const [i, f] = grp(s).split("."); return f === undefined ? esc(i) : esc(i) + "<small>." + esc(f) + "</small>"; };
+const dp = (s, n) => {                               // round a decimal string to n places, half-even, like the engine
+  if (s == null) return "-";
+  const str = String(s), fl = (str.split(".")[1] || "").length, places = Math.max(fl, n), v = parseDec(str, places);
+  return grp(formatScaled(places > n ? roundHalfEven(v, 10n ** BigInt(places - n)) : v, n));
+};
+const pct = (a, b) => { const v = (Number(a) / Number(b) - 1) * 100; return (v > 0 ? "+" : "") + v.toFixed(2) + "%"; };
+const when = (t) => new Date(t).toLocaleString("en-GB", {dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata"}) + " IST";
+const hshort = (h, n = 12) => esc(String(h).slice(0, n));
+const monthOf = (d) => new Date(d + "T00:00:00Z").toLocaleString("en-GB", {month: "short", year: "numeric", timeZone: "UTC"});
+const typeName = (t) => t === "grid_electricity" ? "Grid electricity" : t.startsWith("fuel.") ? t.slice(5).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()) : t;
+const policyTag = (p) => `<span class="mono" style="font-size:12px">${esc(p)}</span>`;
+const hasSubtle = !!(window.crypto && crypto.subtle);
+
+const S = {
+  view: "overview", policy: "VINTAGE_MATCHED", selected: null,
+  ledger: {scope: "all", evidence: "all", q: "", sort: {key: "period", dir: 1}},
+  verified: {}, previews: {},
+  reg: {key: DATA.registry.series[0].key, year: null, ranges: true, hover: null},
+  rep: {a: 2, b: 6, detail: 6, verifyPick: 2},
+  samp: {report: latest("VINTAGE_MATCHED").id, conf: "0.95", tol: String(Number(DATA.sampling.tolerable_pct)), nonce: DATA.sampling.nonce, results: {}, run: null},
+  audit: {events: JSON.parse(JSON.stringify(DATA.audit.window)), pick: null, mode: "contents", result: null, tampered: false},
+};
+S.audit.pick = S.audit.events.find((e) => e.reason)?.id ?? S.audit.events[0].id;
+
+/* ---------- shell ---------- */
+const VIEWS = [["overview", "Overview", ""], ["ledger", "Ledger", String(DATA.ledger.length)], ["reports", "Reports", String(DATA.reports.length)],
+               ["registry", "Factor registry", ""], ["sampling", "Sampling", ""], ["audit", "Audit trail", String(DATA.audit.total_events)]];
+$("#org").textContent = DATA.meta.org;
+$("#rail").innerHTML = VIEWS.map(([id, label, n], i) => `<a href="#/${id}" data-view="${id}">${label}<span class="count">${n}</span></a>`).join("")
+  + `<div class="note">Research prototype. Decision support for accredited verifiers; it does not verify emissions or issue assurance. All plant data is synthetic.</div>`;
+$("#chain-dot").classList.toggle("bad", !DATA.audit.chain_intact);
+$("#chain-text").textContent = DATA.audit.chain_intact ? "Audit chain consistent" : "Audit chain broken";
+$("#chain-chip").onclick = () => go("audit");
+$("#find").onclick = () => openPalette();
+
+function go(view) {                                  // synchronous: callers may act on the rendered view straight away
+  if (location.hash !== "#/" + view) history.pushState(null, "", "#/" + view);
+  route(true);
+}
+function route(focus) {
+  const v = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
+  S.view = VIEWS.some(([id]) => id === v) ? v : "overview";
+  $$("#rail a").forEach((a) => { if (a.dataset.view === S.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  document.title = (VIEWS.find(([id]) => id === S.view)[1]) + " | CarbonX Console";
+  closeDrawer(true); render();
+  if (focus) $("h1", $("#main"))?.focus();
+}
+window.addEventListener("hashchange", () => route(true));
+
+function render() {
+  const view = {overview: renderOverview, ledger: renderLedger, reports: renderReports, registry: renderRegistry, sampling: renderSampling, audit: renderAudit}[S.view];
+  $("#main").innerHTML = `<div class="view">${view()}</div>` + pageFooter();
+  ({overview: bindOverview, ledger: bindLedger, reports: bindReports, registry: bindRegistry, sampling: bindSampling, audit: bindAudit})[S.view]();
+  $$("h1", $("#main")).forEach((h) => h.setAttribute("tabindex", "-1"));
+}
+const pageFooter = () => `<footer class="page">Snapshot generated ${esc(when(DATA.meta.generated_at))} by <code>scripts/build_console.py</code> from the sample database
+  (${esc(DATA.meta.database)}) and the CEA registry (23 versions). Engine <code>${esc(DATA.meta.engine_version)}</code>. This file loads nothing from the network.
+  The organisation, bills and quantities are synthetic. CarbonX is not accredited and issues no assurance opinions.</footer>`;
+
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; } catch { btn.textContent = "Select and copy"; }
+  setTimeout(() => { btn.textContent = "Copy"; }, 1400);
+}
+document.addEventListener("click", (ev) => {
+  const c = ev.target.closest("[data-copy]"); if (c) copyText(c.dataset.copy, c);
+});
+const hashBlock = (h) => `<div class="hash"><span>${esc(h)}</span><button class="copy" type="button" data-copy="${esc(h)}" aria-label="Copy hash">Copy</button></div>`;
+
+/* ---------- overview ---------- */
+function exceptionRows() {
+  return DATA.exceptions.map((e) => `<tr ${e.activity_id ? `data-act="${e.activity_id}" ` : ""}><td><span class="tag ${e.severity === "high" ? "bad" : ""}">${esc(e.severity)}</span></td>
+    <td class="mono small">${esc(e.kind)}</td><td class="wrap">${esc(e.detail)}</td></tr>`).join("");
+}
+function renderOverview() {
+  const rep = latest(S.policy), base = latest("VINTAGE_MATCHED"), docs = DATA.ledger.filter((r) => r.doc).length;
+  const sev = DATA.exceptions.reduce((m, e) => (m[e.severity] = (m[e.severity] || 0) + 1, m), {});
+  const totals = POLICIES.map((p) => ({p, r: latest(p)})), lo = Math.min(...totals.map((t) => +t.r.total)), hi = Math.max(...totals.map((t) => +t.r.total));
+  const a = lo - (hi - lo) * 0.1, b = hi + (hi - lo) * 0.1, at = (v) => ((v - a) / (b - a)) * 100;
+  const picks = DATA.reports.map((r) => `<option value="${r.id}" ${r.id === S.rep.verifyPick ? "selected" : ""}>#${r.id} ${esc(r.policy)}, ${esc(when(r.as_of))}</option>`).join("");
+  return `<div class="head"><div><h1>Overview</h1><p class="lede">${esc(DATA.meta.fy)} for ${esc(DATA.meta.org)}. Scope 1 natural gas and Scope 2 grid electricity, reported under each way of choosing a CEA factor version.</p></div>
+    <div class="seg" role="group" aria-label="Factor resolution policy">${POLICIES.map((p) => `<button type="button" aria-pressed="${p === S.policy}" data-policy="${p}">${esc(p)}</button>`).join("")}</div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Reported emissions, tCO2e</div><div class="v">${split(rep.total)}</div>
+      <div class="d">${S.policy === "VINTAGE_MATCHED" ? `Report #${rep.id}. Scope 1 ${esc(dp(rep.scope1, 1))}, Scope 2 ${esc(dp(rep.scope2, 1))}` : `Report #${rep.id}, ${pct(rep.total, base.total)} against VINTAGE_MATCHED`}</div></div>
+    <div class="kpi"><div class="k">Intensity, ${esc(rep.gei_unit)}</div><div class="v">${split(rep.gei)}</div>
+      <div class="d">${esc(rep.production.quantity ? dp(rep.production.quantity, 1) : "")} ${esc(rep.production.unit)} of ${esc(rep.production.product_code.replace(/_/g, " "))}</div></div>
+    <div class="kpi"><div class="k">Lines with a hashed document</div><div class="v">${esc(DATA.coverage.coverage_pct)}<small>% of tCO2e</small></div>
+      <div class="d">${docs} of ${DATA.ledger.length} lines. Scope 1 gas has none</div></div>
+    <div class="kpi"><div class="k">Open exceptions</div><div class="v">${DATA.exceptions.length}</div>
+      <div class="d">${Object.entries(sev).map(([k, v]) => `${v} ${k}`).join(", ")}</div></div>
+  </div>
+  <div class="grid2">
+    <section class="panel" aria-labelledby="rp-t"><header><h2 id="rp-t">Reproducibility check</h2><span class="tag">re-hashes the stored text</span></header>
+      <div class="pad stack">
+        <p class="muted" style="margin:0;max-width:72ch">A report records the exact text it produced and its SHA-256. Pick one, hash it again in this browser and compare. Then change a single character and see what a different hash looks like.</p>
+        <div class="field"><label for="vpick">Stored report</label><select id="vpick">${picks}</select></div>
+        <div class="row"><button class="btn primary" id="rehash" type="button" ${hasSubtle ? "" : "disabled"}>Re-hash the stored text</button>
+          <button class="btn" id="rehash-alter" type="button" ${hasSubtle ? "" : "disabled"}>Change one digit, then re-hash</button></div>
+        <div id="rehash-out" aria-live="polite"></div>
+        ${hasSubtle ? "" : `<div class="notice warn">This browser exposes no <code>crypto.subtle</code> here, so hashing is unavailable.</div>`}
+      </div></section>
+    <section class="panel" aria-labelledby="ps-t"><header><h2 id="ps-t">One plant, four defensible totals</h2><span class="tag">latest report per policy</span></header>
+      <div class="pad"><div class="strip" role="list">${totals.map(({p, r}) => `<span role="listitem" style="display:contents">
+        <span class="mono small">${esc(p)}</span><div class="track" aria-hidden="true"><i class="${p === S.policy ? "sel" : ""}" style="left:${at(+r.total).toFixed(2)}%"></i></div>
+        <span class="n">${esc(grp(r.total).split(".")[0])}<span class="muted">.${esc(r.total.split(".")[1].slice(0, 2))}</span></span>
+        <span class="n delta ${p === "VINTAGE_MATCHED" ? "muted" : ""}">${p === "VINTAGE_MATCHED" ? "base" : pct(r.total, base.total)}</span></span>`).join("")}</div>
+        <p class="muted small" style="margin:12px 0 0;max-width:72ch">Same meter readings, same plant. The axis does not start at zero. The totals differ only by which CEA version supplies the grid factor. A factor change moves an entity's intensity by its Scope 2 share times the change, so the spread above applies in full only to a plant buying all its energy as electricity.</p></div></section>
+  </div>
+  <section class="panel" style="margin-top:16px" aria-labelledby="ex-t"><header><h2 id="ex-t">Exceptions</h2><span class="small muted">What a verifier should look at. An empty list would not mean the figures are correct.</span></header>
+    <div class="scroll" style="max-height:340px"><table><thead><tr><th>Severity</th><th>Kind</th><th>Detail</th></tr></thead><tbody id="ex-body">${exceptionRows()}</tbody></table></div></section>`;
+}
+function bindOverview() {
+  $$("[data-policy]").forEach((b) => b.onclick = () => { S.policy = b.dataset.policy; render(); $(`[data-policy="${S.policy}"]`)?.focus(); });
+  $("#vpick").onchange = (e) => { S.rep.verifyPick = +e.target.value; $("#rehash-out").innerHTML = ""; };
+  const run = async (alter) => {
+    const rep = byId(S.rep.verifyPick), out = $("#rehash-out");
+    const text = alter ? alterOneDigit(rep.output) : rep.output, computed = await sha256Hex(text), same = computed === rep.sha256;
+    if (!alter) S.verified[rep.id] = same;
+    const at = alter ? text.split("").findIndex((c, i) => c !== rep.output[i]) : -1;
+    out.innerHTML = `<dl class="kv"><dt>Stored</dt><dd class="mono small">${esc(rep.sha256)}</dd><dt>Computed</dt><dd class="mono small ${same ? "ok" : "bad"}">${esc(computed)}</dd>
+      <dt>Text</dt><dd>${rep.output.length.toLocaleString("en-GB")} characters${alter ? `, character ${at + 1} changed from <span class="diff-a mono">${esc(rep.output[at])}</span> to <span class="diff-b mono">${esc(text[at])}</span>` : ""}</dd></dl>
+      <div class="notice ${same ? "good" : "warn"}" style="margin-top:12px">${same ? `<strong>Identical.</strong> Report #${rep.id} is byte for byte what was stored.` : `<strong>Different.</strong> One character moved the hash completely, so any edit to a stored report is visible.`}
+      ${alter ? "" : `<br><span class="muted">This checks the stored text against its hash. Regenerating the report from the database as of its own time is <code>python -m carbonx.engine.report --verify</code>.</span>`}</div>`;
+  };
+  $("#rehash").onclick = () => run(false); $("#rehash-alter").onclick = () => run(true);
+  $("#ex-body").onclick = (ev) => { const r = ev.target.closest("tr[data-act]"); if (r) { const row = DATA.ledger.find((l) => l.activity_id === +r.dataset.act); if (row) openDrawer(row.calc_id); } };
+}
+function alterOneDigit(text) {
+  const i = text.indexOf('"tco2e":"') + 9;
+  return text.slice(0, i) + String((+text[i] + 1) % 10) + text.slice(i + 1);
+}
+
+/* ---------- ledger ---------- */
+function figure(row, policy) {                        // the row's tCO2e under a policy, from its stored attestation
+  const a = row.attestation.find((x) => x.policy === policy);
+  return a && a.tco2e ? a.tco2e : null;
+}
+function ledgerRows() {
+  const L = S.ledger, q = L.q.trim().toLowerCase();
+  let rows = DATA.ledger.filter((r) => (L.scope === "all" || String(r.scope) === L.scope) && (L.evidence === "all" || (L.evidence === "yes") === !!r.doc)
+    && (!q || `${typeName(r.type)} ${monthOf(r.period_start)} ${r.facility}`.toLowerCase().includes(q)));
+  const key = {period: (r) => r.period_start + r.type, type: (r) => typeName(r.type), scope: (r) => r.scope, qty: (r) => +r.quantity, tco2e: (r) => +(figure(r, S.policy) || 0)}[L.sort.key];
+  return rows.sort((x, y) => (key(x) > key(y) ? 1 : key(x) < key(y) ? -1 : 0) * L.sort.dir);
+}
+function renderLedger() {
+  const L = S.ledger, rows = ledgerRows(), sum = rows.reduce((a, r) => a + (figure(r, S.policy) ? parseDec(figure(r, S.policy), 6) : 0n), 0n);
+  const pv = Object.keys(S.previews).length;
+  const th = (key, label, cls = "") => `<th class="${cls}" aria-sort="${L.sort.key === key ? (L.sort.dir === 1 ? "ascending" : "descending") : "none"}"><button class="sortbtn" type="button" data-sort="${key}">${label}</button></th>`;
+  return `<div class="head"><div><h1>Ledger</h1><p class="lede">Every current calculation for ${esc(DATA.meta.fy)}. Select a figure to follow it back to the bill, the factor row and the audit trail.</p></div>
+    <div class="field"><label for="lpolicy">Figures under policy</label><select id="lpolicy">${POLICIES.map((p) => `<option ${p === S.policy ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></div></div>
+  ${pv ? `<div class="notice" style="margin-bottom:12px"><strong>Preview only.</strong> ${pv} correction${pv > 1 ? "s are" : " is"} shown below and nothing is stored. Every stored report is unchanged:
+    <button class="btn quiet" id="reverify" type="button" style="height:22px;padding:0 6px">re-hash them now</button><span id="reverify-out" class="small" aria-live="polite"></span> <button class="btn quiet" id="discard" type="button" style="height:22px;padding:0 6px">Discard previews</button></div>` : ""}
+  <section class="panel" aria-label="Ledger">
+    <div class="tools">
+      <div><label id="l-scope">Scope</label><div class="seg" role="group" aria-labelledby="l-scope">${[["all", "All"], ["1", "Scope 1"], ["2", "Scope 2"]].map(([v, t]) => `<button type="button" aria-pressed="${L.scope === v}" data-scope="${v}">${t}</button>`).join("")}</div></div>
+      <div><label id="l-ev">Evidence</label><div class="seg" role="group" aria-labelledby="l-ev">${[["all", "All"], ["yes", "Has document"], ["no", "No document"]].map(([v, t]) => `<button type="button" aria-pressed="${L.evidence === v}" data-ev="${v}">${t}</button>`).join("")}</div></div>
+      <div class="grow field"><label for="lq">Find</label><input id="lq" type="search" value="${esc(L.q)}" placeholder="Month, activity or facility"></div>
+      <button class="btn quiet" id="lclear" type="button" ${L.scope === "all" && L.evidence === "all" && !L.q ? "disabled" : ""}>Clear filters</button>
+    </div>
+    <div class="scroll" style="max-height:calc(100dvh - 330px);min-height:200px"><table>
+      <thead><tr>${th("period", "Period")}${th("type", "Activity")}${th("scope", "Scope")}${th("qty", "Quantity", "n")}${th("tco2e", "tCO2e", "n")}<th>Evidence</th><th>Status</th></tr></thead>
+      <tbody id="lbody">${rows.length ? rows.map((r) => {
+        const p = S.previews[r.activity_id], f = figure(r, S.policy);
+        return `<tr data-calc="${r.calc_id}" ${S.selected === r.calc_id ? 'aria-current="true"' : ""}>
+          <td><button class="rowlink" type="button" data-calc-btn="${r.calc_id}" aria-label="Open provenance for ${esc(typeName(r.type))}, ${esc(monthOf(r.period_start))}">${esc(monthOf(r.period_start))}</button></td>
+          <td>${esc(typeName(r.type))}</td><td><span class="tag ${r.scope === 1 ? "acc" : ""}">Scope ${r.scope}</span></td>
+          <td class="n">${p ? `<span class="muted" style="text-decoration:line-through">${esc(grp(r.quantity.replace(/\.?0+$/, "")))}</span> ${esc(grp(p.quantity))}` : esc(grp(r.quantity.replace(/\.?0+$/, "")))} <span class="muted">${esc(r.unit)}</span></td>
+          <td class="n" title="${esc(f)}">${p ? `<span class="muted" style="text-decoration:line-through">${esc(dp(f, 3))}</span> <span class="acc">${esc(dp(p.tco2e, 3))}</span>` : esc(dp(f, 3))}</td>
+          <td>${r.doc ? `<span class="ok small">hash ok</span> <span class="mono small muted">${hshort(r.doc.sha256, 8)}</span>` : `<span class="bad small">no document</span>`}</td>
+          <td>${p ? '<span class="tag acc">preview</span>' : r.corrected ? '<span class="tag">corrected</span>' : '<span class="small muted">original</span>'}</td></tr>`; }).join("")
+        : `<tr><td colspan="7"><div class="empty"><strong>No lines match these filters.</strong>Clear them to see all ${DATA.ledger.length} lines.<br><br><button class="btn" id="lclear2" type="button">Clear filters</button></div></td></tr>`}</tbody>
+      <tfoot><tr><td colspan="4">${rows.length} of ${DATA.ledger.length} lines, under ${esc(S.policy)}</td><td class="n" title="Sum of entries each rounded to six places">${esc(dp(formatScaled(sum, 6), 3))}</td><td colspan="2"></td></tr></tfoot>
+    </table></div>
+  </section>`;
+}
+function bindLedger() {
+  const L = S.ledger, again = () => { render(); };
+  $("#lpolicy").onchange = (e) => { S.policy = e.target.value; again(); $("#lpolicy").focus(); };
+  $$("[data-scope]").forEach((b) => b.onclick = () => { L.scope = b.dataset.scope; again(); $(`[data-scope="${L.scope}"]`).focus(); });
+  $$("[data-ev]").forEach((b) => b.onclick = () => { L.evidence = b.dataset.ev; again(); $(`[data-ev="${L.evidence}"]`).focus(); });
+  $("#lq").oninput = (e) => { L.q = e.target.value; const pos = e.target.selectionStart; again(); const i = $("#lq"); i.focus(); i.setSelectionRange(pos, pos); };
+  const clear = () => { L.scope = "all"; L.evidence = "all"; L.q = ""; again(); };
+  $("#lclear").onclick = clear; $("#lclear2")?.addEventListener("click", clear);
+  $$("[data-sort]").forEach((b) => b.onclick = () => { L.sort = {key: b.dataset.sort, dir: L.sort.key === b.dataset.sort ? -L.sort.dir : 1}; again(); $(`[data-sort="${L.sort.key}"]`).focus(); });
+  $("#lbody").onclick = (ev) => { const r = ev.target.closest("tr[data-calc]"); if (r) openDrawer(+r.dataset.calc); };
+  $("#discard")?.addEventListener("click", () => { S.previews = {}; again(); });
+  $("#reverify")?.addEventListener("click", async () => {
+    let ok = 0; for (const r of DATA.reports) if ((S.verified[r.id] = (await sha256Hex(r.output)) === r.sha256)) ok++;
+    $("#reverify-out").innerHTML = ` <span class="${ok === DATA.reports.length ? "ok" : "bad"}">${ok} of ${DATA.reports.length} identical.</span>`;
+  });
+}
+
+/* ---------- provenance drawer ---------- */
+let drawerReturn = null;
+function openDrawer(calc) {
+  const r = lineOf(calc); if (!r) return;
+  S.selected = calc; drawerReturn = document.activeElement;
+  const f = r.factor, d = r.doc, p = S.previews[r.activity_id];
+  $("#drawer-kicker").textContent = `Calculation ${r.calc_id}, ${r.policy}`;
+  $("#drawer-title").textContent = `${typeName(r.type)}, ${monthOf(r.period_start)}`;
+  $("#drawer-body").innerHTML = `
+  <section><h2>Figure</h2><div class="mono" style="font-size:28px;line-height:36px;letter-spacing:-0.03em">${split(r.tco2e)} <span class="muted" style="font-size:14px">tCO2e</span></div>
+    <div class="row" style="margin-top:8px"><span class="tag ${r.corrected ? "" : "ok"}">${r.corrected ? "corrected row" : "original row"}</span><span class="tag">Scope ${r.scope}</span><span class="tag">${esc(r.policy)}</span></div>
+    <div style="margin-top:12px"><button class="btn" id="open-correct" type="button">Correct this activity</button></div></section>
+  <section class="step now"><h2>Activity</h2><dl class="kv"><dt>Facility</dt><dd>${esc(r.facility)}</dd><dt>Quantity</dt><dd class="mono">${esc(grp(r.quantity.replace(/\.?0+$/, "")))} ${esc(r.unit)}${r.ncv ? ` at ${esc(r.ncv.replace(/\.?0+$/, ""))} ${esc(r.ncv_unit)}` : ""}</dd>
+    <dt>Period</dt><dd>${esc(r.period_start)} to ${esc(r.period_end)} <span class="muted">(end exclusive)</span></dd><dt>Recorded</dt><dd>${esc(when(r.recorded_at))}</dd></dl></section>
+  <section class="step ${d ? "now" : ""}"><h2>Evidence</h2>${d ? `<dl class="kv"><dt>File</dt><dd>${esc(d.filename)}</dd><dt>Type</dt><dd>${esc(d.type)}, issued by ${esc(d.issuer)}</dd>
+    <dt>Hash check</dt><dd class="${d.hash_ok ? "ok" : "bad"}">${d.hash_ok ? "the stored file matches its SHA-256" : "MISMATCH or the file is missing"}</dd><dt>SHA-256</dt><dd>${hashBlock(d.sha256)}</dd></dl>`
+    : `<div class="notice warn">No source document. This figure is not traced to evidence, and the exception log says so.</div>`}</section>
+  <section class="step now"><h2>Emission factor</h2><dl class="kv"><dt>Value</dt><dd class="mono">${esc(f.value)} ${esc(f.unit)}</dd><dt>Series</dt><dd><code>${esc(f.key)}</code></dd>
+    <dt>Valid for</dt><dd>${esc(f.valid_from)} to ${esc(f.valid_to)}</dd><dt>Source</dt><dd>${esc(f.publisher)} ${esc(f.dataset)} ${esc(f.version)}, dated ${esc(f.published_on)}</dd>
+    <dt>File</dt><dd><a href="${esc(f.source_url)}" rel="noreferrer noopener" target="_blank">${esc(f.source_url.split("/").pop())}</a></dd><dt>File SHA-256</dt><dd>${hashBlock(f.source_sha256)}</dd></dl></section>
+  <section class="step now"><h2>Calculation</h2><pre>${esc(r.program.trim())}</pre>
+    <p class="muted small" style="margin:8px 0 0">Units are checked before anything runs: kWh times tCO2 per MWh gives tCO2e, and a wrong factor unit is rejected. Engine <code>${esc(r.engine)}</code>.</p></section>
+  <section><h2>The same activity under each policy</h2><div class="scroll"><table><thead><tr><th>Policy</th><th class="n">tCO2e</th><th class="n">vs used</th><th>Factor</th></tr></thead><tbody>
+    ${r.attestation.map((a) => a.unavailable ? `<tr><td class="small">${esc(a.policy)}</td><td colspan="3" class="muted small">${esc(a.unavailable)}</td></tr>`
+      : `<tr><td class="small">${a.used ? `<strong>${esc(a.policy)}</strong>` : esc(a.policy)}</td><td class="n">${esc(dp(a.tco2e, 3))}</td><td class="n">${a.used ? "used" : esc(pct(a.tco2e, r.tco2e))}</td><td class="mono small">${esc(a.version)} ${esc(a.factor_value.slice(0, 7))}</td></tr>`).join("")}
+    </tbody></table></div></section>
+  ${r.history.length ? `<section><h2>Before the correction</h2>${r.history.map((h) => `<dl class="kv"><dt>Row ${h.activity_id}</dt><dd class="mono">${esc(grp(h.quantity.replace(/\.?0+$/, "")))} ${esc(r.unit)}</dd><dt>Closed</dt><dd>${esc(when(h.superseded_at))}</dd></dl>`).join("")}
+    <p class="muted small" style="margin:8px 0 0">Nothing was overwritten. Reports taken before this moment still read the old row.</p></section>` : ""}
+  <section><h2>Audit trail for this figure</h2><div class="scroll"><table><thead><tr><th>Event</th><th>Row</th><th>Action</th><th>Actor</th></tr></thead><tbody>
+    ${r.audit.map((e) => `<tr><td class="n">${e.id}</td><td class="small">${esc(e.table)} ${e.row}</td><td class="small">${esc(e.action)}</td><td class="small wrap">${esc(e.actor || "")}${e.reason ? `<div class="muted">${esc(e.reason)}</div>` : ""}</td></tr>`).join("")}
+    </tbody></table></div></section>`;
+  $("#drawer").classList.add("open"); $("#drawer").setAttribute("aria-hidden", "false");
+  $("#open-correct").onclick = () => openCorrect(r);
+  $$("#lbody tr").forEach((tr) => { if (+tr.dataset.calc === calc) tr.setAttribute("aria-current", "true"); else tr.removeAttribute("aria-current"); });
+  $("#drawer-title").focus();
+}
+function closeDrawer(quiet) {
+  $("#drawer").classList.remove("open"); $("#drawer").setAttribute("aria-hidden", "true");
+  $$("#lbody tr").forEach((tr) => tr.removeAttribute("aria-current")); S.selected = null;
+  if (!quiet && drawerReturn && document.contains(drawerReturn)) drawerReturn.focus(); drawerReturn = null;
+}
+$("#drawer-close").onclick = () => closeDrawer();
+
+/* ---------- correction preview ---------- */
+let correcting = null;
+function openCorrect(row) {
+  correcting = row;
+  let err = "";
+  try { emissionsScaled(row, row.quantity); } catch (e) { err = e.message; }
+  $("#correct-body").innerHTML = `<dl class="kv"><dt>Activity</dt><dd>${esc(typeName(row.type))}, ${esc(monthOf(row.period_start))}</dd><dt>Current</dt><dd class="mono">${esc(grp(row.quantity.replace(/\.?0+$/, "")))} ${esc(row.unit)} gives ${esc(row.tco2e)} tCO2e</dd></dl>
+    ${err ? `<div class="notice warn">A preview is not available for this activity: ${esc(err)}.</div>` : ""}
+    <div class="field"><label for="c-qty">Corrected quantity, ${esc(row.unit)}</label><input id="c-qty" type="text" inputmode="decimal" value="${esc(row.quantity.replace(/\.?0+$/, ""))}" ${err ? "disabled" : ""} required></div>
+    <div class="field"><label for="c-why">Reason</label><textarea id="c-why" rows="2" required placeholder="What you re-read, and from what" ${err ? "disabled" : ""}></textarea>
+      <div class="small muted" style="margin-top:4px">A correction without a reason is refused. It goes into the audit trail.</div></div>
+    <div id="c-out" aria-live="polite" class="small"></div>`;
+  $("#correct-apply").disabled = !!err;
+  $("#correct").showModal();
+  const upd = () => {
+    try {
+      const v = emissionsScaled(row, $("#c-qty").value), now = parseDec(row.tco2e, 6), diff = v - now;
+      $("#c-out").innerHTML = `Would give <strong class="mono">${esc(formatScaled(v, 6))}</strong> tCO2e, <span class="${diff === 0n ? "muted" : diff > 0n ? "bad" : "ok"} mono">${diff > 0n ? "+" : ""}${esc(formatScaled(diff, 6))}</span> against the current figure. Computed with the engine's exact arithmetic.`;
+    } catch (e) { $("#c-out").innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+  };
+  if (!err) { $("#c-qty").oninput = upd; upd(); $("#c-qty").focus(); }
+}
+$("#correct-form").addEventListener("submit", (ev) => {
+  if (ev.submitter?.value !== "apply" || !correcting) return;
+  const why = $("#c-why").value.trim(), q = $("#c-qty").value.trim();
+  if (!why) { ev.preventDefault(); $("#c-out").innerHTML = '<span class="bad">Give a reason: the audit trail records it.</span>'; $("#c-why").focus(); return; }
+  try { S.previews[correcting.activity_id] = {quantity: q, tco2e: formatScaled(emissionsScaled(correcting, q), 6), reason: why}; }
+  catch (e) { ev.preventDefault(); $("#c-out").innerHTML = `<span class="bad">${esc(e.message)}</span>`; return; }
+  closeDrawer(true); if (S.view !== "ledger") go("ledger"); else render();
+});
+
+/* ---------- reports ---------- */
+function bandHTML(rep) {
+  const b = rep.band, lo = +b.low, hi = +b.high, t = +rep.total, pad = Math.max(hi - lo, 1) * 0.6, a = lo - pad, z = hi + pad, at = (v) => ((v - a) / (z - a)) * 100;
+  return `<div class="bandbar" role="img" aria-label="Uncertainty band from ${esc(b.low)} to ${esc(b.high)}, total ${esc(rep.total)}"><b style="left:${at(lo)}%;right:${100 - at(hi)}%"></b><i style="left:${at(t)}%"></i></div>
+    <div class="row small muted" style="justify-content:space-between;margin-top:4px"><span class="mono">${esc(dp(b.low, 1))}</span><span class="mono">${esc(dp(b.high, 1))}</span></div>`;
+}
+function diffHTML(A, B) {
+  const key = (l) => `${l.activity_type}|${l.period[0]}`, ma = new Map(JSON.parse(A.output).lines.map((l) => [key(l), l])), mb = new Map(JSON.parse(B.output).lines.map((l) => [key(l), l]));
+  const rows = [];
+  for (const [k, lb] of mb) { const la = ma.get(k); if (!la) rows.push([k, null, lb]); else if (la.tco2e !== lb.tco2e || la.quantity !== lb.quantity) rows.push([k, la, lb]); }
+  for (const [k, la] of ma) if (!mb.has(k)) rows.push([k, la, null]);
+  if (!rows.length) return `<div class="empty"><strong>No line differs.</strong>These two reports read the same activities and factors.</div>`;
+  return `<div class="scroll"><table><thead><tr><th>Line</th><th class="n">Quantity before</th><th class="n">after</th><th class="n">tCO2e before</th><th class="n">after</th><th class="n">Change</th></tr></thead><tbody>${rows.map(([k, la, lb]) => {
+    const [type, start] = k.split("|"), d = lb && la ? parseDec(lb.tco2e, 6) - parseDec(la.tco2e, 6) : null;
+    return `<tr><td>${esc(typeName(type))}, ${esc(monthOf(start))}</td><td class="n">${la ? esc(grp(la.quantity.replace(/\.?0+$/, ""))) : "-"}</td><td class="n">${lb ? esc(grp(lb.quantity.replace(/\.?0+$/, ""))) : "-"}</td>
+      <td class="n">${la ? esc(dp(la.tco2e, 3)) : "-"}</td><td class="n">${lb ? esc(dp(lb.tco2e, 3)) : "-"}</td><td class="n ${d > 0n ? "bad" : "ok"}">${d === null ? "-" : (d > 0n ? "+" : "") + esc(formatScaled(d, 3))}</td></tr>`; }).join("")}</tbody></table></div>`;
+}
+function renderReports() {
+  const rep = byId(S.rep.detail), opts = (sel) => DATA.reports.map((r) => `<option value="${r.id}" ${r.id === sel ? "selected" : ""}>#${r.id} ${esc(r.policy)}, ${esc(when(r.as_of))}</option>`).join("");
+  return `<div class="head"><div><h1>Reports</h1><p class="lede">Each report is stored as text with its SHA-256. It cannot be changed afterwards, and it can always be checked. The first four were taken before a meter correction, the last four after it.</p></div>
+    <button class="btn primary" id="verify-all" type="button" ${hasSubtle ? "" : "disabled"}>Verify all ${DATA.reports.length}</button></div>
+  <section class="panel" aria-label="Stored reports"><div class="scroll"><table><thead><tr><th>Report</th><th>Factor policy</th><th class="n">tCO2e</th><th class="n">Intensity</th><th>Read as of</th><th>SHA-256</th><th>Check</th></tr></thead><tbody id="rbody">
+    ${DATA.reports.map((r) => `<tr data-open="${r.id}" ${r.id === S.rep.detail ? 'aria-current="true"' : ""}><td><button class="rowlink" type="button" data-open-btn="${r.id}">#${r.id}</button></td><td>${policyTag(r.policy)}${r.baseline_year ? ` <span class="muted small">base ${esc(r.baseline_year)}</span>` : ""}</td>
+      <td class="n">${esc(dp(r.total, 3))}</td><td class="n">${esc(dp(r.gei, 3))} <span class="muted small">${esc(r.gei_unit)}</span></td><td class="small">${esc(when(r.as_of))}</td><td class="mono small">${hshort(r.sha256, 14)}</td>
+      <td id="chk-${r.id}">${S.verified[r.id] === undefined ? '<button class="btn" type="button" data-verify="' + r.id + '" style="height:24px">Verify</button>' : S.verified[r.id] ? '<span class="tag ok">identical</span>' : '<span class="tag bad">MISMATCH</span>'}</td></tr>`).join("")}</tbody></table></div></section>
+  <div class="grid2">
+    <section class="panel" aria-labelledby="det-t"><header><h2 id="det-t">Report #${rep.id} in detail</h2>${policyTag(rep.policy)}</header>
+      <div class="pad stack"><dl class="kv"><dt>Total</dt><dd class="mono">${esc(rep.total)} tCO2e</dd><dt>Scope 1 and 2</dt><dd class="mono">${esc(rep.scope1)} and ${esc(rep.scope2)}</dd>
+        <dt>Intensity</dt><dd class="mono">${esc(rep.gei)} ${esc(rep.gei_unit)}</dd><dt>Lines</dt><dd>${rep.lines} priced, ${rep.unresolved} unresolved</dd><dt>SHA-256</dt><dd>${hashBlock(rep.sha256)}</dd></dl>
+        <div><h3>Uncertainty from published ranges only</h3>${bandHTML(rep)}
+          <p class="muted small" style="margin:8px 0 0;max-width:64ch">Band ${esc(dp(rep.band.low, 1))} to ${esc(dp(rep.band.high, 1))} tCO2e, from IPCC 2006 limits on fuel factors. ${esc(dp(rep.band.unquantified, 1))} tCO2e uses a grid factor with no published range and carries no width: it is a point estimate, not a claim of certainty. Lines that share a factor move together, so their ranges add.</p></div>
+        <div class="row"><button class="btn" id="dl" type="button">Download canonical JSON</button></div></div></section>
+    <section class="panel" aria-labelledby="cmp-t"><header><h2 id="cmp-t">What changed between two reports</h2></header>
+      <div class="pad stack"><div class="row"><div class="field" style="flex:1"><label for="cmp-a">Before</label><select id="cmp-a">${opts(S.rep.a)}</select></div><div class="field" style="flex:1"><label for="cmp-b">After</label><select id="cmp-b">${opts(S.rep.b)}</select></div></div>
+        <div id="cmp-out">${diffHTML(byId(S.rep.a), byId(S.rep.b))}</div></div></section>
+  </div>`;
+}
+async function verifyOne(id) { const r = byId(id); S.verified[id] = (await sha256Hex(r.output)) === r.sha256; return S.verified[id]; }
+function bindReports() {
+  $("#verify-all").onclick = async () => { for (const r of DATA.reports) await verifyOne(r.id); render(); $("#verify-all")?.focus(); };
+  $("#rbody").onclick = async (ev) => {
+    const v = ev.target.closest("[data-verify]"); if (v) { await verifyOne(+v.dataset.verify); render(); return; }
+    const r = ev.target.closest("tr[data-open]"); if (r) { S.rep.detail = +r.dataset.open; render(); $(`[data-open-btn="${S.rep.detail}"]`)?.focus(); }
+  };
+  $("#cmp-a").onchange = (e) => { S.rep.a = +e.target.value; $("#cmp-out").innerHTML = diffHTML(byId(S.rep.a), byId(S.rep.b)); };
+  $("#cmp-b").onchange = (e) => { S.rep.b = +e.target.value; $("#cmp-out").innerHTML = diffHTML(byId(S.rep.a), byId(S.rep.b)); };
+  $("#dl").onclick = () => { const r = byId(S.rep.detail), a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([r.output], {type: "application/json"})); a.download = `carbonx-report-${r.id}.json`; a.click(); URL.revokeObjectURL(a.href); };
+}
+
+/* ---------- factor registry ---------- */
+function regRows(ser) {
+  const by = new Map(); for (const [fy, ver, val] of ser.points) { if (!by.has(fy)) by.set(fy, []); by.get(fy).push({ver, val}); }
+  return [...by.keys()].sort().map((fy) => { const v = by.get(fy), vals = v.map((x) => x.val);
+    return {fy, v, first: v[0], latest: v[v.length - 1], min: Math.min(...vals), max: Math.max(...vals)}; });
+}
+const verDate = (label) => DATA.registry.versions.find((v) => v.label === label)?.stated_date ?? "";
+function renderRegistry() {
+  const ser = DATA.registry.series.find((s) => s.key === S.reg.key), rows = regRows(ser), sel = rows.find((r) => r.fy === S.reg.year);
+  const W = 760, H = 300, L = 54, R = 16, T = 16, B = 34, vals = rows.flatMap((r) => [r.min, r.max]);
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.08 || 0.01; lo -= pad; hi += pad;
+  const x = (i) => L + (rows.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (rows.length - 1)), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const step = [0.01, 0.02, 0.05, 0.1].find((s) => (hi - lo) / s <= 7) || 0.1, ticks = []; for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) ticks.push(t);
+  const every = Math.ceil(rows.length / 9);
+  const late = rows.findIndex((r) => r.fy === "FY2025-26");
+  S.reg.geom = {rows, x, y, W, H};
+  const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(ser.label)}: latest published factor by financial year, ${rows[0].fy} to ${rows[rows.length - 1].fy}. The table below lists the same values."><g>
+    ${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" stroke="var(--rule)"/><text x="${L - 8}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">${t.toFixed(2)}</text>`).join("")}
+    ${rows.map((r, i) => i === rows.length - 1 || (i % every === 0 && rows.length - 1 - i >= every) ? `<text x="${x(i).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">${esc(r.fy.slice(2))}</text>` : "").join("")}
+    ${S.reg.ranges ? rows.map((r, i) => r.max > r.min ? `<line x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${y(r.max).toFixed(1)}" y2="${y(r.min).toFixed(1)}" stroke="var(--faint)" stroke-width="3" stroke-linecap="round"/>` : "").join("") : ""}
+    <polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" points="${rows.map((r, i) => `${x(i).toFixed(1)},${y(r.latest.val).toFixed(1)}`).join(" ")}"/>
+    ${rows.map((r, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(r.latest.val).toFixed(1)}" r="${r.fy === S.reg.year ? 5 : 2.5}" fill="${r.fy === S.reg.year ? "var(--ink)" : "var(--accent)"}" stroke="var(--surface)" stroke-width="2"/>`).join("")}
+    ${late >= 0 && ser.used ? `<line x1="${x(late).toFixed(1)}" x2="${x(late).toFixed(1)}" y1="${T}" y2="${H - B}" stroke="var(--bad)" stroke-dasharray="3 3"/><text x="${(x(late) - 8).toFixed(1)}" y="${T + 10}" text-anchor="end" font-size="11" fill="var(--bad)">first published after the 31 Jul 2026 deadline</text>` : ""}
+    <line id="xhair" y1="${T}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="2 3" visibility="hidden"/>
+    <rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" style="cursor:crosshair"/></g></svg><div class="tip" id="tip" hidden></div>`;
+  return `<div class="head"><div><h1>Factor registry</h1><p class="lede">Every all-India grid factor CEA has published, by financial year and database version. Each value traces to a workbook cell and a file hash.</p></div></div>
+  <section class="panel" aria-label="Series chart"><div class="tools"><div class="field" style="flex:1;min-width:260px"><label for="rseries">Series</label><select id="rseries">${DATA.registry.series.map((s) => `<option value="${esc(s.key)}" ${s.key === S.reg.key ? "selected" : ""}>${esc(s.label)}${s.used ? " (used by CarbonX)" : ""}</option>`).join("")}</select></div>
+      <label style="display:flex;gap:8px;align-items:center;margin:0 0 6px;color:var(--ink);font-size:13px"><input type="checkbox" id="rranges" ${S.reg.ranges ? "checked" : ""} style="height:auto"> Show the spread across versions</label></div>
+    <div class="pad"><div class="chart">${svg}</div>
+      <div class="legend" style="margin-top:8px"><span>Line: the latest published value of each year, tCO2/MWh.</span><span>Grey bar: the range of values the year took across versions.</span></div>
+      <p class="muted small" style="margin:8px 0 0;max-width:80ch">CEA reports CO2, not CO2e. A change in this factor moves an entity's emission intensity by its Scope 2 share of the target basis times the change, not by the change itself.</p></div></section>
+  <div class="grid2"><section class="panel" aria-labelledby="yrs-t"><header><h2 id="yrs-t">By financial year</h2><span class="small muted">${rows.length} years</span></header>
+      <div class="scroll" style="max-height:420px"><table><thead><tr><th>Year</th><th class="n">First published</th><th class="n">Latest</th><th class="n">Revised by</th></tr></thead><tbody id="ybody">
+      ${rows.slice().reverse().map((r) => `<tr data-fy="${r.fy}" ${r.fy === S.reg.year ? 'aria-current="true"' : ""}><td><button class="rowlink" type="button" data-fy-btn="${r.fy}">${esc(r.fy)}</button></td>
+        <td class="n">${r.first.val.toFixed(4)} <span class="muted small">${esc(r.first.ver)}</span></td><td class="n">${r.latest.val.toFixed(4)} <span class="muted small">${esc(r.latest.ver)}</span></td>
+        <td class="n">${r.v.length > 1 ? pct(r.latest.val, r.first.val) : '<span class="muted small">one version</span>'}</td></tr>`).join("")}</tbody></table></div></section>
+    <section class="panel" aria-labelledby="his-t" aria-live="polite"><header><h2 id="his-t">${sel ? `Version history, ${esc(sel.fy)}` : "Version history"}</h2></header>
+      ${sel ? `<div class="scroll"><table><thead><tr><th>Version</th><th>Dated</th><th class="n">Value</th><th class="n">vs first</th></tr></thead><tbody>${sel.v.map((v, i) => `<tr><td>${esc(v.ver)}</td><td class="small">${esc(verDate(v.ver))}</td><td class="n">${v.val.toFixed(6)}</td><td class="n">${i ? esc(pct(v.val, sel.first.val)) : '<span class="muted">first</span>'}</td></tr>`).join("")}</tbody></table></div>
+        <p class="muted small pad" style="margin:0">Dates are the dates written in each workbook, not publication dates.</p>`
+        : `<div class="empty"><strong>Select a year.</strong>See every version that published it, and how far each moved the value.</div>`}</section></div>`;
+}
+function bindRegistry() {
+  const R = () => { render(); };
+  $("#rseries").onchange = (e) => { S.reg.key = e.target.value; S.reg.year = null; R(); $("#rseries").focus(); };
+  $("#rranges").onchange = (e) => { S.reg.ranges = e.target.checked; R(); $("#rranges").focus(); };
+  $("#ybody").onclick = (ev) => { const r = ev.target.closest("tr[data-fy]"); if (r) { S.reg.year = r.dataset.fy; R(); $(`[data-fy-btn="${S.reg.year}"]`)?.focus(); } };
+  const hit = $("#hit"), tip = $("#tip"), xh = $("#xhair"), g = S.reg.geom, svg = hit.ownerSVGElement;
+  const near = (ev) => { const b = svg.getBoundingClientRect(), px = ((ev.clientX - b.left) / b.width) * g.W; let bi = 0, bd = 1e9;
+    g.rows.forEach((_, i) => { const d = Math.abs(g.x(i) - px); if (d < bd) { bd = d; bi = i; } }); return bi; };
+  hit.onpointermove = (ev) => { const i = near(ev), r = g.rows[i], b = svg.getBoundingClientRect();
+    xh.setAttribute("x1", g.x(i)); xh.setAttribute("x2", g.x(i)); xh.setAttribute("visibility", "visible");
+    tip.hidden = false; tip.style.left = (g.x(i) / g.W) * b.width + "px"; tip.style.top = (g.y(r.latest.val) / g.H) * b.height + "px";
+    tip.innerHTML = `<strong>${esc(r.fy)}</strong> <span class="mono">${r.latest.val.toFixed(4)}</span><br><span class="muted">${esc(r.latest.ver)}${r.v.length > 1 ? `, ${r.v.length} versions` : ""}</span>`; };
+  hit.onpointerleave = () => { tip.hidden = true; xh.setAttribute("visibility", "hidden"); };
+  hit.onclick = (ev) => { S.reg.year = g.rows[near(ev)].fy; R(); };
+}
+
+/* ---------- sampling ---------- */
+async function drawSample() {
+  const s = S.samp, rep = byId(s.report), lines = JSON.parse(rep.output).lines;
+  const items = lines.map((l) => ({key: l.activity_id, value: parseDec(l.tco2e, 6), reason: l.document_sha256 ? null : "no source document", line: l}));
+  const total = items.reduce((a, i) => a + i.value, 0n);
+  try {
+    const j = intervalFor(total, s.tol, Number(s.conf)), h9 = await seedFraction(`${rep.sha256}:${s.nonce}`), sel = selectLines(items, j, h9);
+    s.run = {rep, items, total, j, sel, seed: `${rep.sha256}:${s.nonce}`, error: null};
+  } catch (e) { s.run = {error: e.message}; }
+}
+function parity() {
+  const s = S.samp, ref = DATA.sampling, r = s.run;
+  if (!r || r.error || s.report !== ref.report_id || Number(s.conf) !== Number(ref.confidence) || Number(s.tol) !== Number(ref.tolerable_pct) || s.nonce !== ref.nonce) return null;
+  const mine = new Set([...r.sel.certain.map(([k]) => k + ":certain"), ...r.sel.sampled.map((k) => k + ":sampled")]), theirs = new Set(ref.items.map((i) => i.activity_id + ":" + i.stratum));
+  return mine.size === theirs.size && [...mine].every((k) => theirs.has(k)) && formatScaled(r.j, 6) === ref.interval;
+}
+function renderSampling() {
+  const s = S.samp, r = s.run;
+  const head = `<div class="head"><div><h1>Sampling</h1><p class="lede">Which lines of a stored report to test, picked in proportion to their tonnes, so that what the sample shows can be projected to the whole report. The pick is fixed by the report's hash, so anyone can re-derive it.</p></div></div>
+  <section class="panel" aria-label="Sample settings"><div class="tools">
+    <div class="field" style="min-width:230px"><label for="sreport">Report</label><select id="sreport">${DATA.reports.map((x) => `<option value="${x.id}" ${x.id === s.report ? "selected" : ""}>#${x.id} ${esc(x.policy)}, ${esc(dp(x.total, 1))} tCO2e</option>`).join("")}</select></div>
+    <div class="field" style="width:104px"><label for="sconf">Confidence</label><select id="sconf">${["0.90", "0.95", "0.99"].map((c) => `<option value="${c}" ${Number(c) === Number(s.conf) ? "selected" : ""}>${Math.round(c * 100)}%</option>`).join("")}</select></div>
+    <div class="field" style="width:150px"><label for="stol">Tolerable misstatement, %</label><input id="stol" type="text" inputmode="decimal" value="${esc(s.tol)}"></div>
+    <div class="field" style="width:140px"><label for="snonce">Seed suffix</label><input id="snonce" type="text" value="${esc(s.nonce)}"></div>
+    <button class="btn primary" id="sdraw" type="button" ${hasSubtle ? "" : "disabled"}>Draw</button></div>
+    <div class="pad small muted" style="max-width:96ch">The tolerable misstatement sets how big a gap between sampled lines the verifier can afford: the larger it is, the fewer lines need testing. The 5% used elsewhere in this project would test every line of this small report, which is the honest answer for a plant with 24 lines. The tolerance that applies under CCTS comes from BEE's verification rules, which this project has not read.</div></section>`;
+  if (!r) return head + `<div class="empty"><strong>Drawing...</strong></div>`;
+  if (r.error) return head + `<div class="notice warn" style="margin-top:16px">${esc(r.error)}</div>`;
+  const nCert = r.sel.certain.length, nSamp = r.sel.sampled.length, par = parity(), meta = new Map(r.items.map((i) => [i.key, i])), tests = [...r.sel.certain.map(([k, why]) => [k, "certain", why]), ...r.sel.sampled.map((k) => [k, "sampled", "hit by the sampling interval"])];
+  const done = tests.filter(([k]) => s.results[k]).length;
+  const ev = done === tests.length && tests.length ? evaluateSample(tests.map(([k, st]) => ({stratum: st, book: Number(formatScaled(meta.get(k).value, 6)), audited: Number(s.results[k].audited)})), Number(formatScaled(r.j, 6)), Number(s.conf), Number(formatScaled(r.total, 6)) * Number(s.tol) / 100) : null;
+  return head + `<div class="kpis" style="margin-top:16px"><div class="kpi"><div class="k">Population, tCO2e</div><div class="v" style="font-size:22px">${split(formatScaled(r.total, 6))}</div><div class="d">${r.items.length} priced lines</div></div>
+    <div class="kpi"><div class="k">Sampling interval, tCO2e</div><div class="v" style="font-size:22px">${split(formatScaled(r.j, 6))}</div><div class="d">tolerable / ${confidenceFactor(Number(s.conf)).toFixed(3)}</div></div>
+    <div class="kpi"><div class="k">Lines to test</div><div class="v" style="font-size:22px">${tests.length}</div><div class="d">${nCert} certain, ${nSamp} sampled</div></div>
+    <div class="kpi"><div class="k">Same as the stored sample</div><div class="v" style="font-size:22px">${par === null ? "-" : par ? '<span class="ok">yes</span>' : '<span class="bad">NO</span>'}</div>
+      <div class="d">${par === null ? "no stored sample for these settings" : `sample #${DATA.sampling.sample_id}, drawn by the database`}</div></div></div>
+  ${par === true ? `<div class="notice good" style="margin-top:16px"><strong>This browser reached the same selection as the database.</strong> The Python engine stored sample #${DATA.sampling.sample_id}; this page drew it again with its own exact arithmetic from the report's hash and got the same ${tests.length} lines at the same interval.</div>` : ""}
+  ${par === false ? `<div class="notice warn" style="margin-top:16px"><strong>This draw differs from the stored sample.</strong> The two implementations disagree; do not rely on this page.</div>` : ""}
+  ${!nSamp ? `<div class="notice" style="margin-top:16px"><strong>Every line is to be tested.</strong> Each one has no source document or is at least one sampling interval in size. Raise the tolerable misstatement to see sampling save work.</div>` : ""}
+  <section class="panel" style="margin-top:16px" aria-labelledby="st-t"><header><h2 id="st-t">Lines to test</h2><span class="small muted" aria-live="polite">${done} of ${tests.length} recorded</span></header>
+    <div class="scroll" style="max-height:440px"><table><thead><tr><th>Why</th><th>Line</th><th class="n">Reported, tCO2e</th><th>Audited, tCO2e</th><th>What was checked</th><th></th></tr></thead><tbody>
+    ${tests.map(([k, st, why]) => { const m = meta.get(k), l = m.line, res = s.results[k], book = formatScaled(m.value, 6);
+      return `<tr><td class="small">${st === "certain" ? '<span class="tag">certain</span> ' : ""}${esc(why)}</td><td>${esc(typeName(l.activity_type))}, ${esc(monthOf(l.period[0]))}</td><td class="n">${esc(dp(book, 3))}</td>
+      ${res ? `<td class="n ${Number(res.audited) === Number(book) ? "" : "bad"}">${esc(res.audited)}</td><td class="small wrap">${esc(res.note)}</td><td><button class="btn quiet" type="button" data-undo="${k}" style="height:24px">Undo</button></td>`
+        : `<td><input id="a-${k}" type="text" inputmode="decimal" aria-label="Audited tCO2e for line ${k}" style="width:120px" class="n"></td><td><input id="f-${k}" type="text" aria-label="What was checked for line ${k}" style="width:100%;min-width:150px"></td>
+        <td style="white-space:nowrap"><button class="btn" type="button" data-agree="${k}" data-book="${esc(book)}" style="height:24px">Agrees</button> <button class="btn primary" type="button" data-save="${k}" style="height:24px">Save</button></td>`}</tr>`; }).join("")}</tbody></table></div></section>
+  <section class="panel" style="margin-top:16px" aria-labelledby="ev-t"><header><h2 id="ev-t">What the sample shows</h2></header><div class="pad" aria-live="polite">
+    ${ev ? `<dl class="kv"><dt>Projected</dt><dd class="mono">${esc(ev.projected.toFixed(6))} tCO2e</dd><dt>Upper limit</dt><dd>overstatement up to <strong class="mono">${(ev.upperOver).toFixed(3)}</strong> tCO2e, understatement up to <strong class="mono">${(ev.upperUnder).toFixed(3)}</strong>, at ${Math.round(s.conf * 100)}%</dd>
+      <dt>Against tolerable</dt><dd>${ev.within ? '<span class="ok">both limits are within it</span>' : '<span class="bad">a limit exceeds it</span>'} (${esc(dp(String(Number(formatScaled(r.total, 6)) * Number(s.tol) / 100), 3))} tCO2e)</dd></dl>`
+      : `<p class="muted" style="margin:0">Shown once every line above has a result. <button class="btn" type="button" id="agree-all">Record "agrees" for every line</button></p>`}
+    <p class="muted small" style="margin:12px 0 0;max-width:80ch">This is arithmetic on what you enter here, which this file does not store. It reaches no conclusion about the report: that is the accredited verifier's judgement. Understatements are this method's weak side, and completeness (sources missing from the report altogether) needs a different test.</p></div></section>`;
+}
+function bindSampling() {
+  const s = S.samp;
+  const redraw = async (id) => {
+    const keep = document.activeElement?.id === id; s.results = {}; await drawSample(); render();
+    if (keep) { const el = $("#" + id); el?.focus(); if (el?.type === "text") el.setSelectionRange(el.value.length, el.value.length); }
+  };
+  $("#sreport").onchange = (e) => { s.report = +e.target.value; redraw("sreport"); };
+  $("#sconf").onchange = (e) => { s.conf = e.target.value; redraw("sconf"); };
+  $("#stol").onchange = (e) => { s.tol = e.target.value.trim(); redraw("stol"); };
+  $("#snonce").onchange = (e) => { s.nonce = e.target.value; redraw("snonce"); };
+  $("#sdraw").onclick = () => redraw("sdraw");
+  $$("[data-agree]").forEach((b) => b.onclick = () => { $(`#a-${b.dataset.agree}`).value = b.dataset.book.replace(/0+$/, "").replace(/\.$/, ""); if (!$(`#f-${b.dataset.agree}`).value) $(`#f-${b.dataset.agree}`).value = "agrees with the source document"; });
+  $$("[data-save]").forEach((b) => b.onclick = () => { const k = b.dataset.save, a = $(`#a-${k}`).value.trim(), f = $(`#f-${k}`).value.trim();
+    if (!/^\d+(\.\d+)?$/.test(a) || !f) { alert("Enter the audited figure and what was checked."); return; } s.results[k] = {audited: a, note: f}; render(); });
+  $$("[data-undo]").forEach((b) => b.onclick = () => { delete s.results[b.dataset.undo]; render(); });
+  $("#agree-all")?.addEventListener("click", () => { const r = s.run; const all = [...r.sel.certain.map(([k]) => k), ...r.sel.sampled];
+    for (const k of all) s.results[k] = {audited: formatScaled(r.items.find((i) => i.key === k).value, 6), note: "agrees with the source document"}; render(); });
+}
+
+/* ---------- audit trail ---------- */
+function tamperText(payload, reason) {
+  if (reason && payload.includes(reason)) return payload.replace(reason, "routine re-read");
+  return payload.replace(/(\d)Z$/, (m, d) => ((+d + 1) % 10) + "Z");
+}
+async function verifyChain() {
+  const ev = S.audit.events, res = []; let first = null;
+  for (let i = 0; i < ev.length; i++) {
+    const computed = await sha256Hex(ev[i].payload), hashOk = computed === ev[i].hash, linkOk = i === 0 ? null : ev[i].prev === ev[i - 1].hash;
+    res.push({hashOk, linkOk}); if (!first && (!hashOk || linkOk === false)) first = {id: ev[i].id, why: !hashOk ? "event_hash does not match its contents" : "prev_hash does not match the event before it"};
+  }
+  S.audit.result = {res, first};
+}
+function renderAudit() {
+  const A = S.audit, r = A.result, a = DATA.audit.anchors, last = A.events[A.events.length - 1];
+  const pick = A.events.find((e) => e.id === A.pick);
+  return `<div class="head"><div><h1>Audit trail</h1><p class="lede">Every change to an audited table is an event, written by the database itself, and each event's hash includes the hash of the one before it. Below is the part of the chain from the meter correction to the four new reports.</p></div>
+    <button class="btn primary" id="vchain" type="button" ${hasSubtle ? "" : "disabled"}>Verify the chain</button></div>
+  <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="kpi"><div class="k">Events in the database</div><div class="v">${DATA.audit.total_events.toLocaleString("en-GB")}</div><div class="d">${esc(DATA.audit.chain_intact ? "chain consistent when this file was built" : "chain broken when this file was built")}</div></div>
+    <div class="kpi"><div class="k">Shown here</div><div class="v">${A.events.length}</div><div class="d">events ${A.events[0].id} to ${last.id}</div></div>
+    <div class="kpi"><div class="k">Anchors outside the database</div><div class="v">${a.count}</div><div class="d">${a.count ? (a.problems.length ? `<span class="bad">${a.problems.length} mismatch</span>` : "all match") : "none recorded yet"}</div></div></div>
+  <section class="panel" style="margin-top:16px" aria-label="Audit events"><div class="scroll"><table><thead><tr><th class="n">Event</th><th>Row</th><th>Action</th><th>Actor and reason</th><th>When</th><th>prev_hash</th><th>event_hash</th><th>Check</th></tr></thead><tbody>
+    ${A.events.map((e, i) => { const c = r?.res[i], bad = c && (!c.hashOk || c.linkOk === false);
+      return `<tr ${bad ? 'style="background:var(--bad-soft)"' : ""}><td class="n">${e.id}</td><td class="small">${esc(e.table)} ${e.row}</td><td class="small">${esc(e.action)}</td><td class="small wrap" style="min-width:200px">${esc(e.actor || "-")}${e.reason ? `<div class="muted">${esc(e.reason)}</div>` : ""}</td>
+      <td class="small">${esc(when(e.at))}</td><td class="mono small ${c && c.linkOk === false ? "bad" : ""}">${i === 0 ? '<span class="muted">window start</span>' : hshort(e.prev, 10)}</td><td class="mono small ${c && !c.hashOk ? "bad" : ""}">${hshort(e.hash, 10)}</td>
+      <td class="small">${!c ? '<span class="muted">not checked</span>' : bad ? `<span class="bad">${!c.hashOk ? "contents changed" : "link broken"}</span>` : '<span class="ok">ok</span>'}</td></tr>`; }).join("")}</tbody></table></div></section>
+  ${r ? `<div class="notice ${r.first ? "warn" : "good"}" style="margin-top:16px" aria-live="polite">${r.first ? `<strong>The chain breaks at event ${r.first.id}:</strong> ${esc(r.first.why)}.` : `<strong>The chain is intact.</strong> Each of the ${A.events.length} events hashes to its stored hash, and each links to the one before.`}</div>` : ""}
+  <section class="panel" style="margin-top:16px" aria-labelledby="tp-t"><header><h2 id="tp-t">Try to rewrite history</h2>${A.tampered ? '<span class="tag bad">history rewritten in this page</span>' : ""}</header>
+    <div class="pad stack"><p class="muted" style="margin:0;max-width:80ch">Edit one event in this page's copy of the chain, then verify. Editing the contents breaks that event's own hash. A database owner could also recompute the hash, which moves the break to the next event. They would have to rewrite every later event too, and then nothing inside the chain would show it: only a hash kept outside the database can.</p>
+      <div class="row"><div class="field" style="min-width:260px;flex:1"><label for="tpick">Event to edit</label><select id="tpick">${A.events.map((e) => `<option value="${e.id}" ${e.id === A.pick ? "selected" : ""}>${e.id}: ${esc(e.table)} ${esc(e.action)}${e.reason ? ", with a reason" : ""}</option>`).join("")}</select></div>
+        <div><label id="tm">What the attacker does</label><div class="seg" role="group" aria-labelledby="tm"><button type="button" aria-pressed="${A.mode === "contents"}" data-mode="contents">Edit contents</button><button type="button" aria-pressed="${A.mode === "recompute"}" data-mode="recompute">Edit and recompute its hash</button></div></div>
+        <button class="btn" id="tdo" type="button" ${hasSubtle ? "" : "disabled"}>Rewrite it</button><button class="btn quiet" id="treset" type="button" ${A.tampered ? "" : "disabled"}>Restore</button></div>
+      ${A.tampered && A.mode === "recompute" && pick && pick.id === last.id ? `<div class="notice warn"><strong>This is the newest event.</strong> No later event records its hash, so recomputing it leaves a chain that verifies. Only an anchor kept outside the database would catch this.</div>` : ""}
+      <p class="small muted" style="margin:0">Anchors: ${a.count ? `${a.count} on file.` : "none recorded."} <code>python -m carbonx.evidence.anchor record</code> copies the chain's latest hash to a file; kept somewhere the database owner cannot reach, it makes this attack visible.</p></div></section>`;
+}
+function bindAudit() {
+  const A = S.audit;
+  $("#vchain").onclick = async () => { await verifyChain(); render(); $("#vchain")?.focus(); };
+  $("#tpick").onchange = (e) => { A.pick = +e.target.value; };
+  $$("[data-mode]").forEach((b) => b.onclick = () => { A.mode = b.dataset.mode; render(); $(`[data-mode="${A.mode}"]`).focus(); });
+  $("#tdo").onclick = async () => {
+    A.events = JSON.parse(JSON.stringify(DATA.audit.window));
+    const i = A.events.findIndex((e) => e.id === A.pick), ev = A.events[i], orig = DATA.audit.window[i];
+    ev.payload = tamperText(orig.payload, orig.reason); if (A.mode === "recompute") ev.hash = await sha256Hex(ev.payload);
+    A.tampered = true; await verifyChain(); render(); $("#tdo")?.focus();
+  };
+  $("#treset").onclick = () => { A.events = JSON.parse(JSON.stringify(DATA.audit.window)); A.tampered = false; A.result = null; render(); };
+}
+
+/* ---------- command palette ---------- */
+const palette = $("#palette"), pInput = $("#palette-input"), pList = $("#palette-list");
+let pItems = [], pSel = 0;
+const COMMANDS = () => [
+  ...VIEWS.map(([id, label], i) => ({label: `Go to ${label}`, hint: String(i + 1), run: () => go(id)})),
+  {label: "Ledger: Scope 1 only", run: () => { S.ledger.scope = "1"; go("ledger"); }},
+  {label: "Ledger: lines with no document", run: () => { S.ledger.evidence = "no"; go("ledger"); }},
+  {label: "Reports: verify all stored reports", run: async () => { for (const r of DATA.reports) await verifyOne(r.id); go("reports"); }},
+  {label: "Sampling: draw at the stored settings", run: async () => { await drawSample(); go("sampling"); }},
+  {label: "Audit trail: verify the chain", run: async () => { await verifyChain(); go("audit"); }},
+  {label: "Registry: the series CarbonX calculates with", run: () => { S.reg.key = DATA.registry.series.find((x) => x.used).key; S.reg.year = null; go("registry"); }},
+  ...DATA.ledger.map((r) => ({label: `Open ${typeName(r.type)}, ${monthOf(r.period_start)}`, hint: dp(r.tco2e, 1) + " t", run: () => { go("ledger"); openDrawer(r.calc_id); }})),
+];
+function pFilter() {
+  const q = pInput.value.trim().toLowerCase();
+  pItems = COMMANDS().filter((c) => !q || q.split(/\s+/).every((w) => c.label.toLowerCase().includes(w))).slice(0, 40); pSel = 0; pPaint();
+}
+function pPaint() {
+  pList.innerHTML = pItems.length ? pItems.map((c, i) => `<li role="option" id="po-${i}" aria-selected="${i === pSel}" data-i="${i}"><span>${esc(c.label)}</span>${c.hint ? `<kbd>${esc(c.hint)}</kbd>` : ""}</li>`).join("") : `<li class="none">Nothing matches that.</li>`;
+  pInput.setAttribute("aria-activedescendant", pItems.length ? `po-${pSel}` : ""); $(`#po-${pSel}`)?.scrollIntoView({block: "nearest"});
+}
+function openPalette() { pInput.value = ""; pFilter(); palette.showModal(); pInput.focus(); }
+pInput.oninput = pFilter;
+pInput.onkeydown = (e) => {
+  if (e.key === "ArrowDown") { e.preventDefault(); pSel = Math.min(pSel + 1, pItems.length - 1); pPaint(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); pSel = Math.max(pSel - 1, 0); pPaint(); }
+  else if (e.key === "Enter" && pItems[pSel]) { e.preventDefault(); const c = pItems[pSel]; palette.close(); c.run(); }
+};
+pList.onclick = (e) => { const li = e.target.closest("li[data-i]"); if (li) { const c = pItems[+li.dataset.i]; palette.close(); c.run(); } };
+palette.addEventListener("click", (e) => { if (e.target === palette) palette.close(); });
+
+document.addEventListener("keydown", (e) => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); palette.open ? palette.close() : openPalette(); return; }
+  if (e.key === "Escape" && $("#drawer").classList.contains("open") && !document.querySelector("dialog[open]")) { closeDrawer(); return; }
+  if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-6]$/.test(e.key) && !document.querySelector("dialog[open]")) go(VIEWS[+e.key - 1][0]);
+});
+
+drawSample().then(() => { route(false); });
+</script>
+</body>
+</html>

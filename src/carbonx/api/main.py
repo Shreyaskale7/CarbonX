@@ -54,7 +54,7 @@ STATIC = Path(__file__).with_name("static")
 ROOT = Path(__file__).resolve().parents[3]
 FUELS = ROOT / "data" / "bee" / "fuel_factors.csv"
 FIGURES = ROOT / "docs" / "figures"   # written by scripts/rq1_materiality.py, rq2_deltas.py
-PAGES = {"findings", "registry", "method", "ledger", "evidence", "reports", "sampling"}
+PAGES = {"findings", "registry", "method", "ledger", "evidence", "reports", "sampling", "console"}
 
 app = FastAPI(title="CarbonX", version="0.1.0")
 

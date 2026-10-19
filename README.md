@@ -99,6 +99,7 @@ Without Docker: `python scripts/dev_pg.py serve` starts a local Postgres and the
 | `docs/UNCERTAINTY.md` | Correlated uncertainty: what is quantified and what is not |
 | `docs/EXTRACTION.md` | Bill extraction: method, what development found, limits (synthetic data) |
 | `docs/ADVERSARIAL_LOG.md` | Every attempt to break invariant 1, and what it found |
+| `docs/FRONTEND.md` | The single-file console at `/console`: a snapshot of the synthetic sample, rebuilt by `scripts/build_console.py` |
 
 ## The invariant everything rests on
 

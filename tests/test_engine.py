@@ -221,7 +221,7 @@ def test_connections_are_reused_and_a_dead_one_is_replaced(conn, monkeypatch):
 def test_site_pages_and_databaseless_endpoints():
     client = TestClient(api.app)
     for page in ("findings", "registry", "method", "ledger", "evidence", "reports",
-                 "sampling"):
+                 "sampling", "console"):
         assert client.get(f"/{page}").status_code == 200
     css = client.get("/static/site.css")
     assert css.status_code == 200 and css.headers["cache-control"] == "no-cache"

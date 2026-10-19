@@ -30,7 +30,7 @@ const say = (el, text, cls = "") => { el.className = "msg " + cls; el.textConten
 const kv = (pairs) => `<dl class="kv">${pairs.map(([k, v]) =>
   `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
 
-const PUBLIC = [["/findings", "Findings"], ["/registry", "Factor registry"], ["/method", "How it works"]];
+const PUBLIC = [["/findings", "Findings"], ["/registry", "Factor registry"], ["/method", "How it works"], ["/console", "Console"]];
 const APP = [["/ledger", "Ledger"], ["/evidence", "Evidence"], ["/reports", "Reports"], ["/sampling", "Sampling"]];
 const here = location.pathname.replace(/\/$/, "") || "/";
 const links = (items) => items.map(([href, label]) =>
