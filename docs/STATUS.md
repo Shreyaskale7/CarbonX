@@ -96,10 +96,14 @@ reported notification. Confirm it before any of them is cited.
 - **Not built, by decision**: the learned audit-sampling ranker. The council cut
   it (its labels would be faults we inject ourselves) and `SCOPE_PROPOSAL.md`
   records that.
-- **Test run on 2026-10-21 had no database available**: 146 passed, 87 skipped
-  (the skipped ones need Postgres). Nothing that touches the database changed
-  since the third 10,000-sequence run, but the database tests were not re-run
-  after these changes.
+- **Verified on the development Postgres on 2026-10-21** (Postgres 18, not the
+  target 16): the full suite, 232 passed and 1 skipped; `reproduce.sh` on a fresh
+  database through the console check; every generated document unchanged by
+  its script; the registry release draft builds. One failure on the first
+  run after a database reset, `test_a_report_being_built_does_not_block_writers`
+  (a writer thread did not finish within its 10 seconds); it passed alone and
+  in two later full runs. Treated as a cold-start timing flake, not proved to
+  be one. If it recurs, look at it first.
 
 ## Environment note (2026-10-06)
 
