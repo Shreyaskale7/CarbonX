@@ -14,6 +14,7 @@ from carbonx.lifecycle.automaton import (
     accepts,
     check,
     correct_transfer,
+    prove_inductive,
 )
 from carbonx.lifecycle.registry import apply, create_credit
 
@@ -70,6 +71,29 @@ def test_checker_catches_a_lost_credit():
 
     r = check(1, 2, transfer=lossy_transfer)
     assert r.violation is not None and r.violation.startswith(("P2", "P3"))
+
+
+def test_invariant_is_inductive_from_every_configuration_not_only_reachable_ones():
+    """The step for every N: every pair of invariant-satisfying configurations,
+    every action, invariant kept and the other credit untouched."""
+    for m in range(1, 6):
+        r = prove_inductive(m)
+        assert r.failure is None and r.steps > 0
+    assert prove_inductive(2).configurations == 1 + 2 + 2 + 1 + 1   # NONE, ISSUED x2, HELD x2, 2 terminal
+
+
+def test_inductive_check_rejects_the_same_mutants():
+    def copy_transfer(w, credit, to):
+        return tuple(h | {credit} if org == to else h for org, h in enumerate(w.holdings))
+
+    def lossy_transfer(w, credit, to):
+        return tuple(h - {credit} for h in w.holdings)
+
+    def leaky_retire(w, credit, to):               # also disturbs a neighbouring credit
+        return tuple(h | {1 - credit} if org == to else h for org, h in enumerate(w.holdings))
+
+    for bad in (copy_transfer, lossy_transfer, leaky_retire):
+        assert prove_inductive(2, transfer=bad).failure is not None, bad.__name__
 
 
 def test_correct_transfer_moves_rather_than_copies():

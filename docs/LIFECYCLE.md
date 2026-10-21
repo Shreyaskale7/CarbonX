@@ -102,6 +102,37 @@ belongs to exactly one H_o". Then:
 the number of live credits. Every issued credit is either live or terminal,
 so issued = live + terminal = |⋃ H_o| + #surrendered + #retired. ∎
 
+### 4a. The induction step, run by machine
+
+`prove_inductive(M)` does what the P2 step above does by hand, but for every
+configuration instead of reasoning about them. It takes each single-credit
+configuration (state, holders) that satisfies the invariant, reachable or not,
+forms every pair of them (a two-credit registry), applies every enabled action
+to either credit, and requires that (a) the invariant (P2 and P3) still holds
+and (b) the *other* credit's state and holders did not change.
+
+| M orgs | Invariant-satisfying configurations | (pair, action) cases | Failure |
+|---|---|---|---|
+| 1 | 5 | 50 | none |
+| 2 | 7 | 196 | none |
+| 3 | 9 | 486 | none |
+| 4 | 11 | 968 | none |
+| 5 | 13 | 1,690 | none |
+| 6 | 15 | 2,700 | none |
+
+Together with the base case (the empty registry satisfies the invariant) this
+gives the invariant for every N, **given one lemma checked only by reading the
+code**: an action reads and writes only the credit it names, so what holds for
+a pair holds for any number. The check at two credits is the evidence for that
+lemma for each M tried. Unlike section 5, it does not depend on which states a
+run can reach, so it would catch an invariant that is merely *true so far*. The
+same three broken transfers (copy, drop, and one that disturbs a neighbouring
+credit) fail it, `test_inductive_check_rejects_the_same_mutants`.
+
+What it still does not give: M is bounded by what we ran (the pattern in the
+table is regular, and the by-hand proof covers every M, but the machine did not).
+This is not a proof assistant.
+
 ## 5. Model checking: the mechanical evidence
 
 `check(N, M)` explores the whole reachable state space breadth-first. It checks
@@ -153,10 +184,10 @@ The three database tests pass on the local development Postgres (`scripts/dev_pg
 
 ## 7. Limits
 
-- **The proof in §4 is by hand.** It is short and the checker backs it for
-  bounded sizes. It is not mechanised in a proof assistant. A TLA+/TLC or
-  Lean version would be the upgrade if the ToC examiner wants machine-checked
-  proofs for all N.
+- **The proof in §4 is by hand, with its induction step also run by machine**
+  (§4a, M up to 6, N by a locality lemma read from the code). It is not
+  mechanised in a proof assistant. A TLA+/TLC or Lean version would be the
+  upgrade if the ToC examiner wants machine-checked proofs for all N and M.
 - **The model has no quantities.** A credit is one indivisible unit. Real
   certificates are in tCO2e amounts and can be split. Splitting would add a
   "split" action and an amount-conservation property (P3 over sums, not

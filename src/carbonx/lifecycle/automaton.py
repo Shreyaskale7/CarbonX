@@ -22,6 +22,11 @@ reachable registry state breadth-first and checks:
     P3  conservation: issued = held + surrendered + retired
 
 A violation comes back with the shortest action sequence that reaches it.
+
+`prove_inductive` is the check for every N: it does not walk reachable states, it
+takes *every* pair of single-credit configurations that satisfy the invariant
+(reachable or not) and shows each action keeps it and leaves the other credit
+alone. That is the induction step of the hand proof, run by machine.
 """
 
 from __future__ import annotations
@@ -184,3 +189,52 @@ def _trace(parent: dict[World, tuple[World, Action] | None], w: World) -> list[A
         w, action = p
         actions.append(action)
     return actions[::-1]
+
+
+@dataclass(frozen=True)
+class InductiveResult:
+    configurations: int           # single-credit configurations satisfying the invariant
+    steps: int                    # (pair of configurations, action) cases checked
+    failure: str | None
+
+
+def prove_inductive(n_orgs: int, delta: Delta = DELTA,
+                    transfer: Transfer = correct_transfer) -> InductiveResult:
+    """The induction step of the proof in docs/LIFECYCLE.md section 4, by machine.
+
+    Take every pair of single-credit configurations (state, holders) that
+    satisfy the invariant, whether or not a run can reach them. For every
+    action on either credit, the result must satisfy the invariant, and the
+    other credit must not change. With the base case (the empty registry
+    satisfies it) that gives the invariant for every N, *given* the locality
+    lemma that an action reads and writes only the credit it names; the check
+    at N=2 confirms it for each M tried. M is still bounded by the caller.
+    """
+    def world(a: tuple[State, frozenset[int]], b: tuple[State, frozenset[int]]) -> World:
+        return World((a[0], b[0]), tuple(
+            frozenset(c for c, cfg in enumerate((a, b)) if org in cfg[1])
+            for org in range(n_orgs)))
+
+    def view(w: World, c: int) -> tuple[State, frozenset[int]]:
+        return w.states[c], frozenset(o for o, h in enumerate(w.holdings) if c in h)
+
+    orgs = range(n_orgs)
+    subsets = [frozenset(o for o in orgs if m >> o & 1) for m in range(2 ** n_orgs)]
+    good = [(st, h) for st in State for h in subsets
+            if _violation(World((st,), tuple(frozenset({0}) if o in h else frozenset()
+                                             for o in orgs))) is None]
+    if _violation(World((State.NONE,), (frozenset(),) * n_orgs)) is not None:
+        return InductiveResult(len(good), 0, "base case: the empty registry violates the invariant")
+    steps = 0
+    for a in good:
+        for b in good:
+            w = world(a, b)
+            for action, nxt in _successors(w, n_orgs, delta, transfer):
+                steps += 1
+                c = action[1]
+                if (v := _violation(nxt)) is not None:
+                    return InductiveResult(len(good), steps, f"step {action} from {a}, {b}: {v}")
+                if view(nxt, 1 - c) != view(w, 1 - c):
+                    return InductiveResult(len(good), steps,
+                                           f"frame: {action} changed credit {1 - c}")
+    return InductiveResult(len(good), steps, None)
