@@ -54,6 +54,8 @@ jobs:
           python scripts/ember_crosscheck.py && python scripts/registry_changelog.py
           python scripts/compare_bee_ipcc.py
           git diff --exit-code docs/ data/cea/CHANGELOG.md
+      - name: the console is its template plus its embedded data
+        run: python scripts/build_console.py --check
       - name: the registry passes its release checks
         run: python scripts/build_registry_release.py --draft
       - name: one-command pipeline finishes with the reproducibility demonstration

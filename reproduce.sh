@@ -9,4 +9,5 @@ echo "[5/6] calculate"       && python -m carbonx.engine.calculate --org 1 --pol
 echo "[6/6] report + verify" && python -m carbonx.engine.report --org 1 --fy FY2025-26 --verify
 echo "      uncertainty of report 2 (VINTAGE_MATCHED):" && python -m carbonx.uncertainty.propagate --report 2
 echo "      a revision does not reach an old report:" && python scripts/demo_reproducibility.py --org 1
+echo "      the console is its template plus its data:" && python scripts/build_console.py --check
 echo "done. api: uvicorn carbonx.api.main:app --reload"

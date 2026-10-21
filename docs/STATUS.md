@@ -1,6 +1,6 @@
 # Status: each phase against its own acceptance test
 
-As of 2026-10-05, commit history `be78e97..HEAD`. The acceptance tests are the
+As of 2026-10-21, commit history `be78e97..HEAD`. The acceptance tests are the
 ones in `docs/BUILD_PLAN.md`, quoted or paraphrased. "Met" means the stated test
 passes; anything short of that says what is missing.
 
@@ -21,10 +21,10 @@ has not been pushed.
 | 6 Extraction | accuracy per DISCOM, seen vs unseen; beats baseline on unseen; ECE before/after; calibrated confidence stored | **Partly, on synthetic data** | `EXTRACTION_RESULTS.md`: unseen test layouts 33.3% vs baseline 0% | **No real bills.** One modelled field; period and meter id by rules only. Confidence is *not* calibrated on unseen layouts (ECE 0.347), so the stored confidence does not meet invariant 6 |
 | 7 Uncertainty | correlated band wider than naive, quantified; every variance traced, nothing invented | **Met, in reduced scope** | `test_uncertainty.py` (wider by √3), `test_meters.py`; `UNCERTAINTY.md` | Fuel factors, and activity data only where a meter's stored calibration certificate states an uncertainty (migration 0013; proposed, unsigned). Grid factor and extraction carry none, by invariant 6 |
 | 8 Materiality, RQ1 | per-sector curve with cited Scope 1/2 splits | **Partly** | engine: `test_materiality.py`; `RQ1_RESULTS.md` (sector-agnostic curve) | **No sector rows**: `data/sector_scope2_shares.csv` needs cited shares |
-| 9 Automaton | properties proved by enumeration | **Met** | `LIFECYCLE.md`: proofs, model checker, mutation tests; enforced in the DB (migration 0009) | Proof is by hand, not mechanised |
+| 9 Automaton | properties proved by enumeration | **Met** | `LIFECYCLE.md`: proofs, model checker, mutation tests; enforced in the DB (migration 0009). The induction step is also run by machine over every invariant-satisfying configuration, not only reachable ones (`prove_inductive`, §4a; M up to 6; broken models fail it) | Proof is by hand plus that check; N is covered by a locality lemma read from the code, M by what was run. Not in a proof assistant |
 | (proposed) Nowcast | leakage-safe rolling backtest against a naive baseline; bands with out-of-sample coverage; revision analysis | **Built, not in agreed scope** | `NOWCAST.md`, `NOWCAST_RESULTS.md`, `test_nowcast.py` (7 tests, no database) | Team sign-off in `SCOPE_PROPOSAL.md`. About 20 yearly values, so it can only show that nothing simple beats the naive forecast |
 | 9 Audit sampling | learned ranker beats two baselines at 5% and 10% | **Built with a different method** (proposed, unsigned) | `SAMPLING.md`, `test_sampling.py`, migration 0012, the `/sampling` page: a statistical sample in proportion to tonnes, re-derivable from the report, with a projection and upper limits | No learned ranker, so the plan's test as written is not met. Needs sign-off in `SCOPE_PROPOSAL.md`. The tolerable misstatement for CCTS is not verified |
-| 10 Workbench, release | demo with no developer at a terminal; DOI minted | **Partly** | a seven-page static site served by the API (overview, findings, factor registry, method, and a three-page workbench: ledger with provenance and corrections, evidence with the review queue and production records, reports with verify, uncertainty, materiality, exceptions and a rolled-back reproducibility demonstration); every page exercised in a browser on 2026-10-05 and 06 | **No DOI.** Licence and authors undecided. Not pushed to GitHub |
+| 10 Workbench, release | demo with no developer at a terminal; DOI minted | **Partly** | a seven-page static site served by the API (overview, findings, factor registry, method, and a three-page workbench: ledger with provenance and corrections, evidence with the review queue and production records, reports with verify, uncertainty, materiality, exceptions and a rolled-back reproducibility demonstration); every page exercised in a browser on 2026-10-05 and 06. Also a single-file offline **console** at `/console` (`docs/FRONTEND.md`): eight views on a checked snapshot of the synthetic sample, with the engine's arithmetic re-implemented in the browser and tested against Python, run through in a browser on 2026-10-19 to 21 | **No DOI.** Licence and authors undecided. Not pushed to GitHub |
 
 ## Against the grade ladder in the build plan
 
@@ -84,6 +84,22 @@ has not been pushed.
 
 All of these rest on one BEE PDF whose internal date (2023-11-08) precedes the
 reported notification. Confirm it before any of them is cited.
+
+## Since the last update (2026-10-21)
+
+- **Console** (`docs/FRONTEND.md`): eight views, including materiality (RQ1 and
+  RQ3 with a Scope 2 share slider) and the nowcast backtest. It is a snapshot,
+  and `scripts/build_console.py --check` (in `reproduce.sh` and CI, no database
+  needed) fails unless the file is exactly its template plus its embedded data.
+  14 tests, including the browser's arithmetic against the Python scripts.
+- **Lifecycle**: the induction step of the proof now runs by machine (above).
+- **Not built, by decision**: the learned audit-sampling ranker. The council cut
+  it (its labels would be faults we inject ourselves) and `SCOPE_PROPOSAL.md`
+  records that.
+- **Test run on 2026-10-21 had no database available**: 146 passed, 87 skipped
+  (the skipped ones need Postgres). Nothing that touches the database changed
+  since the third 10,000-sequence run, but the database tests were not re-run
+  after these changes.
 
 ## Environment note (2026-10-06)
 

@@ -4,7 +4,7 @@ double-click: no server, no network, no build tools needed to view it).
 
     python scripts/build_console.py            # needs the sample database
     python scripts/build_console.py --template-only   # new template, the data already in the file
-    python scripts/build_console.py --check    # fail if the built file is stale or inconsistent
+    python scripts/build_console.py --check    # fail unless the file is its template plus its data
 
 Nothing in the console is typed in by hand. The data comes from:
   - the CEA registry (data/cea/*.csv): every all-India factor, by version;
@@ -32,6 +32,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 import psycopg
+import rq1_materiality
+import rq3_compliance
 
 from carbonx import db
 from carbonx.engine.calculate import ENGINE_VERSION
@@ -44,6 +46,7 @@ from carbonx.engine.provenance import (
 )
 from carbonx.evidence import anchor
 from carbonx.factors.registry import POLICY_DESCRIPTIONS, Policy
+from carbonx.forecast import nowcast as nc
 from carbonx.sampling import pps
 from carbonx.uncertainty.propagate import for_report
 
@@ -92,6 +95,41 @@ def registry() -> dict:
                       "covers": v["covers_fy"]} for v in versions],
         "series": [{"key": k, "label": SERIES_LABELS[k], "used": k == CARBONX_SERIES,
                     "points": points[k]} for k in sorted(points, key=lambda k: (k != CARBONX_SERIES, k))],
+    }
+
+
+def materiality() -> dict:
+    """The RQ1 and RQ3 arithmetic, from the same functions that write the docs."""
+    value, first = rq3_compliance.load_values()
+    return {
+        "threshold": rq1_materiality.THRESHOLD, "targets": rq3_compliance.TARGETS,
+        "kinds": [{"kind": k, "what": what, "d": float(d.rstrip("%"))}
+                  for k, what, d, _ in rq1_materiality.effects()],
+        "baselines": {b: [{"name": n, "used": u, "d": round(d, 6)}
+                          for n, u, d in rq3_compliance.readings(value, first, b)]
+                      for b in rq3_compliance.BASELINES},
+        "default_baseline": rq3_compliance.DEFAULT_BASELINE,
+    }
+
+
+def forecast() -> dict:
+    """The leakage-safe backtest of one-year-ahead nowcasts (scripts/nowcast.py)."""
+    reg = nc.load(ROOT / "data" / "cea" / "factors.csv", ROOT / "data" / "cea" / "versions.csv")
+    key = "grid.weighted_avg.incl_imports"
+    targets, notes = nc.backtest(reg[key])
+    scores = nc.score(targets)
+    best = min(scores, key=lambda x: x.mae)
+    return {
+        "series": key, "label": SERIES_LABELS[key],
+        "scores": [{"model": x.model, "n": x.n, "mae": round(x.mae, 4), "rmse": round(x.rmse, 4),
+                    "bias": round(x.bias, 4), "worst": round(x.worst, 4), "beats": x.beats_naive,
+                    "comparable": x.comparable, "p": round(x.p_value, 4),
+                    "naive": x.model == nc.NAIVE, "best": x is best} for x in scores],
+        "years": [{"fy": nc.fy(t.year), "version": t.version, "actual": t.actual,
+                   "naive": t.forecasts[nc.NAIVE], "error": round(t.error(nc.NAIVE), 4)}
+                  for t in targets],
+        "coverage": {str(lvl): list(nc.coverage(targets, lvl)[:2]) for lvl in (0.8, 0.9)},
+        "notes": notes,
     }
 
 
@@ -248,24 +286,35 @@ def collect() -> dict:
             "reports": reps, "ledger": ledger(conn), "coverage": cov,
             "exceptions": plain(exceptions(conn, ORG_ID)), "audit": trail,
             "registry": registry(), "sampling": ref,
+            "materiality": materiality(), "forecast": forecast(),
         }
     return data
+
+
+def _blob(data: dict) -> str:
+    # Safe inside <script type="application/json">: no "</script>", no U+2028/9.
+    return (json.dumps(plain(data), separators=(",", ":"), ensure_ascii=False)
+            .replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
 
 
 def render(data: dict) -> str:
     template = TEMPLATE.read_text(encoding="utf-8")
     if template.count(PLACEHOLDER) != 1:
         sys.exit(f"the template must contain {PLACEHOLDER} exactly once")
-    # Safe inside <script type="application/json">: no "</script>", no U+2028/9.
-    blob = (json.dumps(plain(data), separators=(",", ":"), ensure_ascii=False)
-            .replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
-    return template.replace(PLACEHOLDER, blob)
+    return template.replace(PLACEHOLDER, _blob(data))
+
+
+def _from_template(built: str) -> str:
+    """The template re-rendered with the data already embedded in `built`."""
+    marker = '<script id="data" type="application/json">'
+    start = built.index(marker) + len(marker)
+    return TEMPLATE.read_text(encoding="utf-8").replace(PLACEHOLDER, built[start:built.index("</script>", start)])
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--check", action="store_true",
-                    help="fail if the template is newer than the built file or the file has no data")
+                    help="fail unless the built file is exactly the template plus its embedded data (no database)")
     ap.add_argument("--template-only", action="store_true",
                     help="re-render the template with the data already embedded (no database)")
     args = ap.parse_args()
@@ -273,15 +322,19 @@ def main() -> None:
         built = OUT.read_text(encoding="utf-8")
         if PLACEHOLDER in built or '"reports":[' not in built:
             sys.exit("console.html has no data: run scripts/build_console.py")
-        if TEMPLATE.stat().st_mtime > OUT.stat().st_mtime + 1:
-            sys.exit("console.html is older than its template: run scripts/build_console.py")
-        print("console.html is built from the current template")
+        if _from_template(built) != built:
+            sys.exit("console.html is not its template plus its data: "
+                     "run scripts/build_console.py --template-only")
+        print("console.html equals its template plus its embedded data")
         return
     if args.template_only:
+        # Database-backed data stays as it was; what needs no database is refreshed.
         built = OUT.read_text(encoding="utf-8")
-        start = built.index('<script id="data" type="application/json">') + len('<script id="data" type="application/json">')
-        blob = built[start:built.index("</script>", start)]
-        html = TEMPLATE.read_text(encoding="utf-8").replace(PLACEHOLDER, blob)
+        marker = '<script id="data" type="application/json">'
+        start = built.index(marker) + len(marker)
+        data = json.loads(built[start:built.index("</script>", start)])
+        data.update(registry=registry(), materiality=materiality(), forecast=forecast())
+        html = render(data)
     else:
         html = render(collect())
     OUT.write_text(html, encoding="utf-8", newline="\n")

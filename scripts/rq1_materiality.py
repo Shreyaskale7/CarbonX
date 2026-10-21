@@ -119,7 +119,8 @@ def figure(lines: list[tuple[str, float]]) -> str:
     return "\n".join(out + ["</svg>"]) + "\n"
 
 
-def main() -> None:
+def effects() -> list[list[str]]:
+    """The four kinds of factor change: [kind, what changes, d as '+x.xx%', share needed]."""
     with VERSIONS.open(encoding="utf-8") as fh:
         ordinal = {v["version_label"]: int(v["version_ordinal"]) for v in csv.DictReader(fh)}
     series: dict[str, dict[str, list[tuple[int, str, float]]]] = defaultdict(
@@ -147,7 +148,7 @@ def main() -> None:
         vals = [x[2] for k in SERIES for x in series[k].get(fy, []) if x[1] == version]
         spread[(version, fy)] = pct(max(vals), min(vals))
 
-    effects = [
+    rows = [
         ["revision", f"largest restatement of one FY ({rev_fy}), first vs latest version",
          f"{revisions[rev_fy]:+.2f}%"],
         ["step", "FY2025-26 (v22) vs FY2024-25 (v22)", f"{pct(v22_2526, v22_2425):+.2f}%"],
@@ -156,19 +157,24 @@ def main() -> None:
         ["series", "spread of CEA's four average series, v22 FY2025-26",
          f"{spread[('v22.0', 'FY2025-26')]:.2f}%"],
     ]
-    for row in effects:
+    for row in rows:
         row.append(share_needed(float(row[2].rstrip("%"))))
+    return rows
+
+
+def main() -> None:
+    effects_ = effects()
 
     shares = [10, 20, 30, 40, 50, 60, 80, 100]
     curve = []
-    for name, _, d, _ in effects:
+    for name, _, d, _ in effects_:
         dv = abs(float(d.rstrip("%")))
         curve.append([name] + [("**" if s * dv / 100 >= THRESHOLD else "")
                                + f"{s * dv / 100:.2f}%"
                                + ("**" if s * dv / 100 >= THRESHOLD else "")
                                for s in shares])
 
-    d = {name: abs(float(v.rstrip("%"))) for name, _, v, _ in effects}
+    d = {name: abs(float(v.rstrip("%"))) for name, _, v, _ in effects_}
     # ponytail: "latest" and "step" differ by 0.06 points and would overprint,
     # so the figure draws "latest" only; the table below it has both.
     write_figure(FIG, figure([("Series choice", d["series"]),
@@ -182,10 +188,10 @@ def main() -> None:
         if rows:
             sectors = table(
                 ["sector", "Scope 2 share of target basis", "source"] +
-                [e[0] for e in effects],
+                [e[0] for e in effects_],
                 [[r["sector"], f"{r['scope2_share_pct']}%", r["source"]] +
                  [f"{float(r['scope2_share_pct']) * abs(float(e[2].rstrip('%'))) / 100:.2f}%"
-                  for e in effects] for r in rows])
+                  for e in effects_] for r in rows])
 
     OUT.write_text("\n\n".join([
         "# RQ1 results: when does a grid-factor change alone cross 5%?",
@@ -201,7 +207,7 @@ def main() -> None:
          "share of *that* basis, which is larger than the share of a full Scope 1+2 "
          "inventory for cement, steel and refining. See `docs/RQ3_FINDINGS.md`."),
         "## Four kinds of factor change",
-        table(["kind", "what changes", "d", "Scope 2 share needed to cross 5%"], effects),
+        table(["kind", "what changes", "d", "Scope 2 share needed to cross 5%"], effects_),
         "## Sensitivity curve: change in total emissions by Scope 2 share",
         ("![Three straight lines from the origin: series choice reaches 21.85% and "
          "crosses the 5% threshold at a 23% share; the reading of 'latest' reaches "

@@ -62,7 +62,8 @@ def readings(value: dict[tuple[str, str], float], first: dict[str, str],
     ]
 
 
-def main() -> None:
+def load_values() -> tuple[dict[tuple[str, str], float], dict[str, str]]:
+    """(version, fy) -> value for the grid series CarbonX uses, and the first version of each FY."""
     with VERSIONS.open(encoding="utf-8") as fh:
         ordinal = {v["version_label"]: int(v["version_ordinal"]) for v in csv.DictReader(fh)}
     value: dict[tuple[str, str], float] = {}
@@ -74,6 +75,11 @@ def main() -> None:
                 value[(v, fy)] = float(f["value"])
                 if fy not in first or ordinal[v] < ordinal[first[fy]]:
                     first[fy] = v
+    return value, first
+
+
+def main() -> None:
+    value, first = load_values()
 
     main_rows = [[name, used, f"{d:+.2f}%"] + [share_needed(d, t) for t in TARGETS]
                  for name, used, d in readings(value, first, DEFAULT_BASELINE)]

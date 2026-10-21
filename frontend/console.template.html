@@ -147,6 +147,7 @@ label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px
 .tools .grow { flex: 1; min-width: 160px; }
 .field { min-width: 0; }
 .field input, .field select { width: 100%; }
+input[type=range] { accent-color: var(--accent); height: 20px; padding: 0; border: 0; background: none; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .msg { font-size: 13px; margin-top: 8px; }
 .notice { border: 1px solid var(--rule-2); border-left: 2px solid var(--accent); background: var(--accent-soft); padding: 8px 12px; border-radius: var(--r); font-size: 13px; }
@@ -214,6 +215,7 @@ footer.page { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--r
   dl.kv { grid-template-columns: 104px minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
+  .chart { overflow-x: auto; } .chart svg { min-width: 600px; }
   .find kbd { display: none; } .find span.hint { display: inline; font-size: 0; } .find span.hint::after { content: "Search"; font-size: 13px; }
   .kpis { grid-template-columns: minmax(0, 1fr); } .kpi + .kpi, .kpi:nth-child(3) { border-left: 0; border-top: 1px solid var(--rule); }
 }
@@ -351,6 +353,17 @@ function evaluateSample(results, interval, conf, tolerable) {   // results: [{st
   out.within = out.complete && out.upperOver <= tolerable && out.upperUnder <= tolerable;
   return out;
 }
+/* Materiality arithmetic, as in scripts/rq1_materiality.py and rq3_compliance.py:
+   a factor change of d percent moves a total by s*d/100 when grid electricity is s percent of the target basis. */
+const fixed = (x, n) => {            // like Python's format(x, ".nf"): an exact tie goes to the even digit, where toFixed rounds up
+  const ax = Math.abs(x), t = ax * 2 ** (n + 1);          // only dyadic values can tie, and then t is an odd integer
+  if (Number.isInteger(t) && t % 2 === 1) { const lo = Math.floor(ax * 10 ** n), k = lo % 2 === 0 ? lo : lo + 1; return (x < 0 ? "-" : "") + (k / 10 ** n).toFixed(n); }
+  return x.toFixed(n);
+};
+const effectPct = (s, d) => s * Math.abs(d) / 100;
+const shareNeeded = (d, threshold) => d === 0 ? "never" : (threshold / Math.abs(d) > 1 ? "never (would need >100%)" : `${(100 * threshold / Math.abs(d)).toFixed(0)}%`);
+const reductionShown = (s, d) => -s * d / 100 + 0.0;
+const reductionNeeded = (d, target) => d >= 0 ? "never (no apparent reduction)" : (target / -d > 1 ? "never (would need >100%)" : `${(100 * target / -d).toFixed(0)}%`);
 /* ==== PURE LOGIC END ==== */
 
 let DATA = null;
@@ -386,13 +399,14 @@ const S = {
   reg: {key: DATA.registry.series[0].key, year: null, ranges: true, hover: null},
   rep: {a: 2, b: 6, detail: 6, verifyPick: 2},
   samp: {report: latest("VINTAGE_MATCHED").id, conf: "0.95", tol: String(Number(DATA.sampling.tolerable_pct)), nonce: DATA.sampling.nonce, results: {}, run: null},
+  mat: {s: 30, baseline: DATA.materiality.default_baseline},
   audit: {events: JSON.parse(JSON.stringify(DATA.audit.window)), pick: null, mode: "contents", result: null, tampered: false},
 };
 S.audit.pick = S.audit.events.find((e) => e.reason)?.id ?? S.audit.events[0].id;
 
 /* ---------- shell ---------- */
 const VIEWS = [["overview", "Overview", ""], ["ledger", "Ledger", String(DATA.ledger.length)], ["reports", "Reports", String(DATA.reports.length)],
-               ["registry", "Factor registry", ""], ["sampling", "Sampling", ""], ["audit", "Audit trail", String(DATA.audit.total_events)]];
+               ["registry", "Factor registry", ""], ["materiality", "Materiality", ""], ["forecast", "Forecast", ""], ["sampling", "Sampling", ""], ["audit", "Audit trail", String(DATA.audit.total_events)]];
 $("#org").textContent = DATA.meta.org;
 $("#rail").innerHTML = VIEWS.map(([id, label, n], i) => `<a href="#/${id}" data-view="${id}">${label}<span class="count">${n}</span></a>`).join("")
   + `<div class="note">Research prototype. Decision support for accredited verifiers; it does not verify emissions or issue assurance. All plant data is synthetic.</div>`;
@@ -416,9 +430,9 @@ function route(focus) {
 window.addEventListener("hashchange", () => route(true));
 
 function render() {
-  const view = {overview: renderOverview, ledger: renderLedger, reports: renderReports, registry: renderRegistry, sampling: renderSampling, audit: renderAudit}[S.view];
+  const view = {overview: renderOverview, ledger: renderLedger, reports: renderReports, registry: renderRegistry, materiality: renderMateriality, forecast: renderForecast, sampling: renderSampling, audit: renderAudit}[S.view];
   $("#main").innerHTML = `<div class="view">${view()}</div>` + pageFooter();
-  ({overview: bindOverview, ledger: bindLedger, reports: bindReports, registry: bindRegistry, sampling: bindSampling, audit: bindAudit})[S.view]();
+  ({overview: bindOverview, ledger: bindLedger, reports: bindReports, registry: bindRegistry, materiality: bindMateriality, forecast: bindForecast, sampling: bindSampling, audit: bindAudit})[S.view]();
   $$("h1", $("#main")).forEach((h) => h.setAttribute("tabindex", "-1"));
 }
 const pageFooter = () => `<footer class="page">Snapshot generated ${esc(when(DATA.meta.generated_at))} by <code>scripts/build_console.py</code> from the sample database
@@ -739,6 +753,99 @@ function bindRegistry() {
   hit.onclick = (ev) => { S.reg.year = g.rows[near(ev)].fy; R(); };
 }
 
+/* ---------- materiality ---------- */
+const KIND_NAME = {series: "Series choice", latest: "Reading of 'latest'", step: "Year-on-year step", revision: "Revision of a past year"};
+const signed = (d) => (d > 0 ? "+" : d < 0 ? "-" : "") + Math.abs(d).toFixed(2) + "%";
+function matChart() {
+  const M = DATA.materiality, sh = S.mat.s, W = 760, H = 320, L = 48, R = 150, T = 16, B = 36, ymax = 25;
+  const X = (v) => L + ((W - L - R) * v) / 100, Y = (v) => T + (1 - v / ymax) * (H - T - B);
+  const style = {series: 'stroke="var(--accent)" stroke-width="2"', latest: 'stroke="var(--ink)" stroke-width="2"', revision: 'stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"'};
+  const drawn = M.kinds.filter((k) => k.kind !== "step");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Change in total emissions from a grid factor change alone, by Scope 2 share of the target basis. Series choice reaches ${Math.abs(M.kinds.find((k) => k.kind === "series").d)} percent at 100 percent share and crosses the ${M.threshold} percent threshold; the other kinds stay below it. The tables list the same numbers.">
+    ${[0, 5, 10, 15, 20, 25].map((t) => `<line x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--rule)"/><text x="${L - 8}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">${t}%</text>`).join("")}
+    ${[0, 20, 40, 60, 80, 100].map((t) => `<text x="${X(t)}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">${t}%</text>`).join("")}
+    <text x="${(L + W - R) / 2}" y="${H - 1}" text-anchor="middle" font-size="11" fill="var(--muted)">Scope 2 share of the target basis</text>
+    <line x1="${L}" x2="${W - R}" y1="${Y(M.threshold)}" y2="${Y(M.threshold)}" stroke="var(--bad)" stroke-dasharray="3 3"/>
+    <text x="${L + 6}" y="${Y(M.threshold) - 6}" font-size="11" fill="var(--bad)">${M.threshold}% threshold</text>
+    ${drawn.map((k) => `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(100)}" y2="${Y(Math.abs(k.d))}" ${style[k.kind]} stroke-linecap="round"/>
+      <text x="${W - R + 8}" y="${Y(Math.abs(k.d)) + 4}" font-size="12" fill="var(--ink)">${esc(KIND_NAME[k.kind])}</text>`).join("")}
+    <line x1="${X(sh)}" x2="${X(sh)}" y1="${T}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="2 3"/>
+    ${drawn.map((k) => `<circle cx="${X(sh)}" cy="${Y(effectPct(sh, k.d))}" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>`).join("")}
+  </svg>`;
+}
+function matOut() {
+  const M = DATA.materiality, sh = S.mat.s, thr = M.threshold, rd = M.baselines[S.mat.baseline];
+  const kinds = M.kinds.map((k) => {
+    const e = effectPct(sh, k.d), over = e >= thr;
+    return `<tr><td>${esc(KIND_NAME[k.kind])}</td><td class="wrap small muted">${esc(k.what)}</td><td class="n">${signed(k.d)}</td>
+      <td class="n"><strong>${fixed(e, 2)}%</strong></td><td><span class="tag ${over ? "bad" : ""}">${over ? "reaches " + thr + "%" : "below " + thr + "%"}</span></td>
+      <td class="n small muted">${esc(shareNeeded(k.d, thr))}</td></tr>`;
+  }).join("");
+  const readings = rd.map((r) => {
+    const shown = reductionShown(sh, r.d);
+    return `<tr><td class="wrap">${esc(r.name)}</td><td class="n small">${esc(r.used)}</td><td class="n">${signed(r.d)}</td>
+      <td class="n"><strong>${fixed(shown, 2)}%</strong></td>
+      <td>${M.targets.map((t) => `<span class="tag ${shown >= t ? "acc" : ""}" style="margin-right:4px">${shown >= t ? "meets" : "short of"} ${t}%</span>`).join("")}</td>
+      <td class="n small muted">${esc(reductionNeeded(r.d, M.targets[0]))} / ${esc(reductionNeeded(r.d, M.targets[1]))}</td></tr>`;
+  }).join("");
+  return `<section class="panel" aria-labelledby="m1-t" style="margin-top:16px"><header><h2 id="m1-t">Four kinds of factor change</h2><span class="small muted">Scope 2 share ${sh}%</span></header>
+      <div class="pad"><div class="chart">${matChart()}</div>
+        <p class="muted small" style="margin:8px 0 0;max-width:80ch">Each line is the change in a total when only the grid factor moves. "Year-on-year step" is not drawn: it overprints "reading of latest" (4.93% against 4.87%). It is in the table.</p></div>
+      <div class="scroll"><table><thead><tr><th>Kind</th><th>What changes</th><th class="n">Factor change</th><th class="n">Effect on total</th><th>Against ${thr}%</th><th class="n">Share needed</th></tr></thead><tbody>${kinds}</tbody></table></div></section>
+    <section class="panel" aria-labelledby="m2-t" style="margin-top:16px"><header><h2 id="m2-t">What each reading of BEE's rule shows with no physical change</h2>
+      <div class="seg" role="group" aria-label="Baseline year">${Object.keys(M.baselines).map((b) => `<button type="button" aria-pressed="${b === S.mat.baseline}" data-base="${b}">${esc(b)}</button>`).join("")}</div></header>
+      <div class="scroll"><table><thead><tr><th>Reading of the rule</th><th class="n">Factor applied to FY2025-26</th><th class="n">Factor change</th><th class="n">Intensity reduction shown</th><th>Against the 1% to 3% targets</th><th class="n">Share needed for 1% / 3%</th></tr></thead><tbody>${readings}</tbody></table></div>
+      <p class="muted small pad" style="margin:0;max-width:90ch">Same fuel, electricity and production in both years: the intensity still moves by the Scope 2 share times the factor change. The baseline year is an assumption: BEE's procedure does not name one, and FY2023-24 is not confirmed. This is a property of the published factors. It says nothing about any entity's compliance.</p></section>`;
+}
+function renderMateriality() {
+  const sh = S.mat.s;
+  return `<div class="head"><div><h1>Materiality</h1><p class="lede">When does a change in the grid emission factor alone move a plant's figures by 5%, the threshold SBTi treats as significant? It depends on how much of the target basis is purchased electricity.</p></div></div>
+  <div class="notice"><strong>Every percentage here applies to the Scope 2 share of the target basis, not to the total.</strong> Gate-to-gate targets cover Scope 1 and 2. In cement, steel and refining, process emissions dominate and the grid factor does not touch them. No sector is placed on the curve, because no cited sector shares have been collected yet.</div>
+  <section class="panel" style="margin-top:16px" aria-label="Scope 2 share"><div class="tools"><div class="field grow"><label for="msh">Scope 2 share of the target basis: <span id="msv">${sh}</span>%</label><input id="msh" type="range" min="0" max="100" step="1" value="${sh}" aria-describedby="msnote"></div>
+    <div class="field" style="width:96px"><label for="msn">Percent</label><input id="msn" type="number" min="0" max="100" step="1" value="${sh}"></div></div>
+    <p id="msnote" class="muted small pad" style="margin:0">Move the share and both tables and the chart update. Nothing is sent anywhere.</p></section>
+  <div id="mat-out">${matOut()}</div>`;
+}
+function bindMateriality() {
+  const bindOut = () => $$("[data-base]").forEach((b) => b.onclick = () => { S.mat.baseline = b.dataset.base; $("#mat-out").innerHTML = matOut(); bindOut(); $(`[data-base="${S.mat.baseline}"]`)?.focus(); });
+  const set = (v) => {
+    const n = Math.min(100, Math.max(0, Math.round(Number(v)) || 0)); S.mat.s = n;
+    $("#msv").textContent = n; $("#mat-out").innerHTML = matOut(); bindOut(); return n;
+  };
+  $("#msh").oninput = (e) => { const n = set(e.target.value); $("#msn").value = n; };
+  $("#msn").onchange = (e) => { const n = set(e.target.value); e.target.value = n; $("#msh").value = n; };
+  bindOut();
+}
+
+/* ---------- forecast ---------- */
+function forecastChart() {
+  const F = DATA.forecast, ys = F.years, W = 760, H = 260, L = 48, R = 16, T = 16, B = 34;
+  const m = Math.max(2, Math.ceil(Math.max(...ys.map((y) => Math.abs(y.error))))), Y = (v) => T + (1 - (v + m) / (2 * m)) * (H - T - B), slot = (W - L - R) / ys.length;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Error of last year's value as a forecast of each year's first published factor, in percent, ${ys[0].fy} to ${ys[ys.length - 1].fy}. The table below lists every year.">
+    ${[-m, -m / 2, 0, m / 2, m].map((t) => `<line x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}" stroke="${t === 0 ? "var(--rule-2)" : "var(--rule)"}"/><text x="${L - 8}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">${t > 0 ? "+" : ""}${t}%</text>`).join("")}
+    ${ys.map((y, i) => { const x = L + i * slot + slot * 0.2, h = Math.abs(Y(y.error) - Y(0)); return `<rect x="${x.toFixed(1)}" y="${Math.min(Y(y.error), Y(0)).toFixed(1)}" width="${(slot * 0.6).toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="2" fill="var(--accent)"><title>${esc(y.fy)}: ${signed(y.error)}</title></rect>`
+      + (i % 3 === 0 ? `<text x="${(x + slot * 0.3).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">${esc(y.fy.slice(2))}</text>` : ""); }).join("")}
+  </svg>`;
+}
+function renderForecast() {
+  const F = DATA.forecast, naive = F.scores.find((x) => x.naive), best = F.scores.find((x) => x.best);
+  const beat = F.scores.filter((x) => !x.naive && x.mae < naive.mae && x.p < 0.05).length, c8 = F.coverage["0.8"], c9 = F.coverage["0.9"];
+  return `<div class="head"><div><h1>Forecast</h1><p class="lede">Can a year's grid emission factor be predicted before CEA publishes it? Each forecast below uses only what had been published before that year first appeared.</p></div><span class="tag">Proposed scope, not yet agreed</span></div>
+  <div class="kpis"><div class="kpi"><div class="k">Years tested</div><div class="v">${naive.n}</div><div class="d">${esc(F.label)}</div></div>
+    <div class="kpi"><div class="k">Last year's value, mean error</div><div class="v">${naive.mae.toFixed(2)}<small>%</small></div><div class="d">absolute, of the new value</div></div>
+    <div class="kpi"><div class="k">Models that beat it</div><div class="v">${beat}<small> of ${F.scores.length - 1}</small></div><div class="d">with p below 0.05 on a sign test</div></div>
+    <div class="kpi"><div class="k">80% band held</div><div class="v">${c8[0]}<small> of ${c8[1]}</small></div><div class="d">${c9[0]} of ${c9[1]} at 90%</div></div></div>
+  <section class="panel" style="margin-top:16px" aria-labelledby="f1-t"><header><h2 id="f1-t">Error of "this year equals last year" for each year</h2><span class="small muted">above zero: forecast too high</span></header>
+    <div class="pad"><div class="chart">${forecastChart()}</div>
+      <p class="muted small" style="margin:8px 0 0;max-width:80ch">${best.naive ? "Best by mean absolute error: last year's value. Drift, trend and autoregressive models did no better." : `Best by mean absolute error: ${esc(best.model)}.`} The errors are about the size of the 1% to 3% intensity targets, which is why the missing year matters.</p></div></section>
+  <div class="grid2"><section class="panel" aria-labelledby="f2-t"><header><h2 id="f2-t">Models compared</h2></header><div class="scroll"><table><thead><tr><th>Model</th><th class="n">Mean abs.</th><th class="n">RMSE</th><th class="n">Bias</th><th class="n">Worst</th><th class="n">Beats naive</th><th class="n">p</th></tr></thead><tbody>
+    ${F.scores.map((x) => `<tr><td>${esc(x.model)}</td><td class="n">${x.mae.toFixed(2)}%</td><td class="n">${x.rmse.toFixed(2)}%</td><td class="n">${signed(x.bias)}</td><td class="n">${signed(x.worst)}</td><td class="n">${x.naive ? "-" : x.beats + "/" + x.comparable}</td><td class="n">${x.naive ? "-" : x.p.toFixed(2)}</td></tr>`).join("")}</tbody></table></div></section>
+    <section class="panel" aria-labelledby="f3-t"><header><h2 id="f3-t">By year</h2></header><div class="scroll" style="max-height:340px"><table><thead><tr><th>Year</th><th>First in</th><th class="n">Published</th><th class="n">Last year's value</th><th class="n">Error</th></tr></thead><tbody>
+    ${F.years.slice().reverse().map((y) => `<tr><td>${esc(y.fy)}</td><td class="small">${esc(y.version)}</td><td class="n">${y.actual.toFixed(4)}</td><td class="n">${y.naive.toFixed(4)}</td><td class="n">${signed(y.error)}</td></tr>`).join("")}</tbody></table></div></section></div>
+  <p class="muted small" style="margin-top:16px;max-width:90ch">This is a backtest on about twenty yearly values of one series, not a forecast of anything. The independent monthly estimate that may beat it (Ember) is on two cases only and is described in <code>docs/EMBER_CROSSCHECK.md</code>. Method and limits: <code>docs/NOWCAST.md</code>.</p>`;
+}
+function bindForecast() {}
+
 /* ---------- sampling ---------- */
 async function drawSample() {
   const s = S.samp, rep = byId(s.report), lines = JSON.parse(rep.output).lines;
@@ -894,7 +1001,7 @@ document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); palette.open ? palette.close() : openPalette(); return; }
   if (e.key === "Escape" && $("#drawer").classList.contains("open") && !document.querySelector("dialog[open]")) { closeDrawer(); return; }
-  if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-6]$/.test(e.key) && !document.querySelector("dialog[open]")) go(VIEWS[+e.key - 1][0]);
+  if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey && /^[1-8]$/.test(e.key) && !document.querySelector("dialog[open]")) go(VIEWS[+e.key - 1][0]);
 });
 
 drawSample().then(() => { route(false); });

@@ -13,6 +13,7 @@ import random
 import re
 import shutil
 import subprocess
+import sys
 from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
@@ -86,6 +87,12 @@ def test_the_file_is_self_contained_and_follows_the_house_rules():
     assert "</script>" not in re.search(r'<script id="data"[^>]*>(.*?)</script>', PAGE, re.DOTALL).group(1)
 
 
+def test_the_build_script_check_passes_on_the_committed_file():
+    done = subprocess.run([sys.executable, str(ROOT / "scripts" / "build_console.py"), "--check"],
+                          capture_output=True, text=True, check=False)
+    assert done.returncode == 0, done.stderr
+
+
 # ---- the browser's arithmetic agrees with the engine ---------------------------
 
 NODE = shutil.which("node")
@@ -94,10 +101,10 @@ const fs = require("fs"), vm = require("vm"), {webcrypto} = require("crypto");
 const page = fs.readFileSync(process.argv[1], "utf8"), job = JSON.parse(fs.readFileSync(0, "utf8"));
 const block = page.split("/* ==== PURE LOGIC START ====")[1].split("/* ==== PURE LOGIC END ====")[0].replace(/^[^\n]*\n/, "");
 const ctx = vm.createContext({crypto: webcrypto, TextEncoder, console});
-vm.runInContext(block + "\nthis.L = {parseDec, formatScaled, emissionsScaled, sha256Hex, confidenceFactor, intervalFor, seedFraction, selectLines, evaluateSample};", ctx);
+vm.runInContext(block + "\nthis.L = {parseDec, formatScaled, emissionsScaled, sha256Hex, confidenceFactor, intervalFor, seedFraction, selectLines, evaluateSample, fixed, effectPct, shareNeeded, reductionShown, reductionNeeded};", ctx);
 const L = ctx.L;
 (async () => {
-  const out = {emissions: [], hashes: [], draws: [], evals: [], factors: [], selects: []};
+  const out = {emissions: [], hashes: [], draws: [], evals: [], factors: [], selects: [], mat: []};
   for (const r of job.ledger) out.emissions.push(L.formatScaled(L.emissionsScaled(r, r.quantity), 6));
   for (const t of job.texts) out.hashes.push(await L.sha256Hex(t));
   for (const c of job.draws) {
@@ -110,6 +117,8 @@ const L = ctx.L;
     const sel = L.selectLines(c.items.map((v, i) => ({key: i + 1, value: L.parseDec(v, 6), reason: null})), BigInt(c.j), BigInt(c.h9));
     out.selects.push({certain: sel.certain, sampled: sel.sampled});
   }
+  for (const d of job.mat.ds) for (const s of job.mat.ss)
+    out.mat.push([L.fixed(L.effectPct(s, d), 2), L.fixed(L.reductionShown(s, d), 2), L.shareNeeded(d, job.mat.thr), L.reductionNeeded(d, 1), L.reductionNeeded(d, 3)]);
   for (const e of job.evals) out.evals.push(L.evaluateSample(e.results, e.interval, e.conf, e.tolerable));
   for (const c of [0.9, 0.95, 0.99]) for (const k of [0, 1, 2, 3]) out.factors.push(L.confidenceFactor(c, k));
   console.log(JSON.stringify(out));
@@ -135,6 +144,15 @@ def _items(report):
 BOUNDARY = [([50, 50, 50, 50], 100, h) for h in (0, 500_000_000, 999_999_999)] + [
     ([1, 2, 1], 3, 333_333_333), ([1, 1, 1, 1, 1, 1], 2, 500_000_000), ([7, 3, 5, 5], 10, 700_000_000),
     ([10, 10, 10], 10, 0), ([0, 5, 0, 5], 10, 500_000_000)]
+
+
+SCRIPTS = ROOT / "scripts"
+sys.path[:0] = [str(SCRIPTS), str(ROOT / "src")]
+import rq1_materiality
+import rq3_compliance
+
+MAT_DS = sorted({k["d"] for k in DATA["materiality"]["kinds"]}
+                | {r["d"] for rows in DATA["materiality"]["baselines"].values() for r in rows} | {0.0, 5.0, -5.0, 0.5})
 
 
 @pytest.fixture(scope="module")
@@ -174,7 +192,7 @@ def node_result():
             sel = pps.select([pps.Item(i + 1, Fraction(v, 10**6)) for i, v in enumerate(values)],
                              Fraction(j, 10**6), "ignored")
         py_selects.append({"certain": [[k, w] for k, w in sel.certain], "sampled": list(sel.sampled)})
-    job = {"ledger": DATA["ledger"],
+    job = {"ledger": DATA["ledger"], "mat": {"ds": MAT_DS, "ss": list(range(101)), "thr": 5.0},
            "selects": [{"items": [format(Decimal(v).scaleb(-6), "f") for v in values], "j": j, "h9": h9}
                        for values, j, h9 in BOUNDARY], "texts": [r["output"] for r in DATA["reports"]] + ["", "é€nd"],
            "draws": draws,
@@ -220,3 +238,23 @@ def test_browser_evaluation_equals_the_engines(node_result):
 def test_browser_confidence_factors_equal_the_engines(node_result):
     want = [pps.confidence_factor(c, k) for c in (0.9, 0.95, 0.99) for k in (0, 1, 2, 3)]
     assert node_result["out"]["factors"] == pytest.approx(want, rel=1e-12)
+
+
+def test_browser_materiality_arithmetic_equals_the_scripts_at_every_share(node_result):
+    """The slider's numbers are the ones in docs/RQ1_RESULTS.md and RQ3_COMPLIANCE.md."""
+    want = []
+    for d in MAT_DS:
+        for s in range(101):
+            want.append([f"{s * abs(d) / 100:.2f}", f"{-s * d / 100 + 0.0:.2f}",
+                         rq1_materiality.share_needed(d),
+                         rq3_compliance.share_needed(d, 1.0), rq3_compliance.share_needed(d, 3.0)])
+    assert node_result["out"]["mat"] == want
+
+
+def test_embedded_materiality_and_forecast_equal_what_the_code_gives_now():
+    """A snapshot that has drifted from factors.csv or from the nowcast code fails here."""
+    import build_console
+    fresh = json.loads(json.dumps(build_console.plain({"m": build_console.materiality(),
+                                                       "f": build_console.forecast()})))
+    assert DATA["materiality"] == fresh["m"] and DATA["forecast"] == fresh["f"]
+    assert DATA["registry"] == json.loads(json.dumps(build_console.registry()))
