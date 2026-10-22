@@ -111,6 +111,11 @@ reported notification. Confirm it before any of them is cited.
   in two later full runs. Treated as a cold-start timing flake, not proved to
   be one. If it recurs, look at it first.
 
+- **10,000-sequence run on Postgres 16**: `.github/workflows/reproducibility-10k.yml`
+  (started by hand from the Actions tab) runs invariant 1 at full size on the CI
+  database. Started 2026-10-22 as run 39723839804; when it finishes, record its
+  result here and in `ADVERSARIAL_LOG.md`, pass or fail.
+
 ## Environment note (2026-10-06)
 
 For part of 2026-10-06, a Windows Application Control policy on the development
