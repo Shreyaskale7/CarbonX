@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import openpyxl
@@ -129,7 +129,7 @@ def _stated_date(rows: list[list[object]]) -> tuple[date | None, str]:
             for fmt, precision in (("%d %b %Y", "day"), ("%d %B %Y", "day"),
                                    ("%b %y", "month"), ("%B %y", "month")):
                 try:
-                    return datetime.strptime(s, fmt).date(), precision  # noqa: DTZ007 date only
+                    return datetime.strptime(s, fmt).replace(tzinfo=UTC).date(), precision
                 except ValueError:
                     pass
             return None, "unknown"
