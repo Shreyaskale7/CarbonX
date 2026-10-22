@@ -115,5 +115,5 @@ against an independent estimate.
   reproducible, but it is rendered in floating point, not exact arithmetic.
 - **Checked on a development database only.** The arithmetic is unit-tested.
   Reading a stored report (`for_report`) was checked by hand on
-  the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI is the authority and has not run yet.
+  the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI (Postgres 16) ran green on 2026-10-22 and is the authority.
   It has no automated database test.

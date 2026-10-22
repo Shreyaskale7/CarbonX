@@ -180,7 +180,7 @@ the application is wrong (invariant 3).
   check constraint ties "has a holder" to "is ISSUED or HELD". P3 follows from
   P2, as in §4.
 
-The three database tests pass on the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI is the authority and has not run yet.
+The three database tests pass on the local development Postgres (`scripts/dev_pg.py`, 2026-10-05). That is Postgres 18 in compatibility mode, not the target Postgres 16; CI (Postgres 16) ran green on 2026-10-22 and is the authority.
 
 ## 7. Limits
 
