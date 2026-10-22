@@ -1,0 +1,37 @@
+name: Reproducibility, 10,000 sequences
+
+# Invariant 1 at the full size, on Postgres 16 with the real btree_gist and
+# pgcrypto. Too long for every push, so it is started by hand (Actions tab, "Run
+# workflow"). Locally the same run took 42 minutes to 1.5 hours.
+on:
+  workflow_dispatch:
+
+jobs:
+  thorough:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_DB: carbonx
+          POSTGRES_USER: carbonx
+          POSTGRES_PASSWORD: carbonx
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U carbonx"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://carbonx_app:carbonx_app@localhost:5432/carbonx
+      MIGRATION_DATABASE_URL: postgresql+psycopg://carbonx:carbonx@localhost:5432/carbonx
+      HYPOTHESIS_PROFILE: thorough
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+      - run: python scripts/seed_policies.py
+      - run: pytest tests/test_reproducibility.py -q -k any_sequence --hypothesis-show-statistics
