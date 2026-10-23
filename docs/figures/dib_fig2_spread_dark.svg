@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" role="img" font-family="system-ui, -apple-system, Segoe UI, sans-serif" aria-labelledby="t d">
+<title id="t">Values of the all-India weighted average factor across CEA versions, by financial year</title>
+<desc id="d">grid.weighted_avg.incl_imports. 25 of 26 financial years appear in more than one version. For FY2016-17, version 18.0 gives 0.7656 where the other versions give 0.8237.</desc>
+<rect width="760" height="440" fill="#1a1a19"/>
+<line x1="70" x2="730" y1="340.0" y2="340.0" stroke="#2c2c2a"/>
+<text x="62.0" y="344.0" fill="#898781" text-anchor="end" font-size="11" font-weight="400">0.75</text>
+<line x1="70" x2="730" y1="240.0" y2="240.0" stroke="#2c2c2a"/>
+<text x="62.0" y="244.0" fill="#898781" text-anchor="end" font-size="11" font-weight="400">0.80</text>
+<line x1="70" x2="730" y1="140.0" y2="140.0" stroke="#2c2c2a"/>
+<text x="62.0" y="144.0" fill="#898781" text-anchor="end" font-size="11" font-weight="400">0.85</text>
+<line x1="70" x2="730" y1="40.0" y2="40.0" stroke="#2c2c2a"/>
+<text x="62.0" y="44.0" fill="#898781" text-anchor="end" font-size="11" font-weight="400">0.90</text>
+<text x="82.7" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2000-01</text>
+<line x1="82.7" x2="82.7" y1="201.8" y2="207.5" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="108.1" x2="108.1" y1="182.2" y2="185.5" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="133.5" x2="133.5" y1="135.7" y2="145.1" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="158.8" x2="158.8" y1="143.7" y2="147.4" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="184.2" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2004-05</text>
+<line x1="184.2" x2="184.2" y1="159.9" y2="164.6" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="209.6" x2="209.6" y1="210.7" y2="214.8" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="235.0" x2="235.0" y1="239.8" y2="245.7" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="260.4" x2="260.4" y1="259.5" y2="260.5" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="285.8" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2008-09</text>
+<line x1="285.8" x2="285.8" y1="196.2" y2="212.6" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="311.2" x2="311.2" y1="217.3" y2="229.3" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="336.5" x2="336.5" y1="264.4" y2="266.0" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="361.9" x2="361.9" y1="283.6" y2="284.2" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="387.3" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2012-13</text>
+<line x1="387.3" x2="387.3" y1="179.7" y2="190.2" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="412.7" x2="412.7" y1="209.7" y2="209.7" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="438.1" x2="438.1" y1="191.1" y2="191.1" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="463.5" x2="463.5" y1="199.6" y2="199.6" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="488.8" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2016-17</text>
+<line x1="488.8" x2="488.8" y1="192.5" y2="308.8" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="514.2" x2="514.2" y1="203.7" y2="204.4" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="539.6" x2="539.6" y1="185.2" y2="197.2" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="565.0" x2="565.0" y1="252.5" y2="254.9" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="590.4" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2020-21</text>
+<line x1="590.4" x2="590.4" y1="266.7" y2="267.4" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="615.8" x2="615.8" y1="220.8" y2="220.8" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="641.2" x2="641.2" y1="193.9" y2="194.1" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="666.5" x2="666.5" y1="157.2" y2="157.6" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<line x1="691.9" x2="691.9" y1="178.3" y2="178.4" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="717.3" y="360.0" fill="#898781" text-anchor="middle" font-size="11" font-weight="400">2025-26</text>
+<line x1="70" x2="730" y1="340" y2="340" stroke="#4a4a46"/>
+<circle cx="82.7" cy="207.5" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2000-01: first published in v1.0: 0.8163</title></circle>
+<circle cx="82.7" cy="201.8" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2000-01: latest, v3.0: 0.8191</title></circle>
+<circle cx="108.1" cy="185.5" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2001-02: first published in v1.0: 0.8273</title></circle>
+<circle cx="108.1" cy="182.9" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2001-02: latest, v3.0: 0.8285</title></circle>
+<circle cx="133.5" cy="145.1" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2002-03: first published in v1.0: 0.8475</title></circle>
+<circle cx="133.5" cy="135.7" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2002-03: latest, v3.0: 0.8521</title></circle>
+<circle cx="158.8" cy="147.4" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2003-04: first published in v1.0: 0.8463</title></circle>
+<circle cx="158.8" cy="144.0" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2003-04: latest, v3.0: 0.8480</title></circle>
+<circle cx="184.2" cy="163.4" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2004-05: first published in v1.0: 0.8383</title></circle>
+<circle cx="184.2" cy="164.6" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2004-05: latest, v6.0: 0.8377</title></circle>
+<circle cx="209.6" cy="211.0" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2005-06: first published in v2.0: 0.8145</title></circle>
+<circle cx="209.6" cy="214.6" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2005-06: latest, v6.0: 0.8127</title></circle>
+<circle cx="235.0" cy="239.8" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2006-07: first published in v3.0: 0.8001</title></circle>
+<circle cx="235.0" cy="245.5" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2006-07: latest, v7.0: 0.7972</title></circle>
+<circle cx="260.4" cy="260.5" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2007-08: first published in v4.0: 0.7898</title></circle>
+<circle cx="260.4" cy="259.5" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2007-08: latest, v8.0: 0.7902</title></circle>
+<circle cx="285.8" cy="196.2" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2008-09: first published in v5.0: 0.8219</title></circle>
+<circle cx="285.8" cy="211.9" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2008-09: latest, v9.0: 0.8140</title></circle>
+<circle cx="311.2" cy="217.3" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2009-10: first published in v6.0: 0.8113</title></circle>
+<circle cx="311.2" cy="228.7" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2009-10: latest, v10.0: 0.8056</title></circle>
+<circle cx="336.5" cy="264.9" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2010-11: first published in v7.0: 0.7876</title></circle>
+<circle cx="336.5" cy="266.0" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2010-11: latest, v11.0: 0.7870</title></circle>
+<circle cx="361.9" cy="284.2" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2011-12: first published in v8.0: 0.7779</title></circle>
+<circle cx="361.9" cy="284.2" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2011-12: latest, v13.0: 0.7779</title></circle>
+<circle cx="387.3" cy="190.2" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2012-13: first published in v9.0: 0.8249</title></circle>
+<circle cx="387.3" cy="179.7" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2012-13: latest, v13.0: 0.8302</title></circle>
+<circle cx="412.7" cy="209.7" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2013-14: first published in v10.0: 0.8151</title></circle>
+<circle cx="412.7" cy="209.7" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2013-14: latest, v15.0: 0.8151</title></circle>
+<circle cx="438.1" cy="191.1" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2014-15: first published in v11.0: 0.8244</title></circle>
+<circle cx="438.1" cy="191.1" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2014-15: latest, v16.0: 0.8244</title></circle>
+<circle cx="463.5" cy="199.6" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2015-16: first published in v12.0: 0.8202</title></circle>
+<circle cx="463.5" cy="199.6" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2015-16: latest, v17.0: 0.8202</title></circle>
+<circle cx="488.8" cy="192.5" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2016-17: first published in v13.0: 0.8237</title></circle>
+<circle cx="488.8" cy="192.5" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2016-17: latest, v22.0: 0.8237</title></circle>
+<path d="M488.8,302.8 l6,6 l-6,6 l-6,-6 z" fill="#d95926" stroke="#1a1a19" stroke-width="1.5"><title>FY2016-17: v18.0: 0.7656</title></path>
+<text x="500.8" y="312.8" fill="#ffffff" text-anchor="start" font-size="12" font-weight="600">version 18: 0.7656</text>
+<circle cx="514.2" cy="203.7" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2017-18: first published in v14.0: 0.8181</title></circle>
+<circle cx="514.2" cy="204.4" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2017-18: latest, v22.0: 0.8178</title></circle>
+<circle cx="539.6" cy="185.2" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2018-19: first published in v15.0: 0.8274</title></circle>
+<circle cx="539.6" cy="197.2" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2018-19: latest, v22.0: 0.8214</title></circle>
+<circle cx="565.0" cy="252.5" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2019-20: first published in v16.0: 0.7938</title></circle>
+<circle cx="565.0" cy="254.9" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2019-20: latest, v22.0: 0.7926</title></circle>
+<circle cx="590.4" cy="266.7" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2020-21: first published in v17.0: 0.7866</title></circle>
+<circle cx="590.4" cy="267.4" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2020-21: latest, v22.0: 0.7863</title></circle>
+<circle cx="615.8" cy="220.8" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2021-22: first published in v18.0: 0.8096</title></circle>
+<circle cx="615.8" cy="220.8" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2021-22: latest, v22.0: 0.8096</title></circle>
+<circle cx="641.2" cy="194.0" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2022-23: first published in v19.0: 0.8230</title></circle>
+<circle cx="641.2" cy="193.9" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2022-23: latest, v22.0: 0.8230</title></circle>
+<circle cx="666.5" cy="157.2" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2023-24: first published in v21.0: 0.8414</title></circle>
+<circle cx="666.5" cy="157.6" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2023-24: latest, v22.0: 0.8412</title></circle>
+<circle cx="691.9" cy="178.3" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"><title>FY2024-25: first published in v21.0: 0.8308</title></circle>
+<circle cx="691.9" cy="178.4" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2024-25: latest, v22.0: 0.8308</title></circle>
+<circle cx="717.3" cy="203.5" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"><title>FY2025-26: latest, v22.0: 0.8182</title></circle>
+<text x="400.0" y="378.0" fill="#c3c2b7" text-anchor="middle" font-size="12" font-weight="400">Financial year</text>
+<text transform="translate(18,190) rotate(-90)" fill="#c3c2b7" text-anchor="middle" font-size="12">tCO2/MWh</text>
+<circle cx="78" cy="396" r="4" fill="#3987e5" stroke="#1a1a19" stroke-width="1.5"/>
+<text x="90.0" y="400.0" fill="#c3c2b7" text-anchor="start" font-size="12" font-weight="400">latest value</text>
+<circle cx="332" cy="396" r="4" fill="#1a1a19" stroke="#c3c2b7" stroke-width="1.5"/>
+<text x="344.0" y="400.0" fill="#c3c2b7" text-anchor="start" font-size="12" font-weight="400">value in the first version that published the year</text>
+<line x1="78" x2="78" y1="414" y2="428" stroke="#4a4a46" stroke-width="3" stroke-linecap="round"/>
+<text x="90.0" y="425.0" fill="#c3c2b7" text-anchor="start" font-size="12" font-weight="400">range across all versions of that year</text>
+<path d="M332,414 l6,6 l-6,6 l-6,-6 z" fill="#d95926"/>
+<text x="344.0" y="425.0" fill="#c3c2b7" text-anchor="start" font-size="12" font-weight="400">largest departure from the other versions of its year</text>
+</svg>

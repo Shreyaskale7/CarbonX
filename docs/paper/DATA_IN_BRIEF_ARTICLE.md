@@ -255,15 +255,32 @@ responsibility for it. Use the journal's exact wording from its current policy.
 
 ---
 
-## Figures and tables to add (the journal encourages them)
+## Figures
 
-- **Figure 1.** Timeline of the 23 versions by stated date, with the newest
-  financial year each covers. Data: `versions.csv`.
-- **Figure 2.** For one all-India series, the value of each financial year in
-  each version (a dot per version), showing the spread between first and latest
-  publication. Data: `factors.csv`. `docs/figures/rq2_steps.svg` and the console's
-  registry view show the idea; make a new figure for this article with captions.
-- Tables 1 and 2 above, with captions.
+Generated from the data by `python scripts/dib_figures.py` (SVG for the
+repository; `--png` writes the 4x PNGs, 3040 x 1760 pixels, for the Word
+template). Place each after the paragraph that first mentions it. The files are
+in `docs/figures/`; use the light versions. Captions to paste:
+
+**Fig. 1.** Versions of the CEA CO2 Baseline Database. Each marker is one of the
+23 versions, placed at the date written in its workbook (horizontal axis) and the
+newest financial year it covers (vertical axis). Open markers are the five
+versions whose workbook gives only a month; they are drawn at the first of that
+month. Version 1.1 covers the same year as version 1.0. Source: `versions.csv`.
+
+**Fig. 2.** Values of one all-India series (`grid.weighted_avg.incl_imports`, the
+weighted average including imports) for each of the 26 financial years, across
+the versions that published them. Filled markers are the latest value; open
+markers are the value in the first version that published the year (shown where
+a year appears in more than one version); the grey bar spans all versions of that
+year. The orange marker is the largest departure of one version's value from the
+other versions of its year: version 18 for financial year 2016-17 (0.7656
+tCO2/MWh, against 0.8237 in the other versions). Source: `factors.csv`.
+
+Add to the "Data description" text: "Fig. 1 shows the versions in time and Fig. 2
+shows, for one series, how values differ between versions."
+
+**Tables.** Tables 1 and 2 above, with captions.
 
 ## Before submitting
 

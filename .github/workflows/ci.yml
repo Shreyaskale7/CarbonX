@@ -53,6 +53,7 @@ jobs:
           python scripts/rq3_compliance.py && python scripts/nowcast.py
           python scripts/ember_crosscheck.py && python scripts/registry_changelog.py
           python scripts/compare_bee_ipcc.py
+          python scripts/dib_figures.py
           git diff --exit-code docs/ data/cea/CHANGELOG.md
       - name: the console is its template plus its embedded data
         run: python scripts/build_console.py --check
