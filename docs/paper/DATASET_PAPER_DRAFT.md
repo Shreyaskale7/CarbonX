@@ -1,5 +1,7 @@
 # A version history of India's grid emission factors, 2006 to 2026
 
+> **Formatted for Data in Brief:** see `DATA_IN_BRIEF_ARTICLE.md` (the journal's section order and wording rules). This file is the longer working draft.
+
 > **DRAFT for the team to rewrite. Not for submission as it stands.**
 > Written as a starting text in the shape of a data descriptor (the article
 > type of *Scientific Data* and *Data in Brief*). Every figure below was
