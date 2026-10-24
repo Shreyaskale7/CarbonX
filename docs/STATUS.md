@@ -23,7 +23,7 @@ have only been done on the development Postgres.
 | 2 CEA ingest, RQ2 | every version loaded with hash and URL; year-on-year table; checkpoints | **Met** | `data/cea/`, `RQ2_RESULTS.md`, `test_cea_registry.py` | Plan named a notebook; a script generates the table instead |
 | 3 Type system | `kWh × tCO2e/MWh` → tCO2e; wrong unit rejected; property test; `mypy --strict` | **Met**, with one correction | `test_units.py`, `TYPE_SOUNDNESS.md` | The plan's "`kWh × tCO2e/litre` raises" is wrong as stated: the error is in *declaring* the result tCO2e. Documented |
 | 4 Vertical slice | a newcomer runs `reproduce.sh`, uploads a bill, walks the chain | **Met** | walked in a browser at `5728e7c`, and again on 2026-10-05 with every panel (provenance, policy attestation, reports with verify, coverage, review queue, exceptions, fuel entry) against the development Postgres; `test_engine.py`, `test_workbench.py` | The second walk-through used the development Postgres, not Docker |
-| 5 Reproducibility | ≥10,000 generated sequences pass; failures documented and fixed | **Met on the development Postgres** | 10,000 generated sequences passed, 0 failed, three times (2026-10-05 at `8ebc6a1`; 2026-10-13 at `37757cf` with product and conversion operations; 2026-10-14 at `6b54cd1` with meters and the migration 0014 report lock); `ADVERSARIAL_LOG.md` documents 13 attempts | Not yet repeated on Postgres 16 at 10,000 sequences; CI runs the 100-sequence profile and passes |
+| 5 Reproducibility | ≥10,000 generated sequences pass; failures documented and fixed | **Met on the development Postgres** | 10,000 generated sequences passed, 0 failed, three times (2026-10-05 at `8ebc6a1`; 2026-10-13 at `37757cf` with product and conversion operations; 2026-10-14 at `6b54cd1` with meters and the migration 0014 report lock); `ADVERSARIAL_LOG.md` documents 13 attempts | Repeated on Postgres 16 (CI, 2026-10-22): 10,000 passed, 0 failed; the push-triggered CI runs the 100-sequence profile and passes |
 | 6 Extraction | accuracy per DISCOM, seen vs unseen; beats baseline on unseen; ECE before/after; calibrated confidence stored | **Partly, on synthetic data** | `EXTRACTION_RESULTS.md`: unseen test layouts 33.3% vs baseline 0% | **No real bills.** One modelled field; period and meter id by rules only. Confidence is *not* calibrated on unseen layouts (ECE 0.347), so the stored confidence does not meet invariant 6 |
 | 7 Uncertainty | correlated band wider than naive, quantified; every variance traced, nothing invented | **Met, in reduced scope** | `test_uncertainty.py` (wider by √3), `test_meters.py`; `UNCERTAINTY.md` | Fuel factors, and activity data only where a meter's stored calibration certificate states an uncertainty (migration 0013; proposed, unsigned). Grid factor and extraction carry none, by invariant 6 |
 | 8 Materiality, RQ1 | per-sector curve with cited Scope 1/2 splits | **Partly** | engine: `test_materiality.py`; `RQ1_RESULTS.md` (sector-agnostic curve) | **No sector rows**: `data/sector_scope2_shares.csv` needs cited shares |
@@ -111,10 +111,12 @@ reported notification. Confirm it before any of them is cited.
   in two later full runs. Treated as a cold-start timing flake, not proved to
   be one. If it recurs, look at it first.
 
-- **10,000-sequence run on Postgres 16**: `.github/workflows/reproducibility-10k.yml`
-  (started by hand from the Actions tab) runs invariant 1 at full size on the CI
-  database. Started 2026-10-22 as run 39723839804; when it finishes, record its
-  result here and in `ADVERSARIAL_LOG.md`, pass or fail.
+- **10,000-sequence run on Postgres 16, passed**: `.github/workflows/reproducibility-10k.yml`
+  (started by hand from the Actions tab), run 39723839804 on 2026-10-22, at
+  commit `0557025`: 10,000 passing, 0 failing, 821 generated cases discarded as
+  invalid, 13 minutes, on a Postgres 16 service with the real `btree_gist` and
+  `pgcrypto`. This is the first run of invariant 1 at full size on the target
+  database; the three earlier runs were on the development Postgres 18.
 
 ## Environment note (2026-10-06)
 

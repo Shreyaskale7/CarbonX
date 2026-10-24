@@ -174,6 +174,12 @@ first after migration 0014, where a report holds the write lock only while it
 reads the clock. It took about 12 hours of wall-clock time, most of it with the
 machine idle; the database showed it progressing at about 80 reports a second.
 
+**Repeated on the target database, 2026-10-22, commit `0557025`: 10,000 passed, 0
+failed** (821 discarded as invalid), run by GitHub Actions on a Postgres 16
+service with the real `btree_gist` and `pgcrypto` (workflow
+`reproducibility-10k.yml`, run 39723839804, 13 minutes). Every earlier run was
+on the development Postgres 18 with `btree_gist` emulated; this one is not.
+
 What these runs do not show: they ran on the local development Postgres (18.4,
 with `btree_gist` and `pgcrypto` emulated by `scripts/dev_pg.py`), not on the
 target Postgres 16, and in one transaction (see the limits below). An earlier
