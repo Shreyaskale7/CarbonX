@@ -1,5 +1,7 @@
 # CarbonX
 
+[![CI](https://github.com/Shreyaskale7/CarbonX/actions/workflows/ci.yml/badge.svg)](https://github.com/Shreyaskale7/CarbonX/actions/workflows/ci.yml)
+
 A bitemporal carbon accounting ledger for India's Carbon Credit Trading Scheme,
 where every reported emission figure is traceable to source evidence and every
 historical report stays reproducible when emission factors are revised.
@@ -32,6 +34,16 @@ Courses: DBMS, AI/ML, Theory of Computation.
 The sample facility and its figures (e.g. 11,055.5 vs 11,551.5 tCO2e under
 different factor policies) are **synthetic illustrations**, not measurements of
 any real entity.
+
+## Where the project stands
+
+Everything in scope is built and tested; what is missing is real data and
+decisions only people can make. In short: CI is green on PostgreSQL 16; the
+reproducibility property passed 10,000 generated sequences on Postgres 16 (and
+three times on the development Postgres); bill extraction has only been tried on
+invented bills, and the tooling to collect and score real ones is ready
+(`docs/BILL_COLLECTION.md`, `scripts/eval_real_bills.py`). Each phase against its
+own acceptance test, with what is missing: `docs/STATUS.md`.
 
 ## Quick start
 
@@ -82,6 +94,14 @@ The site is static HTML served by the API (no Node, no build step):
 
 Without Docker: `python scripts/dev_pg.py serve` starts a local Postgres and the site together.
 
+**The console.** `/console` (or just double-click
+`src/carbonx/api/static/console.html`; it needs no server and no network) is the
+verifier's workbench in one file: overview, ledger with provenance, reports, the
+factor registry, materiality, the factor nowcast backtest, sampling and the
+audit trail, with the engine's arithmetic re-implemented in the browser and
+tested against Python. It is a snapshot of the synthetic sample; see
+`docs/FRONTEND.md`.
+
 ## Read these first
 
 | File | What it is |
@@ -99,6 +119,9 @@ Without Docker: `python scripts/dev_pg.py serve` starts a local Postgres and the
 | `docs/UNCERTAINTY.md` | Correlated uncertainty: what is quantified and what is not |
 | `docs/EXTRACTION.md` | Bill extraction: method, what development found, limits (synthetic data) |
 | `docs/ADVERSARIAL_LOG.md` | Every attempt to break invariant 1, and what it found |
+| `docs/BILL_COLLECTION.md` | How to collect, redact and score real bills (none collected yet) |
+| `docs/paper/DATA_IN_BRIEF_ARTICLE.md` | The dataset paper, formatted for Data in Brief (a draft, not for submission yet) |
+| `docs/paper/POLICY_PAPER_DRAFT.md` | The policy paper draft: one rule, several numbers |
 | `docs/FRONTEND.md` | The single-file console at `/console`: a snapshot of the synthetic sample, rebuilt by `scripts/build_console.py` |
 
 ## The invariant everything rests on
@@ -108,6 +131,14 @@ any later time produces byte-identical output — regardless of intervening fact
 supersessions, backdated corrections or data edits. Verified by property-based
 testing in `tests/test_reproducibility.py` (10,000 generated sequences), not
 asserted. What it took, and where it still stops: `docs/ADVERSARIAL_LOG.md`.
+
+## The open registry, and licence
+
+The CEA factor registry in `data/cea/` is meant to be released with a DOI. **No
+licence has been chosen yet, for the code or the data**, and the terms under
+which data derived from CEA's publications may be redistributed have not been
+confirmed. Until both are settled, treat everything here as all rights reserved
+and ask before reusing it. Authors and licence go in `data/cea/release.json`.
 
 ## Not for production use
 
