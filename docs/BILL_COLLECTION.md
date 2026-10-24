@@ -64,7 +64,15 @@ project. Do not skip a step: a leaked bill cannot be taken back.
 
 ## After collecting
 
-Say how many bills and how many utilities you have. The evaluation on real bills
-(`scripts/eval_extraction.py` currently reads only the synthetic corpus) still
-has to be written to read `data/redacted_bills/`; that is the next build once
-there are bills to test against.
+Say how many bills and how many utilities you have, then run:
+
+```bash
+python scripts/eval_real_bills.py
+```
+
+It holds one utility out at a time, trains on the synthetic layouts plus the
+other utilities' real bills, and scores the held-out one. It refuses to write
+`docs/EXTRACTION_REAL_RESULTS.md` until there are at least 3 utilities with at
+least 5 bills each; below that it only prints what is missing. Whatever it writes
+comes with 95% intervals and the counts, and those counts must travel with every
+number you quote. Commit the results file with the bills.

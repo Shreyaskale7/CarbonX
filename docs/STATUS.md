@@ -99,6 +99,12 @@ reported notification. Confirm it before any of them is cited.
   needed) fails unless the file is exactly its template plus its embedded data.
   14 tests, including the browser's arithmetic against the Python scripts.
 - **Lifecycle**: the induction step of the proof now runs by machine (above).
+- **Real-bill tooling is ready, the bills are not**: `scripts/redact_bill.py`
+  (text redaction, dry run by default), `tests/test_redacted_bills.py` (a guard on
+  anything committed), `docs/BILL_COLLECTION.md` (checklist) and
+  `scripts/eval_real_bills.py` (one utility held out at a time, refuses to write
+  numbers below 3 utilities with 5 bills each). Tested on stand-in bills only.
+  Phase 6 stays **Partly** until real bills exist.
 - **Not built, by decision**: the learned audit-sampling ranker. The council cut
   it (its labels would be faults we inject ourselves) and `SCOPE_PROPOSAL.md`
   records that.
