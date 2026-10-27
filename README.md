@@ -138,7 +138,10 @@ asserted. What it took, and where it still stops: `docs/ADVERSARIAL_LOG.md`.
 The CEA factor registry in `data/cea/` is meant to be released with a DOI. **No
 licence has been chosen yet, for the code or the data**, and the terms under
 which data derived from CEA's publications may be redistributed have not been
-confirmed. Until both are settled, treat everything here as all rights reserved
+confirmed. CEA's current copyright policy allows free reproduction **only with prior
+permission by email** (`docs/OUTREACH_DRAFTS.md` has the policy summary and a
+draft request, not yet sent). Until that and the licence are settled, treat
+everything here as all rights reserved
 and ask before reusing it. Authors and licence go in `data/cea/release.json`.
 
 ## Not for production use

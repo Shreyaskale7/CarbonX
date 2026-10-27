@@ -114,6 +114,14 @@ reported notification. Confirm it before any of them is cited.
   15 open `erify{}` items (BEE text, target notification, baseline year,
   reference details, authors, AI-use wording, DOI), and `--submit-check` fails
   while any remain.
+- **CEA asks for prior permission (found 2026-10-27)**: its current copyright
+  policy lets content be reproduced free of charge only after the user obtains
+  permission by email. The registry holds figures and cell references taken from
+  CEA's workbooks and is public on GitHub today. Draft request and policy summary:
+  `docs/OUTREACH_DRAFTS.md` (unsent). This gates the DOI, both papers and the
+  licence; the repository's visibility is the authors' decision.
+- **Real bills: no public source found**, and none should be taken from the open
+  internet (`docs/OUTREACH_DRAFTS.md`, section 3). Phase 6 stays Partly.
 - **Not built, by decision**: the learned audit-sampling ranker. The council cut
   it (its labels would be faults we inject ourselves) and `SCOPE_PROPOSAL.md`
   records that.

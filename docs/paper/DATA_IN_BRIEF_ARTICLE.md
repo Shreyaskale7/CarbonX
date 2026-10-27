@@ -211,8 +211,10 @@ The following features of the source files affect how the data can be used.
 ## Ethics statements
 
 The data contain no personal data and involve no human participants or animals.
-**[ ]** Confirm the terms under which data derived from CEA's publications may be
-redistributed, and state them here and in the dataset licence.
+**[ ]** CEA's copyright policy (read 2026-10-27) allows reproduction free of charge
+only after prior permission by email, with CEA acknowledged and the material
+unaltered. Obtain that permission (draft in `docs/OUTREACH_DRAFTS.md`), then state
+its terms here and in the dataset licence. Do not submit before it is in hand.
 
 ## CRediT author statement
 
