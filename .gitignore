@@ -13,3 +13,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 brag-output*/
+
+# LaTeX build products
+paper/*.aux
+paper/*.log
+paper/*.bbl
+paper/*.blg
+paper/*.out
+paper/main.pdf

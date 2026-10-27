@@ -121,6 +121,7 @@ tested against Python. It is a snapshot of the synthetic sample; see
 | `docs/ADVERSARIAL_LOG.md` | Every attempt to break invariant 1, and what it found |
 | `docs/BILL_COLLECTION.md` | How to collect, redact and score real bills (none collected yet) |
 | `docs/paper/DATA_IN_BRIEF_ARTICLE.md` | The dataset paper, formatted for Data in Brief (a draft, not for submission yet) |
+| `paper/` | The IEEE-format paper (`main.tex`): every number, table and graph generated from the registry by `scripts/paper_build.py` and checked by `tests/test_paper.py`; 15 open `[VERIFY]` items, not for submission yet |
 | `docs/paper/POLICY_PAPER_DRAFT.md` | The policy paper draft: one rule, several numbers |
 | `docs/FRONTEND.md` | The single-file console at `/console`: a snapshot of the synthetic sample, rebuilt by `scripts/build_console.py` |
 
