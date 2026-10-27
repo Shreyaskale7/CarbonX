@@ -244,11 +244,11 @@ def figures(res: dict, outdir: Path) -> None:
     ink, mid, lt = "#000000", "#555555", "#bbbbbb"
 
     fig, ax = plt.subplots(figsize=(3.4, 2.3))                                  # Fig. 1: candidate factors
-    names = {"baseline": "baseline year FY" + res["n"]["baseYear"] + " (v20)", "deadline": "latest at the deadline (v21)",
-             "grid.weighted_avg.excl_imports": "FY2025-26 (v22): average, excl. imports",
-             "grid.weighted_avg.incl_imports": "FY2025-26 (v22): average, incl. imports",
-             "grid.weighted_avg_incl_re_captive.excl_imports": "FY2025-26 (v22): avg. + RE + captive, excl. imp.",
-             "grid.weighted_avg_incl_re_captive.incl_imports": "FY2025-26 (v22): avg. + RE + captive, incl. imp."}
+    names = {"baseline": "baseline year FY" + res["n"]["baseYear"] + " (v20)", "deadline": "latest at deadline (v21)",
+             "grid.weighted_avg.excl_imports": "v22: average, excl. imports",
+             "grid.weighted_avg.incl_imports": "v22: average, incl. imports",
+             "grid.weighted_avg_incl_re_captive.excl_imports": "v22: avg.+RE+captive, excl. imp.",
+             "grid.weighted_avg_incl_re_captive.incl_imports": "v22: avg.+RE+captive, incl. imp."}
     pts = [(names[label], v, ver) for label, v, ver in plot["candidates"]]
     ys = list(range(len(pts)))[::-1]
     for y, (label, v, ver) in zip(ys, pts, strict=True):
@@ -258,7 +258,7 @@ def figures(res: dict, outdir: Path) -> None:
     ax.set_xlabel("Grid emission factor (tCO$_2$/MWh)")
     ax.set_xlim(0.64, 0.91)
     ax.grid(axis="x", color=lt, lw=0.4)
-    fig.tight_layout(pad=0.4)
+    fig.subplots_adjust(left=0.45, right=0.97, top=0.97, bottom=0.2)
     fig.savefig(outdir / "fig_candidates.pdf", metadata=meta)
     plt.close(fig)
 
