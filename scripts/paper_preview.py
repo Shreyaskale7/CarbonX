@@ -131,12 +131,12 @@ def build() -> str:
         for k in m[1].split(","):
             cites.setdefault(k.strip(), len(cites) + 1)
     out, sec, sub, fig, tab = [], 0, 0, 0, 0
-    abstract = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", body, re.S)[1].strip()
-    keywords = re.search(r"\\begin\{IEEEkeywords\}(.*?)\\end\{IEEEkeywords\}", body, re.S)[1].strip()
+    abstract = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", body, re.DOTALL)[1].strip()
+    keywords = re.search(r"\\begin\{IEEEkeywords\}(.*?)\\end\{IEEEkeywords\}", body, re.DOTALL)[1].strip()
     main = body[body.index("\\end{IEEEkeywords}") + len("\\end{IEEEkeywords}"):]
     pos = 0
     for m in re.finditer(r"\\section\*?\{([^}]*)\}|\\subsection\{([^}]*)\}|\\begin\{figure\}.*?\\end\{figure\}|\\begin\{table\}.*?\\end\{table\}"
-                         r"|\\begin\{equation\}.*?\\end\{equation\}|\\begin\{itemize\}.*?\\end\{itemize\}", main, re.S):
+                         r"|\\begin\{equation\}.*?\\end\{equation\}|\\begin\{itemize\}.*?\\end\{itemize\}", main, re.DOTALL):
         para = main[pos:m.start()]
         out += [f"<p>{inline(p.strip(), nums, cites, labels)}</p>" for p in re.split(r"\n\s*\n", para) if p.strip()]
         pos, tok = m.end(), m[0]
@@ -151,12 +151,13 @@ def build() -> str:
         elif tok.startswith("\\begin{figure}"):
             fig += 1
             cap = re.search(r"\\caption\{((?:[^{}]|\{[^{}]*\})*)\}", tok)[1]
-            out.append(f"<figure>{image(re.search(r'includegraphics(?:\[[^\]]*\])?\{([^}]+)\}', tok)[1])}"
+            figure_file = re.search(r"includegraphics(?:\[[^\]]*\])?\{([^}]+)\}", tok)[1]
+            out.append(f"<figure>{image(figure_file)}"
                        f"<figcaption>Fig. {fig}. {inline(cap, nums, cites, labels)}</figcaption></figure>")
         elif tok.startswith("\\begin{table}"):
             tab += 1
             cap = re.search(r"\\caption\{((?:[^{}]|\{[^{}]*\})*)\}", tok)[1]
-            inner = re.search(r"\\begin\{tabular\}\{.*?\}\n(.*)\\end\{tabular\}", tok, re.S)[1]
+            inner = re.search(r"\\begin\{tabular\}\{.*?\}\n(.*)\\end\{tabular\}", tok, re.DOTALL)[1]
             out.append(table(inner, cap, "", nums, cites, labels, tab))
         elif tok.startswith("\\begin{equation}"):
             assert "\\frac{\\Delta" in tok, "the preview knows one equation; update EQ"
@@ -166,7 +167,7 @@ def build() -> str:
             out.append("<ul>" + "".join(f"<li>{inline(i.strip(), nums, cites, labels)}</li>" for i in items) + "</ul>")
     out += [f"<p>{inline(p.strip(), nums, cites, labels)}</p>" for p in re.split(r"\n\s*\n", main[pos:]) if p.strip()]
     refs = []
-    items = re.findall(r"\\bibitem\{(\w+)\}(.*?)(?=\\bibitem|\Z)", bib, re.S)
+    items = re.findall(r"\\bibitem\{(\w+)\}(.*?)(?=\\bibitem|\Z)", bib, re.DOTALL)
     for key, text in sorted(items, key=lambda kv: cites[kv[0]]):
         refs.append(f"<p>[{cites[key]}] {inline(text.strip().replace(chr(10), ' '), nums, cites, labels)}</p>")
     title = re.search(r"\\title\{(.*)\}", tex)[1]
