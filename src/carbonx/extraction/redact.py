@@ -32,11 +32,12 @@ from collections import Counter
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 GSTIN = re.compile(r"\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b")
 PAN = re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b")
+TAN = re.compile(r"\b[A-Z]{4}\d{5}[A-Z]\b")
 MOBILE = re.compile(r"(?<![\d.])(?:\+?91[\s-]?)?[6-9]\d{9}(?!\d)")
 LANDLINE = re.compile(r"(?<![\d.])0\d{2,4}[\s-]\d{6,8}(?!\d)")
 ID_LABEL = re.compile(
     r"(?P<label>\b(?:consumer|account|a/c|customer|service\s+connection|contract\s+account|"
-    r"connection|installation|rr|ca|sc|k)\s*(?:no|number|id)?\.?\s*[:#\-]?\s*)"
+    r"connection|installation|rr|ca|sc|k)\b\s*(?:(?:no|number|id)\b\.?\s*[:#\-]?|[:#\-])\s*)"   # a label, then no/number/id or a separator
     r"(?P<value>[A-Z0-9][A-Z0-9/-]{5,})", re.IGNORECASE)
 METER = re.compile(r"(?P<label>\bmeter(?:\s+(?:no|serial|id|number))?\.?\s*[:#\-]?\s+)"
                    r"(?P<value>[A-Z]{0,4}\d{4,}[A-Z0-9]*)", re.IGNORECASE)
@@ -76,8 +77,18 @@ def _lines_after(text: str, end: int, count: int) -> tuple[int, int]:
     return start, stop
 
 
-def redact(text: str, also: list[str] | None = None,
-           salt: bytes | None = None) -> tuple[str, dict[str, int]]:
+def _listed(part: str, loose: bool) -> re.Pattern[str]:
+    """How a listed name or place is found. Normally as whole words, so a short word is not cut out of an
+    unrelated longer one. For OCR text (`loose`), words are run together ('ACMEWIDGETSPRIVATE'), so a
+    listed string of five or more characters is matched ignoring spaces and punctuation and inside longer strings."""
+    if loose and len(part.replace(" ", "")) >= 5:
+        return re.compile(r"[\s._,;:/-]*".join(re.escape(c) for c in part if not c.isspace()), re.IGNORECASE)
+    return re.compile(r"(?<![A-Za-z0-9])" + r"\s+".join(re.escape(w) for w in part.split())
+                      + r"(?![A-Za-z0-9])", re.IGNORECASE)
+
+
+def redact(text: str, also: list[str] | None = None, salt: bytes | None = None,
+           loose: bool = False) -> tuple[str, dict[str, int]]:
     """Returns (redacted text, how many of each kind were replaced)."""
     salt = salt if salt is not None else os.urandom(16)
     found: Counter[str] = Counter()
@@ -88,7 +99,7 @@ def redact(text: str, also: list[str] | None = None,
             return token
         return sub
 
-    for kind, pattern in (("email", EMAIL), ("gstin", GSTIN), ("pan", PAN),
+    for kind, pattern in (("email", EMAIL), ("gstin", GSTIN), ("pan", PAN), ("tan", TAN),
                           ("mobile", MOBILE), ("landline", LANDLINE)):
         text = pattern.sub(tag(kind, f"[{kind.upper()}]"), text)
 
@@ -122,19 +133,18 @@ def redact(text: str, also: list[str] | None = None,
     for literal in also or []:
         parts = [literal.strip()] + [w for w in re.split(r"\W+", literal) if len(w) >= 3]
         for part in sorted({p for p in parts if p}, key=len, reverse=True):
-            pattern = re.compile(r"\s+".join(re.escape(w) for w in part.split()), re.IGNORECASE)
-            text, n = pattern.subn(REDACTED, text)
+            text, n = _listed(part, loose).subn(REDACTED, text)
             found["listed"] += n
     return text, dict(found)
 
 
-def residual(text: str, also: list[str] | None = None) -> list[str]:
+def residual(text: str, also: list[str] | None = None, loose: bool = False) -> list[str]:
     """What is still recognisable as personal data. Empty is the floor, not a clearance."""
-    left = [f"{k}: {m.group()}" for k, p in (("email", EMAIL), ("gstin", GSTIN), ("pan", PAN),
+    left = [f"{k}: {m.group()}" for k, p in (("email", EMAIL), ("gstin", GSTIN), ("pan", PAN), ("tan", TAN),
                                               ("mobile", MOBILE), ("landline", LANDLINE))
             for m in p.finditer(text)]
     for literal in also or []:
         for part in [literal.strip()] + [w for w in re.split(r"\W+", literal) if len(w) >= 3]:
-            if part and re.search(re.escape(part), text, re.IGNORECASE):
+            if part and _listed(part, loose).search(text):
                 left.append(f"listed: {part}")
     return left

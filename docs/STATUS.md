@@ -120,6 +120,12 @@ reported notification. Confirm it before any of them is cited.
   CEA's workbooks and is public on GitHub today. Draft request and policy summary:
   `docs/OUTREACH_DRAFTS.md` (unsent). This gates the DOI, both papers and the
   licence; the repository's visibility is the authors' decision.
+- **Real bills received 2026-10-31** (41 bills, one utility, three consumers; local only
+  until consent is recorded): the extraction pipeline **failed** on the real form;
+  a layout-independent cue (difference times factor) helped a lot once the model
+  also trained on real bills, but the result is optimistic, calibration is not met,
+  and the held-out-by-utility test still needs 3 utilities. Details without
+  numbers: `docs/EXTRACTION.md` section 8. Phase 6 stays Partly.
 - **Real bills: no public source found**, and none should be taken from the open
   internet (`docs/OUTREACH_DRAFTS.md`, section 3). Phase 6 stays Partly.
 - **Not built, by decision**: the learned audit-sampling ranker. The council cut

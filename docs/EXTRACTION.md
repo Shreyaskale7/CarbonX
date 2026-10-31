@@ -159,3 +159,41 @@ Reading it honestly:
    corpus, split **by DISCOM**, and run it unchanged.
 4. Decision point from the scope proposal: fewer than about 30 real bills by
    week 4 means staying on synthetic data and saying so.
+
+## 8. First contact with real bills (2026-10-31)
+
+Real bills arrived: 41 monthly bills of **one utility** (JdVVNL, HT-5 industrial
+form) for **three consumers**, one file of digital PDF pages and two of scans. Their
+owners' consent for publication is not yet recorded, so the bills, their redacted
+text and the numbers measured on them stay local (`data/bills/` is git-ignored) and
+none are quoted in this repository. What can be said:
+
+- **The pipeline failed on the first real form.** The rule baseline and the model
+  trained on invented bills both found the right kWh on essentially none of them.
+  This is the result that matters most: the synthetic results above did not carry
+  over.
+- **Why:** in a meter table the consumption has only numbers around it, so the
+  model had no cue.
+- **Change made:** one layout-independent feature, `is_product` (the number equals
+  the product of two others close by: consumption is a reading difference times a
+  multiplication factor). It fires on bill amounts too (units times a rate), so it
+  is a cue, not a rule. Synthetic results are unchanged to within 0.1 point.
+- **Effect, measured locally holding one consumer out at a time:** a large
+  improvement, but only once the model also trained on **other consumers' real bills**
+  of the same form. Trained on invented bills alone it stayed at essentially zero.
+  Digital text did far better than OCR'd scans.
+- **Read it as optimistic.** The feature was chosen after seeing that form fail;
+  only one utility and three consumers were tested, so it says nothing about
+  another utility's layout; and the labels were derived by a parser from the
+  printed meter table (cross-checked, not read by a person).
+- **Calibration is still not met** (invariant 6): the model's confidence tracked
+  accuracy poorly, under-confident where it was right and over-confident where
+  it was not.
+- **Scans:** read with a local OCR engine. OCR runs words together, which broke
+  the redaction until `redact(..., loose=True)` was added; a person must still read
+  every redacted bill before it is stored.
+
+Tools: `scripts/ingest_jdvvnl.py` and `scripts/jdvvnl_label.py` (labelling aid for
+that one form, with three cross-checks), `scripts/eval_real_bills.py --by consumer
+--local-analysis` (stamps its report "not for publication"). The test that
+decides the project's claim, held out by **utility**, still needs 3 utilities.

@@ -56,3 +56,29 @@ def test_residual_catches_what_was_not_redacted():
 def test_a_consumption_figure_is_never_taken_for_a_pin_or_phone():
     out, _ = redact("Consumption (kWh) 118000\nUnits 560041\nAmount 9845012.50\n", salt=b"s")
     assert "118000" in out and "560041" in out and "9845012.50" in out
+
+
+def test_a_tan_is_removed_and_a_listed_word_is_not_cut_out_of_a_longer_word():
+    out, found = redact("TAN No JDHN03184G\nPROGRAM of the RAM unit\n", ["RAM"], salt=b"s")
+    assert "JDHN03184G" not in out and found["tan"] == 1
+    assert "PROGRAM" in out and "[REDACTED] unit" in out          # whole words only
+    assert residual(out, ["RAM"]) == []
+
+
+def test_a_short_label_inside_a_word_is_not_a_label():
+    out, _ = redact("(BILL FOR LARGE INDUSTRIAL/SCHEDULE HT-5 TARIFF)\nConsumer Status R\nConsumer No: 4410099231\n", salt=b"s")
+    assert "SCHEDULE HT-5" in out and "Consumer Status R" in out
+    assert "4410099231" not in out
+
+
+def test_ocr_text_with_words_run_together_is_still_redacted_in_loose_mode():
+    # invented names: OCR output runs words together and puts punctuation inside them
+    ocr = "MSZENITHCOTTONSPVT.LTD..PLOTNOK41.TO44LAKEVIEW ESTATE ACMEWIDGETSPRIVATE LIMITEDM/SASHOKRAO"
+    listed = ["ZENITH COTTONS", "PLOT NO K 41 TO 44", "LAKEVIEW ESTATE", "ACME WIDGETS", "ASHOK RAO"]
+    plain, _ = redact(ocr, listed, salt=b"s")
+    assert "ZENITH" in plain                              # whole-word matching misses merged words, which is why loose exists
+    out, found = redact(ocr, listed, salt=b"s", loose=True)
+    assert residual(out, listed, loose=True) == []
+    for secret in ("ZENITH", "ASHOK", "ACME", "LAKEVIEW", "K41", "ESTATE"):
+        assert secret.lower() not in out.lower(), (secret, out)
+    assert found["listed"] > 0

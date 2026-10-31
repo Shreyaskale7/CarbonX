@@ -106,3 +106,15 @@ def test_period_and_meter_id_on_training_layouts_and_safe_failure():
         assert meter_id(b.text) == b.meter_id
     assert period("no dates here") is None and meter_id("no meter here") is None
     assert period("31-02-2025 to 01-03-2025") is None      # an impossible date is not a date
+
+
+def test_consumption_is_marked_as_difference_times_factor_and_a_plain_number_is_not():
+    """A meter table's consumption is the reading difference times the multiplication factor. The cue fires
+    on that number, on OCR that dropped decimals, and not on the readings or the factor themselves."""
+    from carbonx.extraction.extract import candidates
+    table = "METER-A KWH 3228.8250 2951.9530 276.8720 3000.0000 830616.0000\n"
+    marked = {c.raw for c in candidates(table) if c.features["is_product"]}
+    assert marked == {"830616.0000"}
+    ocr = "KWH 3852.63 3658.89 193.73 1000.00 193733.00\n"                     # decimals dropped by OCR
+    assert {c.raw for c in candidates(ocr) if c.features["is_product"]} == {"193733.00"}
+    assert not any(c.features["is_product"] for c in candidates("Units 5000\nRate 7.5\n"))

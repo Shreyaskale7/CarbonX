@@ -68,6 +68,18 @@ def _words(text: str) -> list[str]:
     return WORD.findall(text.lower())
 
 
+def _is_product(v: float, window: list[float]) -> bool:
+    """Is `v` the product of two other numbers close by? Consumption is a meter's reading difference times
+    its multiplication factor, so on a meter table the true figure usually is. (A bill amount is units times
+    a rate, so this cue alone does not settle it; the model combines it with the words around.) Factors of 1
+    and numbers equal to `v` itself are ignored, and the match allows for OCR dropping decimal places."""
+    if v < 100:
+        return False
+    tol = max(0.5, 2e-3 * v)
+    nums = sorted({x for x in window if x != v and x != 1})
+    return any(abs(a * b - v) <= tol for i, a in enumerate(nums) for b in nums[i + 1:] if a * b >= v / 2)
+
+
 def candidates(text: str) -> list[Candidate]:
     lines = [ln for ln in text.splitlines() if ln.strip()]
     tokens = [ln.split() for ln in lines]
@@ -76,6 +88,7 @@ def candidates(text: str) -> list[Candidate]:
     diffs = {a - b for a in flat for b in flat if a > b}
     out = []
     for i, row in enumerate(tokens):
+        window = [v for r in values[max(0, i - 2):i + 3] for v in r if v is not None and v > 0]
         cells = re.split(r"\s{2,}", lines[i].strip())
         numbers_here = sum(v is not None for v in values[i])
         for j, tok in enumerate(row):
@@ -87,6 +100,7 @@ def candidates(text: str) -> list[Candidate]:
                 "line_pos": i / len(lines), "numbers_in_line": float(numbers_here),
                 "last_in_line": float(j == len(row) - 1),
                 "is_difference": float(v in diffs),
+                "is_product": float(_is_product(v, window)),
             }
             for w in _words(" ".join(row[max(0, j - 4):j])):
                 f[f"L={w}"] = 1.0

@@ -46,8 +46,8 @@ The billing period and meter id are read by rules written from the training layo
 
 | confidence bin | bills | mean confidence | accuracy |
 |---|---|---|---|
-| 0.2–0.3 | 118 | 29.6% | 0.0% |
-| 0.3–0.4 | 482 | 33.3% | 0.0% |
+| 0.2–0.3 | 118 | 29.5% | 0.0% |
+| 0.3–0.4 | 482 | 33.2% | 0.0% |
 | 0.4–0.5 | 59 | 47.0% | 100.0% |
 | 0.5–0.6 | 13 | 52.8% | 100.0% |
 | 0.6–0.7 | 226 | 64.9% | 100.0% |

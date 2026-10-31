@@ -14,13 +14,14 @@ import eval_real_bills as ev
 from carbonx.extraction.synthetic import DEV, corpus
 
 
-def write_bills(directory: Path, utilities: int, per: int, consent: bool = True) -> None:
+def write_bills(directory: Path, utilities: int, per: int, consent: bool = True, one_utility: bool = False) -> None:
     bills = corpus(per, DEV[:utilities], seed=7)
     for i, b in enumerate(bills):
         bid = f"u{b.layout}-{i}"
         (directory / f"{bid}.txt").write_text(b.text, encoding="utf-8")
         (directory / f"{bid}.json").write_text(json.dumps({
-            "id": bid, "discom": f"UTIL{b.layout}", "consent": consent, "reviewed_by": "tester",
+            "id": bid, "discom": "ONE" if one_utility else f"UTIL{b.layout}", "consumer_group": f"C{b.layout}",
+            "consent": consent, "reviewed_by": "tester",
             "consumption_kwh": b.kwh}), encoding="utf-8")
 
 
@@ -57,3 +58,27 @@ def test_wilson_interval_is_wide_for_few_bills_and_brackets_the_rate():
     lo, hi = ev.wilson(50, 100)
     assert lo < 0.5 < hi and hi - lo < 0.21
     assert ev.wilson(0, 0) == (0.0, 1.0)
+
+
+def test_one_utility_is_evaluated_by_consumer_and_says_it_is_not_an_unseen_utility_test(tmp_path, monkeypatch):
+    write_bills(tmp_path, 3, 5, one_utility=True)
+    monkeypatch.setattr(ev, "DIR", tmp_path)
+    monkeypatch.setattr(ev, "OUT", tmp_path / "out.md")
+    monkeypatch.setattr(ev, "SYNTH_PER_LAYOUT", 6)
+    ev.main()                                           # by utility: one utility is not enough
+    assert not (tmp_path / "out.md").exists()
+    ev.main(["--by", "consumer"])
+    text = (tmp_path / "out.md").read_text(encoding="utf-8")
+    assert "This is not an unseen-utility test" in text and "one consumer held out" in text
+    assert all(f"| C{n} | 5 |" in text for n in DEV[:3]) and "synthetic training only" in text
+
+
+def test_local_analysis_scores_uncleared_bills_but_says_so_and_cannot_overwrite_the_real_results(tmp_path, monkeypatch):
+    write_bills(tmp_path, 3, 5, consent=False, one_utility=True)
+    monkeypatch.setattr(ev, "SYNTH_PER_LAYOUT", 6)
+    with pytest.raises(SystemExit):
+        ev.main(["--by", "consumer", "--dir", str(tmp_path)])          # uncleared bills, no local flag
+    with pytest.raises(SystemExit):
+        ev.main(["--by", "consumer", "--local-analysis"])              # local flag without explicit paths
+    ev.main(["--by", "consumer", "--local-analysis", "--dir", str(tmp_path), "--out", str(tmp_path / "local.md")])
+    assert "NOT FOR PUBLICATION" in (tmp_path / "local.md").read_text(encoding="utf-8")
