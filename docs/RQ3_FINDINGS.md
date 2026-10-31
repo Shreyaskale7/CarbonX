@@ -100,6 +100,31 @@ fact.
 - Text was extracted with pdfplumber. The quotes below are verbatim, with the
   document's own page numbers.
 
+### Checked again on 2026-10-31
+
+- **The file is the one BEE publishes.** BEE's homepage lists "Detailed Procedure
+  for Compliance Mechanism under CCTS [PDF] (566.09 KB)" at exactly the address
+  above, and the local copy is 579,675 bytes = 566.09 KB.
+- **It has no version label.** The cover carries no version or date, the page
+  headers read "...under the Indian Carbon Market" (the title used by the October
+  2023 draft), and the metadata date is 2023-11-08. Third-party summaries
+  describe a "Version 1.0, July 2024". Whether the two are the same text is **not
+  established**; a copy of the July 2024 text, if BEE hosts one, was not found.
+- **Quotations re-checked word for word** against the local copy: the grid-factor
+  sentence (p. 11, clause (vii)); the sentence "the emission factor shall be
+  consistently applied for baseline and assessment year" (p. 8, the end of a
+  clause about fuel and material factors); "baseline year" appears but no year is
+  named.
+- **Process emissions: the sources disagree.** The note on p. 7 says targets
+  "within 2024-27" are calculated from direct energy and indirect emissions only.
+  ICAP's summary of the target rules notified by MoEFCC on 8 October 2025 says the
+  targets cover Scope 1 including industrial processes. Which applies is open.
+- **The FY2025-26 "1 to 3%" in the project notes does not match** ICAP's summary,
+  which gives sector-specific total reductions of roughly 3% to 15% over two
+  years with about 40% of each due in the first. The paper no longer calls 1 and
+  3% "the targets". Check the notified rules and correct `CLAUDE.md` if it is wrong.
+- **Baseline year:** ICAP's summary gives FY2023-24.
+
 ### Verbatim quotes
 
 **Grid electricity factor (p. 11, clause (vii)):**

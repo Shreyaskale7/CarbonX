@@ -128,6 +128,13 @@ reported notification. Confirm it before any of them is cited.
   numbers: `docs/EXTRACTION.md` section 8. Phase 6 stays Partly.
 - **Real bills: no public source found**, and none should be taken from the open
   internet (`docs/OUTREACH_DRAFTS.md`, section 3). Phase 6 stays Partly.
+- **BEE text re-checked 2026-10-31** (details in `docs/RQ3_FINDINGS.md`): the file
+  read is the one BEE publishes, and the paper's quotations match it word for
+  word; it has no version label, so it is not shown to equal the "Version 1.0,
+  July 2024" text. Two project-note facts disagree with secondary sources and need
+  the notified rules: the FY2025-26 target ("1 to 3%") and whether process
+  emissions are in the target basis. The IEEE paper now has 16 narrower
+  `\verify{}` items.
 - **Not built, by decision**: the learned audit-sampling ranker. The council cut
   it (its labels would be faults we inject ourselves) and `SCOPE_PROPOSAL.md`
   records that.

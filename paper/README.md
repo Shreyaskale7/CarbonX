@@ -27,7 +27,7 @@ columns, not the typeset result.
   committed table or number goes stale, or if the paper and the docs disagree.
 - That makes the **numbers** reproducible. It does not make the **claims** true:
   the procedure text, the targets, the baseline year and the reference details are
-  marked `\verify{...}` in red, 15 of them at the time of writing, and the paper
+  marked `\verify{...}` in red, 16 of them at the time of writing, and the paper
   cannot be submitted while any remain (`--submit-check`).
 
 ## Before submitting
