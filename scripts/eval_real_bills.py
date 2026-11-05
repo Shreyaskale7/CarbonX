@@ -112,10 +112,9 @@ def cell(right: int, n: int) -> str:
     return f"{right}/{n} ({pct(lo)} to {pct(hi)})"
 
 
-LOCAL_BANNER = ("> **LOCAL ANALYSIS. NOT FOR PUBLICATION.** These bills have no recorded consent and no person has "
-                "reviewed their labels or their redaction. This file is for the authors' own reading; do not commit it, "
-                "quote it, or move the bills into `data/redacted_bills/` until `consent` and `reviewed_by` are filled in "
-                "by a person.\n")
+LOCAL_BANNER = ("> **LOCAL ANALYSIS. NOT YET CLEARED FOR PUBLICATION.** No person has yet reviewed these bills' labels "
+                "or their redaction. This file is for the authors' own reading; do not commit it, quote it, or move the "
+                "bills into `data/redacted_bills/` until `reviewed_by` (and `consent`) are filled in by a person.\n")
 
 
 def report(res: dict[str, dict], by: str = "discom", local: bool = False) -> str:

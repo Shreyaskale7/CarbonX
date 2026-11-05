@@ -81,4 +81,4 @@ def test_local_analysis_scores_uncleared_bills_but_says_so_and_cannot_overwrite_
     with pytest.raises(SystemExit):
         ev.main(["--by", "consumer", "--local-analysis"])              # local flag without explicit paths
     ev.main(["--by", "consumer", "--local-analysis", "--dir", str(tmp_path), "--out", str(tmp_path / "local.md")])
-    assert "NOT FOR PUBLICATION" in (tmp_path / "local.md").read_text(encoding="utf-8")
+    assert "NOT YET CLEARED FOR PUBLICATION" in (tmp_path / "local.md").read_text(encoding="utf-8")

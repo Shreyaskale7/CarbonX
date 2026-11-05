@@ -163,10 +163,17 @@ Reading it honestly:
 ## 8. First contact with real bills (2026-10-31)
 
 Real bills arrived: 41 monthly bills of **one utility** (JdVVNL, HT-5 industrial
-form) for **three consumers**, one file of digital PDF pages and two of scans. Their
-owners' consent for publication is not yet recorded, so the bills, their redacted
-text and the numbers measured on them stay local (`data/bills/` is git-ignored) and
-none are quoted in this repository. What can be said:
+form) for **three consumers**, one file of digital PDF pages and two of scans. The
+team states that the bills' owners have consented to their use in this research
+(recorded 2026-11-05 on the team member's word; not independently verified). The raw
+bills and their redacted text stay out of the repository for now (`data/bills/` is
+git-ignored) until a person has read every redacted file. What was measured, holding
+one consumer out at a time on the 40 bills with a label (the 41st, a two-meter bill,
+needs a human label): the rule baseline and the model trained on invented bills
+found the right kWh on **0 of 40**; with the first real-bill training, **1 of 40**; with
+the difference-times-factor cue, **19 of 40** (digital text 11 of 11, the two sets of
+scans 5 of 12 and 3 of 17), and still **0 of 40** when trained on invented bills
+alone. What can be said:
 
 - **The pipeline failed on the first real form.** The rule baseline and the model
   trained on invented bills both found the right kWh on essentially none of them.

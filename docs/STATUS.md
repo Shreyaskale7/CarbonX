@@ -120,12 +120,12 @@ reported notification. Confirm it before any of them is cited.
   CEA's workbooks and is public on GitHub today. Draft request and policy summary:
   `docs/OUTREACH_DRAFTS.md` (unsent). This gates the DOI, both papers and the
   licence; the repository's visibility is the authors' decision.
-- **Real bills received 2026-10-31** (41 bills, one utility, three consumers; local only
-  until consent is recorded): the extraction pipeline **failed** on the real form;
+- **Real bills received 2026-10-31** (41 bills, one utility, three consumers; the owners'
+  consent is stated by the team as of 2026-11-05, and the redacted text still needs a
+  person to read it before it enters the repository): the extraction pipeline **failed** on the real form;
   a layout-independent cue (difference times factor) helped a lot once the model
   also trained on real bills, but the result is optimistic, calibration is not met,
-  and the held-out-by-utility test still needs 3 utilities. Details without
-  numbers: `docs/EXTRACTION.md` section 8. Phase 6 stays Partly.
+  and the held-out-by-utility test still needs 3 utilities. Details and numbers: `docs/EXTRACTION.md` section 8. Phase 6 stays Partly.
 - **Real bills: no public source found**, and none should be taken from the open
   internet (`docs/OUTREACH_DRAFTS.md`, section 3). Phase 6 stays Partly.
 - **BEE text re-checked 2026-10-31** (details in `docs/RQ3_FINDINGS.md`): the file

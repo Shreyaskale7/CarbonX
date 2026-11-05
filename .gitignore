@@ -23,3 +23,8 @@ paper/*.out
 paper/main.pdf
 paper/main_preview.pdf
 !paper/figs/*.pdf
+
+# faculty copies: contain numbers measured on real bills (consent not yet recorded)
+docs/PROJECT_EXPLAINED.md
+docs/PROJECT_EXPLAINED.pdf
+docs/*.pptx
