@@ -33,6 +33,7 @@ EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 GSTIN = re.compile(r"\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b")
 PAN = re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b")
 TAN = re.compile(r"\b[A-Z]{4}\d{5}[A-Z]\b")
+LONG_INT = re.compile(r"(?<![\d.])\d{8,13}(?![\d.]|\.\d)")     # a bare 8 to 13 digit integer: an identifier or a counter
 MOBILE = re.compile(r"(?<![\d.])(?:\+?91[\s-]?)?[6-9]\d{9}(?!\d)")
 LANDLINE = re.compile(r"(?<![\d.])0\d{2,4}[\s-]\d{6,8}(?!\d)")
 ID_LABEL = re.compile(
@@ -88,8 +89,10 @@ def _listed(part: str, loose: bool) -> re.Pattern[str]:
 
 
 def redact(text: str, also: list[str] | None = None, salt: bytes | None = None,
-           loose: bool = False) -> tuple[str, dict[str, int]]:
-    """Returns (redacted text, how many of each kind were replaced)."""
+           loose: bool = False, long_ids: bool = False) -> tuple[str, dict[str, int]]:
+    """Returns (redacted text, how many of each kind were replaced). With `long_ids`, any bare 8 to 13 digit
+    integer left at the end is replaced too: on a utility bill that is an account, meter or bill number, or a
+    meter's running counter, never a consumption (consumptions carry decimals or have fewer digits)."""
     salt = salt if salt is not None else os.urandom(16)
     found: Counter[str] = Counter()
 
@@ -135,10 +138,12 @@ def redact(text: str, also: list[str] | None = None, salt: bytes | None = None,
         for part in sorted({p for p in parts if p}, key=len, reverse=True):
             text, n = _listed(part, loose).subn(REDACTED, text)
             found["listed"] += n
+    if long_ids:
+        text = LONG_INT.sub(tag("long_number", "[LONGNUM]"), text)
     return text, dict(found)
 
 
-def residual(text: str, also: list[str] | None = None, loose: bool = False) -> list[str]:
+def residual(text: str, also: list[str] | None = None, loose: bool = False, long_ids: bool = False) -> list[str]:
     """What is still recognisable as personal data. Empty is the floor, not a clearance."""
     left = [f"{k}: {m.group()}" for k, p in (("email", EMAIL), ("gstin", GSTIN), ("pan", PAN), ("tan", TAN),
                                               ("mobile", MOBILE), ("landline", LANDLINE))
@@ -147,4 +152,6 @@ def residual(text: str, also: list[str] | None = None, loose: bool = False) -> l
         for part in [literal.strip()] + [w for w in re.split(r"\W+", literal) if len(w) >= 3]:
             if part and _listed(part, loose).search(text):
                 left.append(f"listed: {part}")
+    if long_ids:
+        left += [f"long number: {m.group()}" for m in LONG_INT.finditer(text)]
     return left

@@ -82,3 +82,13 @@ def test_ocr_text_with_words_run_together_is_still_redacted_in_loose_mode():
     for secret in ("ZENITH", "ASHOK", "ACME", "LAKEVIEW", "K41", "ESTATE"):
         assert secret.lower() not in out.lower(), (secret, out)
     assert found["listed"] > 0
+
+
+def test_a_bare_long_integer_is_removed_when_asked_and_a_consumption_is_not():
+    text = "Meter 24006698\nProgressive 10635618 KWH 2490.9450 2156.1730 334.7720 3000.0000 1004316.0000\nAmount 7570957\n"
+    kept, _ = redact(text, salt=b"s")
+    assert "10635618" in kept                                   # off by default
+    out, found = redact(text, salt=b"s", long_ids=True)
+    assert "10635618" not in out and found["long_number"] >= 1
+    assert "1004316.0000" in out and "7570957" in out           # decimals or fewer than eight digits: kept
+    assert residual(out, long_ids=True) == []

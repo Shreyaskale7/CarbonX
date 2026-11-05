@@ -86,8 +86,8 @@ def main() -> None:
     for (page, lines, _), read in zip(pgs, reads, strict=True):
         raw = "\n".join(lines)
         loose = bool(args.ocr)                          # OCR runs words together: match names ignoring spaces
-        text, found = redact(raw, args.also + identifiers(raw), loose=loose)
-        left = residual(text, args.also + identifiers(raw), loose=loose)
+        text, found = redact(raw, args.also + identifiers(raw), loose=loose, long_ids=True)
+        left = residual(text, args.also + identifiers(raw), loose=loose, long_ids=True)
         problems = [p for p in read.problems if not p.startswith("unchecked")]
         status = ("flagged" if problems or read.consumption is None
                   else "unverified" if any(p.startswith("unchecked") for p in read.problems) else "verified")
