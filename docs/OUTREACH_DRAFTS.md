@@ -1,7 +1,11 @@
 # Two messages to send, and what the searches found
 
-Written 2026-10-27. **Nothing here has been sent.** Both are drafts for the authors
-to edit and send themselves; sending is theirs to decide.
+Written 2026-10-27. Both are drafts for the authors to edit and send themselves;
+sending is theirs to decide.
+
+**Status.** Message 1 (CEA permission) was sent by the authors on 2026-11-09, as
+stated by a project member; no reply yet. Message 2 (Data in Brief) is not sent.
+Until CEA answers, that is not permission.
 
 ## 1. CEA's copyright policy requires prior permission
 
