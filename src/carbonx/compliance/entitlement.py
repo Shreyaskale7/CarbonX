@@ -8,9 +8,10 @@ must purchase them.
 What this does not do. The BEE file does not say what one certificate equals or how a fraction is
 rounded, so no certificate count is given: the result is the signed tCO2e-equivalent, unrounded to a
 whole number. The target is an input that must carry its source; a target we have not seen in a
-primary source is 'assumed' and the result says so. Whether the entity's achieved intensity covers
-process emissions is not settled here (docs/RQ3_FINDINGS.md): the result repeats the report's own
-boundary and decides nothing about it. This is decision support for an accredited verifier, not an
+primary source is 'assumed' and the result says so. Only activities tagged inside the gate-to-gate
+boundary count, and an untagged or unresolved line withholds the result (compliance/figures.py, shared
+with the Form I draft, so the two agree). Process emissions are not recorded by CarbonX; whether targets
+cover them is open (docs/RQ3_FINDINGS.md) and nothing here decides it. This is decision support for an accredited verifier, not an
 assurance opinion, and it is not Form B.
 
 Reproducibility: targets are read AS OF the report's own time, so an entitlement recomputed later
@@ -28,8 +29,11 @@ from typing import Any
 import psycopg
 
 from carbonx.compliance.baseline import baselines_as_of
+from carbonx.compliance.boundary import tags_as_of
+from carbonx.compliance.figures import Figures, figures
 from carbonx.engine.calculate import round6, set_audit_context, system_now
 from carbonx.factors.registry import fy_start
+from carbonx.units.core import parse_unit
 
 STATUSES = {"notified", "assumed"}
 
@@ -49,6 +53,9 @@ def set_target(conn: psycopg.Connection, *, facility_id: int, fy: str, value: De
         raise ValueError("a target is tCO2e per unit of product, e.g. 'tCO2e/t'")
     if value < 0:
         raise ValueError("a target cannot be negative")
+    if status == "notified" and not (source_url or "").strip():
+        raise ValueError("a 'notified' target needs the url of the notification it was read in; "
+                         "without one, record it as 'assumed'")
     start = fy_start(fy)
     with conn.transaction():
         set_audit_context(conn, actor, reason or source_citation)
@@ -87,34 +94,51 @@ def targets_as_of(conn: psycopg.Connection, org_id: int, fy: str,
             for fid, tid, value, unit, status, cite, url, base in rows}
 
 
-def entitlement_for_facility(facility: dict[str, Any], target: dict[str, Any] | None,
-                             baseline: dict[str, Any] | None = None) -> dict[str, Any]:
-    """One facility's entitlement from its entry in a report, its target and (optionally) its
-    baseline, or null with the reason. Pure: no database, no clock."""
+def _exact9(x: Fraction) -> str:
+    return format(Decimal(round(x * 10**9)).scaleb(-9), "f")
+
+
+def entitlement_for_facility(facility_id: int, fig: Figures, target: dict[str, Any] | None,
+                             baseline: dict[str, Any] | None = None,
+                             no_production_because: str | None = None) -> dict[str, Any]:
+    """One facility's entitlement from its exact gate-to-gate figures, its target and (optionally)
+    its baseline, or null with the reason. Pure: no database, no clock.
+
+    Computed as target x production - emissions, which is BEE's (target - achieved) x production
+    without dividing first, in exact fractions, rounded once when printed."""
     out: dict[str, Any] = {
-        "facility_id": facility["facility_id"], "outcome": None,
+        "facility_id": facility_id, "outcome": None,
         "entitlement_tco2e_equivalent": None, "withheld_because": None,
         "target": target, "baseline": baseline, "achieved": None, "production": None,
         "reduction_vs_baseline_pct": None, "baseline_notes": [],
-        "note": ("Signed tCO2e-equivalent. BEE's file does not say what one certificate equals "
-                 "or how a fraction rounds, so no certificate count is given."),
+        "boundary": {"inside": fig.inside, "outside": fig.outside_count,
+                     "untagged": fig.untagged, "unresolved": fig.unresolved},
+        "note": ("Signed tCO2e-equivalent, from activities tagged inside the gate-to-gate boundary "
+                 "only, under the factor policy of this report: a report under another policy gives "
+                 "another figure. BEE's file does not say what one certificate equals or how a "
+                 "fraction rounds, so no certificate count is given."),
     }
-    if facility["gei"] is None:
-        out["withheld_because"] = ("no achieved intensity: " + (facility["gei_withheld_because"]
-                                                                or "not computed"))
+    if not fig.complete:
+        out["withheld_because"] = fig.incomplete_because
         return out
-    out["achieved"] = {"value": facility["gei"], "unit": facility["gei_unit"]}
-    out["production"] = facility["production"]
+    if fig.production is None or fig.production == 0:
+        out["withheld_because"] = "no achieved intensity: " + (no_production_because
+                                                               or "no production")
+        return out
+    unit = parse_unit(f"tCO2e/{fig.production_unit}").name
+    achieved = fig.emissions / fig.production
+    out["achieved"] = {"value": _exact9(achieved), "unit": unit}
+    out["production"] = {"quantity": format(round6(fig.production), "f"),
+                         "unit": fig.production_unit}
     if target is None:
         out["withheld_because"] = "no target recorded for this facility and year"
         return out
-    if target["unit"] != facility["gei_unit"]:
+    if target["unit"] != unit:
         out["withheld_because"] = (f"target is in {target['unit']} but the achieved intensity is "
-                                   f"in {facility['gei_unit']}; they are not comparable")
+                                   f"in {unit}; they are not comparable")
         return out
-    _baseline_view(out, facility, target, baseline)
-    delta = ((Fraction(target["value"]) - Fraction(facility["gei"]))
-             * Fraction(facility["production"]["quantity"]))
+    _baseline_view(out, achieved, unit, target, baseline)
+    delta = Fraction(target["value"]) * fig.production - fig.emissions
     out["entitlement_tco2e_equivalent"] = format(round6(delta), "f")
     out["outcome"] = ("surplus: entitled to certificates" if delta > 0
                       else "shortfall: must purchase certificates" if delta < 0
@@ -125,10 +149,10 @@ def entitlement_for_facility(facility: dict[str, Any], target: dict[str, Any] | 
     return out
 
 
-def _baseline_view(out: dict[str, Any], facility: dict[str, Any], target: dict[str, Any],
+def _baseline_view(out: dict[str, Any], achieved: Fraction, unit: str, target: dict[str, Any],
                    baseline: dict[str, Any] | None) -> None:
     """Reduction achieved against the stated baseline, and what to doubt about it. Informational:
-    the entitlement itself uses only target, achieved intensity and production."""
+    the entitlement itself uses only target, emissions and production."""
     notes: list[str] = out["baseline_notes"]
     if baseline is None:
         notes.append("no baseline recorded: the reduction against the baseline year is not shown")
@@ -139,39 +163,42 @@ def _baseline_view(out: dict[str, Any], facility: dict[str, Any], target: dict[s
     if target.get("baseline_fy") and target["baseline_fy"] != baseline["baseline_fy"]:
         notes.append(f"the target was derived from {target['baseline_fy']} but the baseline "
                      f"recorded is {baseline['baseline_fy']}")
-    if baseline["unit"] != facility["gei_unit"]:
+    if baseline["unit"] != unit:
         notes.append(f"the baseline is in {baseline['unit']} but the achieved intensity is in "
-                     f"{facility['gei_unit']}; no reduction is shown")
+                     f"{unit}; no reduction is shown")
         return
     base = Fraction(baseline["intensity"])
     if base == 0:
         notes.append("the baseline intensity is zero; no reduction is shown")
         return
-    out["reduction_vs_baseline_pct"] = format(
-        round6((base - Fraction(facility["gei"])) / base * 100), "f")
+    out["reduction_vs_baseline_pct"] = format(round6((base - achieved) / base * 100), "f")
 
 
 def entitlements(report_output: str, targets: dict[int, dict[str, Any]],
-                 baselines: dict[int, dict[str, Any]] | None = None) -> str:
+                 baselines: dict[int, dict[str, Any]] | None = None,
+                 tags: dict[int, dict[str, Any]] | None = None) -> str:
     """Canonical JSON: one entry per facility in the report."""
-    baselines = baselines or {}
+    baselines, tags = baselines or {}, tags or {}
     report = json.loads(report_output)
     return json.dumps({
-        "schema": "carbonx.entitlement/2", "org_id": report["org_id"],
+        "schema": "carbonx.entitlement/3", "org_id": report["org_id"],
         "compliance_year": report["compliance_year"], "policy": report["policy"],
         "report_as_of": report["as_of"],
-        "facilities": [entitlement_for_facility(f, targets.get(f["facility_id"]),
-                                                baselines.get(f["facility_id"]))
-                       for f in report["facilities"]],
+        "facilities": [entitlement_for_facility(
+            f["facility_id"], figures(report, f, tags), targets.get(f["facility_id"]),
+            baselines.get(f["facility_id"]), f["gei_withheld_because"])
+            for f in report["facilities"]],
     }, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def for_report(conn: psycopg.Connection, report_id: int) -> str:
-    """Entitlement from a stored report, with targets read AS OF the report's own time."""
+    """Entitlement from a stored report, with targets, baselines and boundary tags read AS OF the
+    report's own time."""
     row = conn.execute("SELECT org_id, compliance_year, as_of, output FROM report"
                        " WHERE report_id = %s", (report_id,)).fetchone()
     if row is None:
         raise LookupError(f"no report {report_id}")
     org_id, fy, as_of, output = row
+    ids = [ln["activity_id"] for ln in json.loads(output)["lines"]]
     return entitlements(output, targets_as_of(conn, org_id, fy, as_of),
-                        baselines_as_of(conn, org_id, as_of))
+                        baselines_as_of(conn, org_id, as_of), tags_as_of(conn, ids, as_of))

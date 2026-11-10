@@ -15,8 +15,8 @@ What it refuses to claim:
   * An untagged or unresolved line makes the figures incomplete, and specific emissions is withheld.
   * Fuel energy rows (million kcal), exported or generated electricity, TOE and the general details are
     not held, and are listed as not provided.
-Line figures are the report's, each rounded to 6 places, so a sum here can differ from the report's
-total (which rounds the exact sum once) in the sixth place.
+Figures come from compliance/figures.py, shared with the entitlement so the two agree: each line is
+recomputed exactly from the inputs the report pinned, and rounded once when printed.
 
 Tags are read AS OF the report's own time, so a Form I regenerated later is byte-identical.
 """
@@ -30,10 +30,11 @@ from typing import Any
 import psycopg
 
 from carbonx.compliance.boundary import tags_as_of
+from carbonx.compliance.figures import figures
 from carbonx.engine.calculate import round6
-from carbonx.units.core import Quantity, parse_unit
+from carbonx.units.core import parse_unit
 
-SCHEMA = "carbonx.form_i/1"
+SCHEMA = "carbonx.form_i/2"
 NOT_PROVIDED = {
     "general_details": "name, registration number, address and energy manager are not held",
     "5.1(b)(ii) electricity generated": "not recorded",
@@ -52,47 +53,30 @@ def _num(x: Fraction) -> str:
 
 def _facility(report: dict[str, Any], facility: dict[str, Any],
               tags: dict[int, dict[str, Any]]) -> dict[str, Any]:
-    fid = facility["facility_id"]
-    lines = [ln for ln in report["lines"] if ln["facility_id"] == fid]
-    unresolved = [u for u in report["unresolved"] if u["facility_id"] == fid]
-    inside, outside, untagged = [], [], []
-    for ln in lines:
-        tag = tags.get(ln["activity_id"])
-        (untagged if tag is None else inside if tag["boundary"] == "inside" else outside).append(ln)
-    direct = sum((Fraction(ln["tco2e"]) for ln in inside if ln["scope"] == 1), Fraction(0))
-    indirect = sum((Fraction(ln["tco2e"]) for ln in inside if ln["scope"] == 2), Fraction(0))
-    kwh = parse_unit("kWh")
-    purchased = sum((Quantity(Fraction(ln["quantity"]), parse_unit(ln["unit"])).to(kwh).value
-                     for ln in inside if ln["activity_type"] == "grid_electricity"), Fraction(0))
-    complete = not untagged and not unresolved
-    production = facility["production"]
-    specific, why = None, None
-    if not complete:
-        why = (f"{len(untagged)} activity line(s) have no boundary tag and {len(unresolved)} "
-               "line(s) are unresolved; the figures are incomplete")
-    elif production is None or Fraction(production["quantity"]) == 0:
+    fig = figures(report, facility, tags)
+    specific, why = None, fig.incomplete_because
+    if why is None and (fig.production is None or fig.production == 0):
         why = facility["gei_withheld_because"] or "no production"
-    else:
-        specific = {"value": _num((direct + indirect) / Fraction(production["quantity"])),
-                    "unit": f"tCO2e/{production['unit']}"}
+    elif why is None:
+        assert fig.production is not None
+        specific = {"value": _num(fig.emissions / fig.production),
+                    "unit": parse_unit(f"tCO2e/{fig.production_unit}").name}
     return {
-        "facility_id": fid,
-        "complete": complete,
-        "production": production,
-        "5.1(b)(i) electricity purchased (million kWh)": _num(purchased / 10**6),
-        "5.1(b)(xi) direct GHG, energy related (tCO2e)": _num(direct),
-        "5.1(b)(xii) indirect GHG, energy related (tCO2e)": _num(indirect),
+        "facility_id": facility["facility_id"],
+        "complete": fig.complete,
+        "production": facility["production"],
+        "5.1(b)(i) electricity purchased (million kWh)": _num(fig.purchased_kwh / 10**6),
+        "5.1(b)(xi) direct GHG, energy related (tCO2e)": _num(fig.direct),
+        "5.1(b)(xii) indirect GHG, energy related (tCO2e)": _num(fig.indirect),
         "5.1(b)(xiii) direct GHG, process related (tCO2e)": None,
         "5.1(b)(xiv) total direct and indirect (tCO2e)": None,
-        "subtotal_excluding_process_tco2e": _num(direct + indirect),
+        "subtotal_excluding_process_tco2e": _num(fig.emissions),
         "5.1(c)(iii) specific GHG emissions": specific,
         "specific_withheld_because": why,
         "process_note": ("process-related emissions are not recorded by CarbonX, so row xiii is "
                          "empty and row xiv is not given; the subtotal above excludes them"),
-        "boundary": {"inside": len(inside), "outside": len(outside), "untagged": len(untagged),
-                     "unresolved": len(unresolved),
-                     "outside_tco2e": _num(sum((Fraction(ln["tco2e"]) for ln in outside),
-                                               Fraction(0)))},
+        "boundary": {"inside": fig.inside, "outside": fig.outside_count, "untagged": fig.untagged,
+                     "unresolved": fig.unresolved, "outside_tco2e": _num(fig.outside)},
     }
 
 

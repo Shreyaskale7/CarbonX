@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import psycopg
 import pytest
+from compliance_helpers import fuel_line, grid_line, report, tag
 
 from carbonx.compliance import boundary, form_i
 from carbonx.engine.calculate import record_activity
@@ -12,30 +13,7 @@ from carbonx.engine.production import record_production
 from carbonx.engine.report import generate_report
 from carbonx.factors.registry import POLICY_DESCRIPTIONS, Policy, insert_factor
 
-
-def line(activity_id: int, scope: int, tco2e: str, kind: str = "grid_electricity",
-         quantity: str = "1000000", unit: str = "kWh") -> dict:
-    return {"activity_id": activity_id, "facility_id": 1, "activity_type": kind, "scope": scope,
-            "quantity": quantity, "unit": unit, "tco2e": tco2e}
-
-
-def report(lines: list[dict], unresolved: list[dict] | None = None,
-           production: dict | None = None) -> str:
-    production = {"product_code": "al", "quantity": "100.000000", "unit": "t"} \
-        if production is None else production
-    return json.dumps({
-        "org_id": 1, "compliance_year": "FY2025-26", "policy": "AS_OF_REPORT",
-        "as_of": "2026-01-01T00:00:00+00:00", "lines": lines, "unresolved": unresolved or [],
-        "facilities": [{"facility_id": 1, "production": production, "gei": None,
-                        "gei_unit": None, "gei_withheld_because": None}]})
-
-
-def tag(boundary_: str) -> dict:
-    return {"tag_id": 1, "boundary": boundary_, "basis": "test"}
-
-
-LINES = [line(1, 2, "700.000000"),                                       # 1,000,000 kWh grid
-         line(2, 1, "280.000000", "fuel.diesel", "100", "kl")]           # direct combustion
+LINES = [grid_line(1), fuel_line(2)]                             # 700 + 280 tCO2e over 100 t
 
 
 def worksheet(lines, tags, **kw):
@@ -82,7 +60,7 @@ def test_process_emissions_and_the_total_are_never_claimed():
 
 def test_zero_production_withholds_the_specific_emission():
     f = worksheet(LINES, {1: tag("inside"), 2: tag("inside")},
-                  production={"product_code": "al", "quantity": "0.000000", "unit": "t"})
+                  production="0")
     assert f["5.1(c)(iii) specific GHG emissions"] is None
 
 
@@ -93,6 +71,14 @@ def test_the_worksheet_is_canonical_and_says_what_it_is_not():
     assert out == json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     assert "not a filing" in parsed["status"] and "not signed or certified" in parsed["status"]
     assert "general_details" in parsed["not_provided"]
+
+
+def test_lines_are_recomputed_from_pinned_inputs_not_read_from_rounded_text():
+    """One third of a kWh at 0.7 tCO2/MWh, three times: each line prints as 0.233333, which would
+    sum to 0.699999; the exact sum is 0.7."""
+    lines = [grid_line(i, kwh="333.333333333333333333") for i in (1, 2, 3)]
+    f = worksheet(lines, {i: tag("inside") for i in (1, 2, 3)})
+    assert f["5.1(b)(xii) indirect GHG, energy related (tCO2e)"] == "0.700000"
 
 
 # Database: tags are versioned, audited, and read AS OF the report's time.

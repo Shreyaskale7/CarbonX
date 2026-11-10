@@ -33,6 +33,9 @@ def set_baseline(conn: psycopg.Connection, *, facility_id: int, baseline_fy: str
         raise ValueError("an intensity is tCO2e per unit of product, e.g. 'tCO2e/t'")
     if intensity < 0 or (output is not None and output < 0):
         raise ValueError("intensity and output cannot be negative")
+    if status == "notified" and not (source_url or "").strip():
+        raise ValueError("a 'notified' baseline needs the url of the notification it was read in; "
+                         "without one, record it as 'assumed'")
     if (output is None) != (output_unit is None):
         raise ValueError("give the baseline output and its unit together, or neither")
     fy_start(baseline_fy)   # a malformed year fails here, not in a report
