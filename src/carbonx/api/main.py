@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, cast
 
 import psycopg
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -23,6 +23,8 @@ from fastapi.staticfiles import StaticFiles
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
+from carbonx.compliance import entitlement as compliance
+from carbonx.compliance.baseline import set_baseline
 from carbonx.db import url as database_url
 from carbonx.engine import demo
 from carbonx.engine.calculate import (
@@ -625,6 +627,82 @@ def list_equivalences(org_id: int, conn: Conn) -> list[dict[str, Any]]:
             " FROM product_equivalence e JOIN facility f USING (facility_id)"
             " WHERE f.org_id = %s AND upper_inf(e.system_time_range)"
             " ORDER BY f.name, lower(e.valid_time), e.product_code", (org_id,)).fetchall())
+
+
+class TargetIn(BaseModel):
+    facility_id: int
+    compliance_year: str = "FY2025-26"
+    value: Decimal = Field(ge=0)
+    unit: str = Field(pattern=r"^tCO2e/.+")
+    status: Literal["notified", "assumed"] = "assumed"
+    source_citation: str = Field(min_length=1)
+    source_url: str | None = None
+    baseline_fy: str | None = None
+
+
+@app.post("/api/targets")
+def declare_target(body: TargetIn, conn: Conn, x_actor: Actor = "workbench") -> dict[str, Any]:
+    """The notified GHG emission intensity target for a facility and year (BEE pp. 4, 22). A new
+    one supersedes the current one. 'notified' means read in the notification itself."""
+    try:
+        tid = compliance.set_target(
+            conn, facility_id=body.facility_id, fy=body.compliance_year, value=body.value,
+            unit=body.unit, status=body.status, source_citation=body.source_citation,
+            source_url=body.source_url, baseline_fy=body.baseline_fy, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"target_id": tid}
+
+
+@app.get("/api/targets")
+def list_targets(org_id: int, conn: Conn) -> list[dict[str, Any]]:
+    """Current targets for an organisation's facilities."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        return plain(cur.execute(
+            "SELECT t.target_id, f.name AS facility, t.facility_id, lower(t.valid_time) AS fy_start,"
+            " t.value, t.unit, t.status, t.source_citation, t.source_url, t.baseline_fy,"
+            " lower(t.system_time_range) AS recorded_at, t.supersedes"
+            " FROM intensity_target t JOIN facility f USING (facility_id)"
+            " WHERE f.org_id = %s AND upper_inf(t.system_time_range)"
+            " ORDER BY f.name, lower(t.valid_time)", (org_id,)).fetchall())
+
+
+class BaselineIn(BaseModel):
+    facility_id: int
+    baseline_fy: str = "FY2023-24"
+    intensity: Decimal = Field(ge=0)
+    intensity_unit: str = Field(pattern=r"^tCO2e/.+")
+    output: Decimal | None = Field(default=None, ge=0)
+    output_unit: str | None = None
+    status: Literal["notified", "assumed", "verified"] = "assumed"
+    source_citation: str = Field(min_length=1)
+    source_url: str | None = None
+
+
+@app.post("/api/baselines")
+def declare_baseline(body: BaselineIn, conn: Conn,
+                     x_actor: Actor = "workbench") -> dict[str, Any]:
+    """The baseline year's intensity for a facility. The BEE text never names the baseline year,
+    so it is stated here and marked assumed unless read from a notification or verified data."""
+    try:
+        bid = set_baseline(
+            conn, facility_id=body.facility_id, baseline_fy=body.baseline_fy,
+            intensity=body.intensity, intensity_unit=body.intensity_unit, output=body.output,
+            output_unit=body.output_unit, status=body.status,
+            source_citation=body.source_citation, source_url=body.source_url, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"baseline_id": bid}
+
+
+@app.get("/api/reports/{report_id}/entitlement")
+def report_entitlement(report_id: int, conn: Conn) -> dict[str, Any]:
+    """Entitlement under BEE's formula for a stored report, with targets and baselines read AS OF
+    the report's own time. Decision support for a verifier: not Form B, not an assurance opinion."""
+    try:
+        return cast(dict[str, Any], json.loads(compliance.for_report(conn, report_id)))
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
 
 
 @app.get("/api/reports/{report_id}/verify")

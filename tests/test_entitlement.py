@@ -145,3 +145,53 @@ def test_a_target_needs_its_source_and_cannot_be_edited_or_deleted(conn, plant):
             conn.execute(sql, (tid,))
     assert conn.execute("SELECT count(*) FROM audit_event WHERE entity_table = 'intensity_target'"
                         " AND entity_id = %s", (tid,)).fetchone()[0] == 1
+
+
+# The baseline: informational, never part of the entitlement figure itself.
+BASE = {"baseline_id": 3, "baseline_fy": "FY2023-24", "intensity": "12.500000000",
+        "unit": "tCO2e/t", "output": None, "output_unit": None, "status": "notified",
+        "source_citation": "test notification, schedule", "source_url": "https://example.test"}
+
+
+def test_reduction_against_the_baseline_is_shown_but_does_not_move_the_entitlement():
+    with_base = ent.entitlement_for_facility(facility(), TARGET, BASE)       # achieved 10, baseline 12.5
+    without = ent.entitlement_for_facility(facility(), TARGET)
+    assert with_base["reduction_vs_baseline_pct"] == "20.000000"
+    assert with_base["entitlement_tco2e_equivalent"] == without["entitlement_tco2e_equivalent"]
+    assert with_base["baseline_notes"] == []
+    assert without["reduction_vs_baseline_pct"] is None and "no baseline recorded" in without[
+        "baseline_notes"][0]
+
+
+def test_an_assumed_baseline_or_a_year_mismatch_is_flagged():
+    out = ent.entitlement_for_facility(
+        facility(), TARGET | {"baseline_fy": "FY2022-23"}, BASE | {"status": "assumed"})
+    notes = " | ".join(out["baseline_notes"])
+    assert "'assumed'" in notes and "FY2022-23" in notes and "FY2023-24" in notes
+
+
+def test_a_baseline_in_another_unit_shows_no_reduction():
+    out = ent.entitlement_for_facility(facility(), TARGET, BASE | {"unit": "tCO2e/MWh"})
+    assert out["reduction_vs_baseline_pct"] is None and "no reduction is shown" in out["baseline_notes"][0]
+    assert out["entitlement_tco2e_equivalent"] == "-98.000000"               # the entitlement is unaffected
+
+
+def test_a_stored_baseline_is_versioned_and_read_as_of_the_report(conn, plant):
+    from carbonx.compliance.baseline import set_baseline
+    org_id, facility_id = plant
+    _target(conn, facility_id, "9")
+    first = set_baseline(conn, facility_id=facility_id, baseline_fy="FY2023-24",
+                         intensity=Decimal("12.5"), intensity_unit="tCO2e/t", status="assumed",
+                         source_citation="test fixture, not a notification")
+    r = generate_report(conn, org_id, FY, Policy.VINTAGE_MATCHED)
+    before = ent.for_report(conn, r.report_id)
+    second = set_baseline(conn, facility_id=facility_id, baseline_fy="FY2023-24",
+                          intensity=Decimal(20), intensity_unit="tCO2e/t", status="notified",
+                          source_citation="test fixture", source_url="https://example.test")
+    assert ent.for_report(conn, r.report_id) == before
+    assert json.loads(before)["facilities"][0]["reduction_vs_baseline_pct"] == "20.000000"
+    assert conn.execute("SELECT supersedes FROM baseline_record WHERE baseline_id = %s",
+                        (second,)).fetchone()[0] == first
+    later = generate_report(conn, org_id, FY, Policy.VINTAGE_MATCHED)
+    assert json.loads(ent.for_report(conn, later.report_id))["facilities"][0][
+        "reduction_vs_baseline_pct"] == "50.000000"                          # (20 - 10) / 20

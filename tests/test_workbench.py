@@ -245,3 +245,24 @@ def test_uncertainty_band_of_a_stored_report(conn, org):
                                         Decimal("318.000000"))    # -4% / +6% of the total
     assert float(b.high_if_independent) == pytest.approx(300 + 18 / 3 ** 0.5, abs=1e-5)
     assert b.unquantified == Decimal("0.000000") and b.basis == ("test range",)
+
+
+def test_targets_baselines_and_entitlement_over_the_api(conn, org):
+    org_id, fid = org
+    api.app.dependency_overrides[api.db] = lambda: conn
+    try:
+        client = TestClient(api.app)
+        bad = {"facility_id": fid, "value": "9", "unit": "tCO2e/t", "source_citation": " "}
+        assert client.post("/api/targets", json=bad).status_code == 422
+        assert client.post("/api/targets", json=bad | {"source_citation": "test", "unit": "kg"}
+                           ).status_code == 422
+        ok = client.post("/api/targets", json=bad | {"source_citation": "test, not a notification"})
+        assert ok.status_code == 200 and ok.json()["target_id"]
+        assert client.post("/api/baselines", json={
+            "facility_id": fid, "intensity": "12", "intensity_unit": "tCO2e/t",
+            "source_citation": "test, not a notification"}).status_code == 200
+        listed = client.get(f"/api/targets?org_id={org_id}").json()
+        assert [t["status"] for t in listed] == ["assumed"]
+        assert client.get("/api/reports/0/entitlement").status_code == 404
+    finally:
+        api.app.dependency_overrides.clear()

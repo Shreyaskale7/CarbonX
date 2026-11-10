@@ -1,6 +1,11 @@
 # Mapping CarbonX to BEE's compliance forms
 
-Written 2026-11-10. A design note. **Nothing here is built.** Source: the BEE file
+Written 2026-11-10; status updated the same day. A design note. **Built since it was written:**
+the entitlement calculation, a cited and versioned intensity target (migration 0015), a cited and
+versioned baseline record (migration 0016), a targets loader, API endpoints, and an entitlement
+panel on the reports page. **Still not built:** the Form A and Form I exports, the process-emission
+boundary tag, the monitoring plan, and any target values (none are pre-filled; the notification
+has not been read). Source: the BEE file
 `data/raw/bee/bee_ccts_compliance_procedure.pdf` (45 pages; page numbers below are
 the document's own). That file carries no version label, so whether it is the July 2024 text is
 **not established** (`docs/RQ3_FINDINGS.md`). Check field names against the current BEE text
@@ -10,11 +15,13 @@ CarbonX is a decision-support tool for accredited verifiers. It does not issue a
 opinions and is not accredited. Nothing below produces, imitates or signs a verifier's
 certificate.
 
-## Entitlement: not implemented
+## Entitlement: built, with no target values loaded
 
-`src/carbonx` has no entitlement, shortfall or surplus calculation. `lifecycle/registry.py`
-stores a credit with a vintage year and a quantity; it does not work out how many credits an
-entity is owed. The only "target" matches are in `forecast/nowcast.py`.
+When this note was first written `src/carbonx` had no entitlement calculation: `lifecycle/registry.py`
+stores a credit with a vintage year and a quantity and does not work out how many credits an entity
+is owed. It is now in `src/carbonx/compliance/entitlement.py`, reading a stored report and the
+target and baseline known at the report's own time. The BEE file does not say what one certificate
+equals or how fractions round, so the result is a signed tCO2e-equivalent, not a certificate count.
 
 BEE's rule (pp. 4 and 22):
 
@@ -36,7 +43,7 @@ target, which must be stored as a cited, versioned value, not typed into code.
 | 6 | Form I for the previous year submitted or not | report status | add |
 | 7 | Achieved specific GHG emissions, tCO2e per unit of equivalent product | calculation engine over declared equivalent product | have; withheld until every product has a conversion |
 | 8 | Production (baseline) | production records | have; the label is ambiguous, read it against BEE's guidance |
-| 9 | Carbon Credit Certificates issued or purchased | the entitlement formula above | **gap** |
+| 9 | Carbon Credit Certificates issued or purchased | the entitlement formula above | **have the figure** (signed tCO2e-equivalent); no certificate count, no target values loaded |
 | 10-11 | Reduction measures: year, GHG before and after, investment | none | **gap**; entity-entered, not verified by CarbonX |
 | - | Undertaking, signature, seal | the entity's own | never generated |
 

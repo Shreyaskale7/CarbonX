@@ -14,7 +14,8 @@ scope. Anything that would add to the BUILD list goes through `docs/SCOPE_PROPOS
                                           hash-chained audit trail (DB triggers)
 ```
 
-Migrations 0001 to 0014 are in `db/migrations/versions/`. The next is **0015**.
+Migrations 0001 to 0016 are in `db/migrations/versions/` (0015 intensity target and 0016 baseline record
+were added after the first draft of this note). The next is **0017**.
 Factor resolution is `carbonx.factors.registry.resolve()`, with `Policy` a per-call argument.
 
 ## Change 1: a regulatory profile for policy choice (RQ3 as data)
