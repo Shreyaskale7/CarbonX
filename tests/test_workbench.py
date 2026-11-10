@@ -280,5 +280,9 @@ def test_boundary_tags_and_form_i_over_the_api(conn):
         assert client.post("/api/boundaries", json={
             "activity_id": -1, "boundary": "inside", "basis": "x"}).status_code in (400, 404, 422)
         assert client.get("/api/reports/0/form-i").status_code == 404
+        assert client.get("/api/reports/0/form-a").status_code == 404
+        assert client.post("/api/targets", json={
+            "facility_id": 1, "value": "9", "unit": "tCO2e/t", "status": "notified",
+            "source_citation": "gazette, schedule"}).status_code == 400   # notified needs its url
     finally:
         api.app.dependency_overrides.clear()

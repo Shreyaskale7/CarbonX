@@ -24,6 +24,7 @@ from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
 from carbonx.compliance import entitlement as compliance
+from carbonx.compliance import form_a as form_a_draft
 from carbonx.compliance import form_i as form_i_draft
 from carbonx.compliance.baseline import set_baseline
 from carbonx.compliance.boundary import tag_activity
@@ -731,6 +732,16 @@ def report_form_i(report_id: int, conn: Conn) -> dict[str, Any]:
     time. A worksheet for the entity and its verifier: not a filing, not signed or certified."""
     try:
         return cast(dict[str, Any], json.loads(form_i_draft.for_report(conn, report_id)))
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+@app.get("/api/reports/{report_id}/form-a")
+def report_form_a(report_id: int, conn: Conn) -> dict[str, Any]:
+    """A draft of BEE's Form A from a stored report: the entitlement's own figures, laid out as the
+    form asks. The entity's fields, signature and seal are left empty. Not a filing, not Form B."""
+    try:
+        return cast(dict[str, Any], json.loads(form_a_draft.for_report(conn, report_id)))
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
 

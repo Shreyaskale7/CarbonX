@@ -30,6 +30,17 @@ def test_a_baseline_intensity_needs_its_year():
         ROW | {"baseline_intensity": "12.5"})
 
 
+def test_the_dry_run_catches_what_the_load_would_refuse():
+    why = " | ".join(lt.problems(ROW | {
+        "compliance_fy": "2025-26", "unit": "kg", "baseline_fy": "FY2023-24",
+        "baseline_intensity": "12", "baseline_status": "official", "baseline_output": "5"}))
+    for expected in ("compliance_fy is not a financial year", "unit must be tCO2e per unit",
+                     "baseline_status must be one of", "baseline_output and baseline_output_unit"):
+        assert expected in why
+    assert "a 'notified' baseline needs the url" in " | ".join(lt.problems(ROW | {
+        "baseline_fy": "FY2023-24", "baseline_intensity": "12", "baseline_status": "notified"}))
+
+
 def test_the_shipped_template_has_a_header_and_no_values():
     text = (Path(__file__).resolve().parents[1] / "data" / "targets" / "template.csv"
             ).read_text(encoding="utf-8").strip().splitlines()

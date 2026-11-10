@@ -4,8 +4,9 @@ Written 2026-11-10; status updated the same day. A design note. **Built since it
 the entitlement calculation, a cited and versioned intensity target (migration 0015) and baseline
 record (0016), a targets loader, a gate-to-gate boundary tag per activity (0017), a Form I draft
 (`compliance/form_i.py`: only the rows CarbonX computes, inside-boundary activities only), API
-endpoints, and entitlement and Form I panels on the reports page. **Still not built:** the Form A
-export, process-related emissions (so Form I row xiii and the total are empty), the fuel-energy and
+endpoints, and entitlement and Form I panels on the reports page. A Form A draft followed on 2026-11-11 (`compliance/form_a.py`), and the entitlement and Form I now
+share one exact, inside-boundary set of figures (`compliance/figures.py`). **Still not built:**
+process-related emissions (so Form I row xiii and the total are empty), the fuel-energy and
 TOE rows, the monitoring plan, and any target values (none are pre-filled; the notification has not
 been read). Source: the BEE file
 `data/raw/bee/bee_ccts_compliance_procedure.pdf` (45 pages; page numbers below are

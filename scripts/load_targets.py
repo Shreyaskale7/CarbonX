@@ -27,8 +27,10 @@ sys.path.insert(0, str(ROOT / "src"))
 import psycopg
 
 from carbonx import db
+from carbonx.compliance.baseline import STATUSES as BASELINE_STATUSES
 from carbonx.compliance.baseline import set_baseline
 from carbonx.compliance.entitlement import STATUSES, set_target
+from carbonx.factors.registry import fy_start
 
 REQUIRED = ["facility_id", "compliance_fy", "target", "unit", "status", "citation"]
 
@@ -47,6 +49,23 @@ def problems(row: dict[str, str]) -> list[str]:
                 bad.append(f"{c} is not a number: {row[c]!r}")
     if (row.get("baseline_intensity") or "").strip() and not (row.get("baseline_fy") or "").strip():
         bad.append("a baseline intensity needs its baseline_fy")
+    for c in ("compliance_fy", "baseline_fy"):
+        if (row.get(c) or "").strip():
+            try:
+                fy_start(row[c].strip())
+            except ValueError:
+                bad.append(f"{c} is not a financial year like FY2025-26: {row[c]!r}")
+    unit = (row.get("unit") or "").strip()
+    if unit and (not unit.startswith("tCO2e/") or unit == "tCO2e/"):
+        bad.append("unit must be tCO2e per unit of product, e.g. tCO2e/t")
+    base_status = (row.get("baseline_status") or "").strip()
+    if base_status and base_status not in BASELINE_STATUSES:
+        bad.append(f"baseline_status must be one of {sorted(BASELINE_STATUSES)}")
+    if base_status == "notified" and not (row.get("url") or "").strip():
+        bad.append("a 'notified' baseline needs the url of the notification you read it in")
+    if bool((row.get("baseline_output") or "").strip()) != bool(
+            (row.get("baseline_output_unit") or "").strip()):
+        bad.append("give baseline_output and baseline_output_unit together, or neither")
     return bad
 
 
@@ -66,6 +85,11 @@ def main() -> None:
               + ("; nothing written (dry run)" if args.dry_run else "; nothing written"))
         raise SystemExit(1 if refused else 0)
     with psycopg.connect(db.url()) as conn:
+        wanted = sorted({int(r["facility_id"]) for r in rows})
+        known = {f for (f,) in conn.execute(
+            "SELECT facility_id FROM facility WHERE facility_id = ANY(%s)", (wanted,))}
+        if missing := [f for f in wanted if f not in known]:
+            sys.exit(f"no such facility: {missing}; nothing written")
         for r in rows:
             fid, status = int(r["facility_id"]), r["status"].strip()
             tid = set_target(

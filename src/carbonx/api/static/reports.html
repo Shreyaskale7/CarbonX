@@ -52,13 +52,17 @@
         <div id="assess-out"></div></div>
     </div>
     <div class="stack" style="margin-top:16px"><h3>Entitlement under BEE's formula</h3>
-      <p class="small muted">(Notified target minus achieved intensity) times production, from BEE's compliance procedure. It needs a target and, optionally, a baseline recorded for the facility. A target that was not read from a notification is marked assumed. A decision-support figure for an accredited verifier: not Form B, not an assurance opinion.</p>
+      <p class="small muted">(Notified target minus achieved intensity) times production, from BEE's compliance procedure. It needs a target recorded for the facility, every activity tagged inside or outside the gate-to-gate boundary, and optionally a baseline. A target that was not read from a notification is marked assumed. A decision-support figure for an accredited verifier: not Form B, not an assurance opinion.</p>
       <div class="row"><div class="fit"><button class="ghost" id="entitle">Show entitlement</button></div></div>
       <div id="entitle-out"></div></div>
     <div class="stack" style="margin-top:16px"><h3>Form I draft</h3>
       <p class="small muted">BEE's annual submission form (section 5.1), filled only where CarbonX computes the row and counting only activities tagged inside the gate-to-gate boundary. An untagged line is never assumed inside. Process-related emissions are not recorded, so that row and the total stay empty. A worksheet for the entity and its verifier: not a filing, not signed or certified.</p>
       <div class="row"><div class="fit"><button class="ghost" id="formi">Show Form I draft</button></div></div>
       <div id="formi-out"></div></div>
+    <div class="stack" style="margin-top:16px"><h3>Form A draft</h3>
+      <p class="small muted">BEE's Performance Assessment Document. It carries over the entitlement's own figures: field 7 (achieved specific emissions), both readings of field 8 (production), and for field 9 the signed tCO2e-equivalent with no certificate count. The entity's details, reduction measures, undertaking, signature and seal are left empty. A worksheet for the entity and its verifier: not a filing, not signed or certified, and not Form B.</p>
+      <div class="row"><div class="fit"><button class="ghost" id="forma">Show Form A draft</button></div></div>
+      <div id="forma-out"></div></div>
   </div>
   <div class="panel">
     <h2>Exceptions</h2>
@@ -101,6 +105,7 @@ async function detail(id) {
   $("band").innerHTML = `<div class="skeleton"></div>`;
   $("entitle-out").innerHTML = "";
   $("formi-out").innerHTML = "";
+  $("forma-out").innerHTML = "";
   $("detail").scrollIntoView({behavior: "smooth", block: "start"});
   try {
     const b = await api(`/api/reports/${id}/uncertainty`), t = +b.total;
@@ -150,6 +155,25 @@ $("formi").onclick = async () => {
         ["Specific emissions", sp ? `<span class="mono">${esc(sp.value)}</span> ${esc(sp.unit)}` : `withheld: ${esc(f.specific_withheld_because)}`],
       ])}<p class="small muted" style="margin-top:12px;max-width:none">${esc(f.process_note)}</p></div>`;
     }).join("") + `<p class="small muted" style="margin-top:12px;max-width:none">Not provided: ${Object.keys(j.not_provided).map(esc).join("; ")}.</p>`;
+  } catch (e) { out.innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+};
+$("forma").onclick = async () => {
+  const out = $("forma-out");
+  try {
+    const j = await api(`/api/reports/${DETAIL}/form-a`);
+    out.innerHTML = j.facilities.map((f) => {
+      const a = f["7 achieved specific GHG emissions"], p = f["8 production (baseline)"], b = f["9 basis"];
+      const q = (x) => x ? `<span class="mono">${esc(x.quantity)}</span> ${esc(x.unit)}` : "not recorded";
+      return `<div class="result" style="margin-top:14px">${kv([
+        ["Facility", esc(f.facility_id)],
+        ["7. Achieved specific emissions", a ? `<span class="mono">${esc(a.value)}</span> ${esc(a.unit)}` : `withheld: ${esc(b.withheld_because)}`],
+        ["8. Baseline-year output", p.baseline_year_output ? `${q(p.baseline_year_output)} (${esc(p.baseline_year_output.baseline_fy)}, ${esc(p.baseline_year_output.status)})` : "not recorded"],
+        ["8. Production in this cycle", q(p.production_in_this_cycle)],
+        ["9. Certificates", "no count is given"],
+        b.outcome ? ["9. Basis", `${esc(b.outcome)}: <span class="mono">${esc(b.entitlement_tco2e_equivalent)}</span> tCO2e-equivalent`] : ["9. Basis", `withheld: ${esc(b.withheld_because)}`],
+        ["Left for the entity", Object.keys(f.to_be_filled_by_the_entity).map(esc).join("; ")],
+      ])}<p class="small muted" style="margin-top:12px;max-width:none">${esc(p.note)}. ${esc(b.note)}</p></div>`;
+    }).join("");
   } catch (e) { out.innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
 };
 $("assess").onclick = async () => {

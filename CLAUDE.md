@@ -39,9 +39,10 @@ spreadsheets, PDFs and email.
   procedure is silent, competing resolution policies produce different compliance
   outcomes on identical physical performance.
 
-**RQ3 status is UNRESOLVED.** Someone must read BEE's "Detailed Procedure for
-Compliance Mechanism under CCTS v1.0" (July 2024) and record the answer in
-`docs/RQ3_FINDINGS.md` before Phase 5.
+**RQ3 status is PARTLY RESOLVED** (`docs/RQ3_FINDINGS.md`). The BEE file is not silent: it names the
+"latest average grid emission factors" from the CEA database (p. 11). It does not say *as of when*
+"latest" is judged, and that is the open question. The file read carries no version label, so whether
+it is the July 2024 v1.0 text is not established.
 
 ## The claim we make — and the one we do NOT
 
@@ -73,13 +74,18 @@ prototype. Not accredited. ACVA accreditation is a regulated status.
 
 - CCTS compliance mechanism: GEI targets in **tCO2e per unit of product output**,
   gate-to-gate, covering Scope 1 and 2.
-- FY2025-26 targets require **1–3% GEI reduction**; FY2026-27 ratchets to 2–8%.
+- **DISPUTED, do not cite:** "FY2025-26 targets require 1–3% GEI reduction; FY2026-27 ratchets to
+  2–8%." ICAP's summary of the rules notified on 8 October 2025 gives sector-specific reductions over
+  two years, about 40% of each due in the first (`docs/RQ3_FINDINGS.md`, 2026-10-31). Neither has been
+  checked against the gazette. Read the notification before using any target figure.
 - **2x penalty** for non-compliance.
 - ~490 entities with active obligations across 7 notified sectors; 9 sectors
   notified total (aluminium, cement, chlor-alkali, fertiliser, iron & steel,
   pulp & paper, petrochemicals, petroleum refinery, textile); ~740 entities,
   >700 Mt CO2e.
-- First compliance deadline was **31 July 2026**. First CCC trading expected
+- First compliance deadline was **31 July 2026** (**unconfirmed**: the BEE file says Form A is due
+  "within three months of the conclusion of the compliance cycle", p. 15, which gives about 30 June;
+  see `docs/RQ3_FINDINGS.md`). First CCC trading expected
   ~October 2026 on IEX and PXIL. Registry operated by Grid Controller of India.
 - Verification by **BEE-accredited carbon verification agency (ACVA)**;
   reasonable assurance expected for compliance entities.
