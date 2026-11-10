@@ -253,7 +253,7 @@ def test_targets_baselines_and_entitlement_over_the_api(conn, org):
     try:
         client = TestClient(api.app)
         bad = {"facility_id": fid, "value": "9", "unit": "tCO2e/t", "source_citation": " "}
-        assert client.post("/api/targets", json=bad).status_code == 422
+        assert client.post("/api/targets", json=bad).status_code == 400   # blank source: refused by the code
         assert client.post("/api/targets", json=bad | {"source_citation": "test", "unit": "kg"}
                            ).status_code == 422
         ok = client.post("/api/targets", json=bad | {"source_citation": "test, not a notification"})
