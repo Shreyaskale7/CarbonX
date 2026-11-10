@@ -266,3 +266,19 @@ def test_targets_baselines_and_entitlement_over_the_api(conn, org):
         assert client.get("/api/reports/0/entitlement").status_code == 404
     finally:
         api.app.dependency_overrides.clear()
+
+
+@pytest.mark.usefixtures("org")
+def test_boundary_tags_and_form_i_over_the_api(conn):
+    api.app.dependency_overrides[api.db] = lambda: conn
+    try:
+        client = TestClient(api.app)
+        assert client.post("/api/boundaries", json={
+            "activity_id": 1, "boundary": "maybe", "basis": "x"}).status_code == 422
+        assert client.post("/api/boundaries", json={
+            "activity_id": 1, "boundary": "inside", "basis": " "}).status_code in (400, 422)
+        assert client.post("/api/boundaries", json={
+            "activity_id": -1, "boundary": "inside", "basis": "x"}).status_code in (400, 404, 422)
+        assert client.get("/api/reports/0/form-i").status_code == 404
+    finally:
+        api.app.dependency_overrides.clear()

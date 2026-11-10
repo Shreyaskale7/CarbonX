@@ -24,7 +24,9 @@ from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
 from carbonx.compliance import entitlement as compliance
+from carbonx.compliance import form_i as form_i_draft
 from carbonx.compliance.baseline import set_baseline
+from carbonx.compliance.boundary import tag_activity
 from carbonx.db import url as database_url
 from carbonx.engine import demo
 from carbonx.engine.calculate import (
@@ -701,6 +703,34 @@ def report_entitlement(report_id: int, conn: Conn) -> dict[str, Any]:
     the report's own time. Decision support for a verifier: not Form B, not an assurance opinion."""
     try:
         return cast(dict[str, Any], json.loads(compliance.for_report(conn, report_id)))
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+class BoundaryIn(BaseModel):
+    activity_id: int
+    boundary: Literal["inside", "outside"]
+    basis: str = Field(min_length=1)
+
+
+@app.post("/api/boundaries")
+def declare_boundary(body: BoundaryIn, conn: Conn, x_actor: Actor = "workbench") -> dict[str, Any]:
+    """Whether an activity lies inside the unit's gate-to-gate boundary, and why. Untagged activities
+    are never assumed inside: a Form I draft counts them as incomplete."""
+    try:
+        tid = tag_activity(conn, activity_id=body.activity_id, boundary=body.boundary,
+                           basis=body.basis, actor=x_actor)
+    except EXPECTED as e:
+        raise _fail(e) from e
+    return {"tag_id": tid}
+
+
+@app.get("/api/reports/{report_id}/form-i")
+def report_form_i(report_id: int, conn: Conn) -> dict[str, Any]:
+    """A draft of BEE's Form I from a stored report, with boundary tags read AS OF the report's own
+    time. A worksheet for the entity and its verifier: not a filing, not signed or certified."""
+    try:
+        return cast(dict[str, Any], json.loads(form_i_draft.for_report(conn, report_id)))
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
 

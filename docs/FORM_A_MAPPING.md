@@ -1,11 +1,13 @@
 # Mapping CarbonX to BEE's compliance forms
 
 Written 2026-11-10; status updated the same day. A design note. **Built since it was written:**
-the entitlement calculation, a cited and versioned intensity target (migration 0015), a cited and
-versioned baseline record (migration 0016), a targets loader, API endpoints, and an entitlement
-panel on the reports page. **Still not built:** the Form A and Form I exports, the process-emission
-boundary tag, the monitoring plan, and any target values (none are pre-filled; the notification
-has not been read). Source: the BEE file
+the entitlement calculation, a cited and versioned intensity target (migration 0015) and baseline
+record (0016), a targets loader, a gate-to-gate boundary tag per activity (0017), a Form I draft
+(`compliance/form_i.py`: only the rows CarbonX computes, inside-boundary activities only), API
+endpoints, and entitlement and Form I panels on the reports page. **Still not built:** the Form A
+export, process-related emissions (so Form I row xiii and the total are empty), the fuel-energy and
+TOE rows, the monitoring plan, and any target values (none are pre-filled; the notification has not
+been read). Source: the BEE file
 `data/raw/bee/bee_ccts_compliance_procedure.pdf` (45 pages; page numbers below are
 the document's own). That file carries no version label, so whether it is the July 2024 text is
 **not established** (`docs/RQ3_FINDINGS.md`). Check field names against the current BEE text
@@ -75,8 +77,8 @@ Form B.
    formula and every input.
 2. Form A and Form I exports in BEE's field order, each figure with a hash pointing to its
    evidence; signature, seal and verifier fields left blank.
-3. The process-emission tag (change 2), so Form I's energy-related and process-related rows
-   are separate.
+3. The boundary tag (change 2) is built (migration 0017); process-related emissions are not, so
+   Form I's process row and total stay empty.
 4. Reduction measures as an entity-entered table, labelled as not verified by CarbonX.
 
 ## Open before building

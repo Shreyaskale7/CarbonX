@@ -14,8 +14,8 @@ scope. Anything that would add to the BUILD list goes through `docs/SCOPE_PROPOS
                                           hash-chained audit trail (DB triggers)
 ```
 
-Migrations 0001 to 0016 are in `db/migrations/versions/` (0015 intensity target and 0016 baseline record
-were added after the first draft of this note). The next is **0017**.
+Migrations 0001 to 0017 are in `db/migrations/versions/` (0015 intensity target, 0016 baseline record
+and 0017 activity boundary were added after the first draft of this note). The next is **0018**.
 Factor resolution is `carbonx.factors.registry.resolve()`, with `Policy` a per-call argument.
 
 ## Change 1: a regulatory profile for policy choice (RQ3 as data)
@@ -41,6 +41,10 @@ compliance year. Hard-coding a default in code would hide an open question.
 Unit: a report without a `confirmed` profile is labelled so in its output.
 
 ## Change 2: gate-to-gate boundary, so the grid factor touches only the Scope 2 part
+
+**Built as a side table (migration 0017), not a column.** Editing the report code would change
+`ENGINE_VERSION` and stop stored reports regenerating, so the tag lives in `activity_boundary`, is
+read AS OF the report's time, and feeds the Form I draft. Process emissions are still not recorded.
 
 **Problem.** GEI is tCO2e per unit of product, gate-to-gate, Scope 1 and 2. In cement, iron and steel
 and refining, process emissions dominate and the grid factor does not touch them. The materiality

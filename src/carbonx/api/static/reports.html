@@ -55,6 +55,10 @@
       <p class="small muted">(Notified target minus achieved intensity) times production, from BEE's compliance procedure. It needs a target and, optionally, a baseline recorded for the facility. A target that was not read from a notification is marked assumed. A decision-support figure for an accredited verifier: not Form B, not an assurance opinion.</p>
       <div class="row"><div class="fit"><button class="ghost" id="entitle">Show entitlement</button></div></div>
       <div id="entitle-out"></div></div>
+    <div class="stack" style="margin-top:16px"><h3>Form I draft</h3>
+      <p class="small muted">BEE's annual submission form (section 5.1), filled only where CarbonX computes the row and counting only activities tagged inside the gate-to-gate boundary. An untagged line is never assumed inside. Process-related emissions are not recorded, so that row and the total stay empty. A worksheet for the entity and its verifier: not a filing, not signed or certified.</p>
+      <div class="row"><div class="fit"><button class="ghost" id="formi">Show Form I draft</button></div></div>
+      <div id="formi-out"></div></div>
   </div>
   <div class="panel">
     <h2>Exceptions</h2>
@@ -96,6 +100,7 @@ async function detail(id) {
   $("withheld").textContent = why.length ? `No intensity in this report: ${why.join("; ")}.` : "";
   $("band").innerHTML = `<div class="skeleton"></div>`;
   $("entitle-out").innerHTML = "";
+  $("formi-out").innerHTML = "";
   $("detail").scrollIntoView({behavior: "smooth", block: "start"});
   try {
     const b = await api(`/api/reports/${id}/uncertainty`), t = +b.total;
@@ -125,6 +130,26 @@ $("entitle").onclick = async () => {
       f.reduction_vs_baseline_pct ? ["Reduction vs baseline", `<span class="mono">${esc(f.reduction_vs_baseline_pct)}</span> %`] : null,
       f.baseline_notes.length ? ["Notes", f.baseline_notes.map(esc).join("<br>")] : null,
     ].filter(Boolean))}<p class="small muted" style="margin-top:12px;max-width:none">${esc(f.note)}</p></div>`).join("");
+  } catch (e) { out.innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+};
+$("formi").onclick = async () => {
+  const out = $("formi-out");
+  try {
+    const j = await api(`/api/reports/${DETAIL}/form-i`);
+    out.innerHTML = j.facilities.map((f) => {
+      const b = f.boundary, sp = f["5.1(c)(iii) specific GHG emissions"];
+      return `<div class="result" style="margin-top:14px">${kv([
+        ["Facility", esc(f.facility_id)],
+        ["Complete", f.complete ? "yes" : `<span class="warn"><strong>no</strong></span>`],
+        ["Activities", `${esc(b.inside)} inside, ${esc(b.outside)} outside, ${esc(b.untagged)} untagged, ${esc(b.unresolved)} unresolved`],
+        ["Electricity purchased", `<span class="mono">${esc(f["5.1(b)(i) electricity purchased (million kWh)"])}</span> million kWh`],
+        ["Direct, energy related", `<span class="mono">${esc(f["5.1(b)(xi) direct GHG, energy related (tCO2e)"])}</span> tCO2e`],
+        ["Indirect, energy related", `<span class="mono">${esc(f["5.1(b)(xii) indirect GHG, energy related (tCO2e)"])}</span> tCO2e`],
+        ["Direct, process related", "not recorded"],
+        ["Subtotal without process", `<span class="mono">${esc(f.subtotal_excluding_process_tco2e)}</span> tCO2e`],
+        ["Specific emissions", sp ? `<span class="mono">${esc(sp.value)}</span> ${esc(sp.unit)}` : `withheld: ${esc(f.specific_withheld_because)}`],
+      ])}<p class="small muted" style="margin-top:12px;max-width:none">${esc(f.process_note)}</p></div>`;
+    }).join("") + `<p class="small muted" style="margin-top:12px;max-width:none">Not provided: ${Object.keys(j.not_provided).map(esc).join("; ")}.</p>`;
   } catch (e) { out.innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
 };
 $("assess").onclick = async () => {
